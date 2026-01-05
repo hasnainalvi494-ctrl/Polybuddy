@@ -78,6 +78,10 @@ export async function getMarketHistory(id: string, period: string = "24h") {
   return fetchApi(`/api/markets/${id}/history?period=${period}`);
 }
 
+export async function getCategories(): Promise<{ category: string; count: number }[]> {
+  return fetchApi("/api/markets/categories");
+}
+
 // Watchlists
 export async function getWatchlists() {
   return fetchApi("/api/watchlists");

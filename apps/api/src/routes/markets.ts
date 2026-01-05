@@ -32,6 +32,39 @@ const MarketResponseSchema = z.object({
 export const marketsRoutes: FastifyPluginAsync = async (app) => {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
+  // Get available categories
+  typedApp.get(
+    "/categories",
+    {
+      schema: {
+        response: {
+          200: z.array(
+            z.object({
+              category: z.string(),
+              count: z.number(),
+            })
+          ),
+        },
+      },
+    },
+    async () => {
+      const result = await db
+        .select({
+          category: markets.category,
+          count: sql<number>`count(*)`,
+        })
+        .from(markets)
+        .where(sql`${markets.category} IS NOT NULL AND ${markets.category} != ''`)
+        .groupBy(markets.category)
+        .orderBy(desc(sql`count(*)`));
+
+      return result.map((r) => ({
+        category: r.category!,
+        count: Number(r.count),
+      }));
+    }
+  );
+
   // List markets with filtering
   typedApp.get(
     "/",

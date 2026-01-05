@@ -2,6 +2,64 @@ import { db, markets, marketSnapshots } from "@polybuddy/db";
 import { eq } from "drizzle-orm";
 import { polymarketClient, type PolymarketMarket } from "./polymarket-client.js";
 
+// Infer category from question keywords if not provided by API
+function inferCategory(question: string, apiCategory: string | null | undefined): string | null {
+  if (apiCategory) return apiCategory;
+
+  const q = question.toLowerCase();
+
+  // Politics
+  if (q.includes("trump") || q.includes("biden") || q.includes("election") ||
+      q.includes("president") || q.includes("congress") || q.includes("senate") ||
+      q.includes("democrat") || q.includes("republican") || q.includes("governor")) {
+    return "Politics";
+  }
+
+  // Crypto
+  if (q.includes("bitcoin") || q.includes("ethereum") || q.includes("crypto") ||
+      q.includes("btc") || q.includes("eth") || q.includes("solana") ||
+      q.includes("blockchain") || q.includes("defi")) {
+    return "Crypto";
+  }
+
+  // Sports
+  if (q.includes("nfl") || q.includes("nba") || q.includes("mlb") ||
+      q.includes("super bowl") || q.includes("world series") || q.includes("championship") ||
+      q.includes("playoffs") || q.includes("win the") || q.includes("world cup") ||
+      q.includes("ufc") || q.includes("boxing")) {
+    return "Sports";
+  }
+
+  // Entertainment
+  if (q.includes("oscar") || q.includes("movie") || q.includes("film") ||
+      q.includes("grammy") || q.includes("emmy") || q.includes("netflix") ||
+      q.includes("celebrity") || q.includes("kardashian")) {
+    return "Entertainment";
+  }
+
+  // Tech
+  if (q.includes("apple") || q.includes("google") || q.includes("microsoft") ||
+      q.includes("tesla") || q.includes("ai") || q.includes("artificial intelligence") ||
+      q.includes("openai") || q.includes("iphone") || q.includes("tech")) {
+    return "Tech";
+  }
+
+  // Finance
+  if (q.includes("fed") || q.includes("interest rate") || q.includes("inflation") ||
+      q.includes("stock") || q.includes("s&p") || q.includes("nasdaq") ||
+      q.includes("recession") || q.includes("gdp")) {
+    return "Finance";
+  }
+
+  // Science/Weather
+  if (q.includes("climate") || q.includes("temperature") || q.includes("hurricane") ||
+      q.includes("earthquake") || q.includes("nasa") || q.includes("space")) {
+    return "Science";
+  }
+
+  return null;
+}
+
 export interface IngestionStats {
   marketsProcessed: number;
   marketsCreated: number;
@@ -61,11 +119,13 @@ export class MarketIngestionService {
       ? parseFloat(apiMarket.outcomePrices[0])
       : null;
 
+    const category = inferCategory(apiMarket.question, apiMarket.category);
+
     const marketData = {
       polymarketId: apiMarket.id,
       question: apiMarket.question,
       description: apiMarket.description,
-      category: apiMarket.category,
+      category,
       endDate: apiMarket.endDate ? new Date(apiMarket.endDate) : null,
       resolved: apiMarket.closed,
       metadata: {

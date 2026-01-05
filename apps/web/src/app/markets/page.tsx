@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { getMarkets } from "@/lib/api";
+import { getMarkets, getCategories } from "@/lib/api";
 
 interface Market {
   id: string;
@@ -28,8 +28,15 @@ interface MarketsResponse {
 export default function MarketsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const limit = 20;
+
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: getCategories,
+  });
 
   // Debounce search
   const handleSearch = (value: string) => {
@@ -40,11 +47,17 @@ export default function MarketsPage() {
     }, 300);
   };
 
+  const handleCategoryChange = (category: string | null) => {
+    setSelectedCategory(category);
+    setPage(0);
+  };
+
   const { data, isLoading, error } = useQuery<MarketsResponse>({
-    queryKey: ["markets", debouncedSearch, page],
+    queryKey: ["markets", debouncedSearch, selectedCategory, page],
     queryFn: () =>
       getMarkets({
         search: debouncedSearch || undefined,
+        category: selectedCategory || undefined,
         limit,
         offset: page * limit,
       }) as Promise<MarketsResponse>,
@@ -85,7 +98,7 @@ export default function MarketsPage() {
           </p>
         </header>
 
-        <div className="mb-6">
+        <div className="mb-6 space-y-4">
           <input
             type="text"
             placeholder="Search markets..."
@@ -93,6 +106,35 @@ export default function MarketsPage() {
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full max-w-md px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
           />
+
+          {/* Category Filters */}
+          {categories && categories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleCategoryChange(null)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  selectedCategory === null
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                }`}
+              >
+                All Categories
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.category}
+                  onClick={() => handleCategoryChange(cat.category)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    selectedCategory === cat.category
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {cat.category.replace(/-/g, " ")} ({cat.count.toLocaleString()})
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {isLoading && (

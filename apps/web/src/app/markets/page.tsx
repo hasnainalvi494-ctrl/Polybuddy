@@ -25,10 +25,19 @@ interface MarketsResponse {
   offset: number;
 }
 
+type SortOption = "volume" | "createdAt" | "endDate";
+
+const sortOptions: { value: SortOption; label: string }[] = [
+  { value: "volume", label: "Volume (High to Low)" },
+  { value: "createdAt", label: "Newest First" },
+  { value: "endDate", label: "Ending Soon" },
+];
+
 export default function MarketsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("volume");
   const [page, setPage] = useState(0);
   const limit = 20;
 
@@ -53,11 +62,13 @@ export default function MarketsPage() {
   };
 
   const { data, isLoading, error } = useQuery<MarketsResponse>({
-    queryKey: ["markets", debouncedSearch, selectedCategory, page],
+    queryKey: ["markets", debouncedSearch, selectedCategory, sortBy, page],
     queryFn: () =>
       getMarkets({
         search: debouncedSearch || undefined,
         category: selectedCategory || undefined,
+        sortBy,
+        sortOrder: sortBy === "endDate" ? "asc" : "desc",
         limit,
         offset: page * limit,
       }) as Promise<MarketsResponse>,
@@ -99,13 +110,29 @@ export default function MarketsPage() {
         </header>
 
         <div className="mb-6 space-y-4">
-          <input
-            type="text"
-            placeholder="Search markets..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full max-w-md px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
-          />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <input
+              type="text"
+              placeholder="Search markets..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1 max-w-md px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+            />
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as SortOption);
+                setPage(0);
+              }}
+              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+            >
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Category Filters */}
           {categories && categories.length > 0 && (

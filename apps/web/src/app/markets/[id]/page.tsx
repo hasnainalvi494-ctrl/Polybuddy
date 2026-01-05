@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { getMarket } from "@/lib/api";
+import { PriceHistoryChart } from "@/components/PriceHistoryChart";
 
 interface MarketDetail {
   id: string;
@@ -115,6 +116,10 @@ export default function MarketDetailPage() {
               {market.staleness !== null ? `${market.staleness}m ago` : "-"}
             </p>
           </div>
+        </div>
+
+        <div className="mb-8">
+          <PriceHistoryChart marketId={market.id} />
         </div>
 
         <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6 mb-8">

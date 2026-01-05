@@ -1,0 +1,133 @@
+import { db, markets, marketSnapshots } from "@polybuddy/db";
+import { eq } from "drizzle-orm";
+import { polymarketClient, type PolymarketMarket } from "./polymarket-client.js";
+
+export interface IngestionStats {
+  marketsProcessed: number;
+  marketsCreated: number;
+  marketsUpdated: number;
+  snapshotsCreated: number;
+  errors: number;
+  duration: number;
+}
+
+export class MarketIngestionService {
+  async syncMarkets(): Promise<IngestionStats> {
+    const startTime = Date.now();
+    const stats: IngestionStats = {
+      marketsProcessed: 0,
+      marketsCreated: 0,
+      marketsUpdated: 0,
+      snapshotsCreated: 0,
+      errors: 0,
+      duration: 0,
+    };
+
+    console.log("[Ingestion] Starting market sync...");
+
+    try {
+      const apiMarkets = await polymarketClient.getAllActiveMarkets();
+      console.log(`[Ingestion] Fetched ${apiMarkets.length} markets from Polymarket`);
+
+      for (const apiMarket of apiMarkets) {
+        try {
+          await this.upsertMarket(apiMarket, stats);
+          stats.marketsProcessed++;
+        } catch (error) {
+          console.error(`[Ingestion] Error processing market ${apiMarket.id}:`, error);
+          stats.errors++;
+        }
+      }
+    } catch (error) {
+      console.error("[Ingestion] Failed to fetch markets:", error);
+      throw error;
+    }
+
+    stats.duration = Date.now() - startTime;
+    console.log(`[Ingestion] Sync complete in ${stats.duration}ms`, stats);
+
+    return stats;
+  }
+
+  private async upsertMarket(
+    apiMarket: PolymarketMarket,
+    stats: IngestionStats
+  ): Promise<void> {
+    const existingMarket = await db.query.markets.findFirst({
+      where: eq(markets.polymarketId, apiMarket.id),
+    });
+
+    const price = apiMarket.outcomePrices?.[0]
+      ? parseFloat(apiMarket.outcomePrices[0])
+      : null;
+
+    const marketData = {
+      polymarketId: apiMarket.id,
+      question: apiMarket.question,
+      description: apiMarket.description,
+      category: apiMarket.category,
+      endDate: apiMarket.endDate ? new Date(apiMarket.endDate) : null,
+      resolved: apiMarket.closed,
+      metadata: {
+        outcomes: apiMarket.outcomes,
+        active: apiMarket.active,
+      },
+      updatedAt: new Date(),
+    };
+
+    let marketId: string;
+
+    if (existingMarket) {
+      await db
+        .update(markets)
+        .set(marketData)
+        .where(eq(markets.id, existingMarket.id));
+      marketId = existingMarket.id;
+      stats.marketsUpdated++;
+    } else {
+      const [newMarket] = await db.insert(markets).values(marketData).returning();
+      marketId = newMarket.id;
+      stats.marketsCreated++;
+    }
+
+    await this.createSnapshot(marketId, apiMarket, price);
+    stats.snapshotsCreated++;
+  }
+
+  private async createSnapshot(
+    marketId: string,
+    apiMarket: PolymarketMarket,
+    price: number | null
+  ): Promise<void> {
+    const volume24h = apiMarket.volume24hr ?? null;
+    const liquidity = apiMarket.liquidityNum ?? (apiMarket.liquidity ? parseFloat(apiMarket.liquidity) : null);
+
+    await db.insert(marketSnapshots).values({
+      marketId,
+      price: price?.toString() ?? null,
+      spread: apiMarket.spread?.toString() ?? null,
+      volume24h: volume24h?.toString() ?? null,
+      liquidity: liquidity?.toString() ?? null,
+      snapshotAt: new Date(),
+    });
+  }
+
+  async syncSingleMarket(polymarketId: string): Promise<void> {
+    console.log(`[Ingestion] Syncing single market: ${polymarketId}`);
+
+    const apiMarket = await polymarketClient.getMarket(polymarketId);
+    const stats: IngestionStats = {
+      marketsProcessed: 0,
+      marketsCreated: 0,
+      marketsUpdated: 0,
+      snapshotsCreated: 0,
+      errors: 0,
+      duration: 0,
+    };
+
+    await this.upsertMarket(apiMarket, stats);
+    console.log(`[Ingestion] Single market sync complete`);
+  }
+}
+
+export const marketIngestionService = new MarketIngestionService();

@@ -4,6 +4,10 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { db, markets, marketSnapshots } from "@polybuddy/db";
 import { eq, desc, asc, ilike, sql, and, gte } from "drizzle-orm";
 
+// UUID validation helper
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
+
 const MarketQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
   offset: z.coerce.number().min(0).default(0),
@@ -177,7 +181,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
     "/:id",
     {
       schema: {
-        params: z.object({ id: z.string().uuid() }),
+        params: z.object({ id: z.string() }),
         response: {
           200: MarketResponseSchema.extend({
             description: z.string().nullable(),
@@ -200,6 +204,11 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       const { id } = request.params;
+
+      // Validate UUID format before querying
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
 
       const market = await db.query.markets.findFirst({
         where: eq(markets.id, id),
@@ -245,7 +254,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
     "/:id/history",
     {
       schema: {
-        params: z.object({ id: z.string().uuid() }),
+        params: z.object({ id: z.string() }),
         querystring: z.object({
           period: z.enum(["1h", "24h", "7d", "30d"]).default("24h"),
         }),
@@ -261,12 +270,18 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
               })
             ),
           }),
+          404: z.object({ error: z.string() }),
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { id } = request.params;
       const { period } = request.query;
+
+      // Validate UUID format before querying
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
 
       const periodMs = {
         "1h": 60 * 60 * 1000,

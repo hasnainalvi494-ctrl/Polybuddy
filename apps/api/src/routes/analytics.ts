@@ -7,6 +7,8 @@ import {
   marketSnapshots,
   portfolioPositions,
   trackedWallets,
+  walletFlowEvents,
+  flowLabels,
 } from "@polybuddy/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
@@ -607,6 +609,274 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
         whyBullets: result.whyBullets,
         displayInfo,
         computedAt: result.computedAt.toISOString(),
+      };
+    }
+  );
+
+  // =============================================
+  // FLOW ANALYSIS - GET /api/analytics/markets/:id/flow
+  // =============================================
+  typedApp.get(
+    "/markets/:id/flow",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            flowType: z.enum(["smart_money", "mixed", "retail_dominated", "unknown"]),
+            flowLabel: z.string(),
+            confidence: z.number(),
+            metrics: z.object({
+              totalTransactions: z.number(),
+              smartMoneyTransactions: z.number(),
+              retailTransactions: z.number(),
+              smartMoneyVolume: z.number(),
+              retailVolume: z.number(),
+              netFlowDirection: z.enum(["bullish", "bearish", "neutral"]),
+              largestTransaction: z.number().nullable(),
+            }),
+            recentActivity: z.array(
+              z.object({
+                timestamp: z.string(),
+                type: z.enum(["smart_money", "retail", "unknown"]),
+                direction: z.enum(["buy", "sell"]),
+                volumeUsd: z.number(),
+              })
+            ),
+            whyBullets: z.array(WhyBulletSchema),
+            computedAt: z.string(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      // Check market exists
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      // Get flow events for this market
+      const events = await db
+        .select({
+          id: walletFlowEvents.id,
+          side: walletFlowEvents.side,
+          notional: walletFlowEvents.notional,
+          startTs: walletFlowEvents.startTs,
+        })
+        .from(walletFlowEvents)
+        .where(eq(walletFlowEvents.marketId, id))
+        .orderBy(desc(walletFlowEvents.startTs))
+        .limit(100);
+
+      // Get labels for these events
+      const eventIds = events.map((e) => e.id);
+      const labels = eventIds.length > 0
+        ? await db
+            .select({
+              flowEventId: flowLabels.flowEventId,
+              label: flowLabels.label,
+              confidence: flowLabels.confidence,
+            })
+            .from(flowLabels)
+            .where(sql`${flowLabels.flowEventId} IN ${eventIds}`)
+        : [];
+
+      const labelMap = new Map(labels.map((l) => [l.flowEventId, l]));
+
+      // Calculate metrics
+      let smartMoneyCount = 0;
+      let retailCount = 0;
+      let unknownCount = 0;
+      let smartMoneyVolume = 0;
+      let retailVolume = 0;
+      let buyVolume = 0;
+      let sellVolume = 0;
+      let largestTx: number | null = null;
+
+      const recentActivity: Array<{
+        timestamp: string;
+        type: "smart_money" | "retail" | "unknown";
+        direction: "buy" | "sell";
+        volumeUsd: number;
+      }> = [];
+
+      for (const event of events) {
+        const label = labelMap.get(event.id);
+        const volume = event.notional ? Number(event.notional) : 0;
+        const isBuy = event.side === "buy" || event.side === "long";
+
+        if (largestTx === null || volume > largestTx) {
+          largestTx = volume;
+        }
+
+        if (isBuy) {
+          buyVolume += volume;
+        } else {
+          sellVolume += volume;
+        }
+
+        // Map flow labels to smart money vs retail
+        // sustained_accumulation = smart money pattern
+        // one_off_spike = could be either (large single tx)
+        // crowd_chase = retail pattern
+        // exhaustion_move = retail pattern
+        let flowType: "smart_money" | "retail" | "unknown" = "unknown";
+        if (label) {
+          if (label.label === "sustained_accumulation") {
+            flowType = "smart_money";
+            smartMoneyCount++;
+            smartMoneyVolume += volume;
+          } else if (label.label === "crowd_chase" || label.label === "exhaustion_move") {
+            flowType = "retail";
+            retailCount++;
+            retailVolume += volume;
+          } else if (label.label === "one_off_spike") {
+            // Large single transactions could be either - classify based on size
+            if (volume > 10000) {
+              flowType = "smart_money";
+              smartMoneyCount++;
+              smartMoneyVolume += volume;
+            } else {
+              flowType = "retail";
+              retailCount++;
+              retailVolume += volume;
+            }
+          } else {
+            unknownCount++;
+          }
+        } else {
+          unknownCount++;
+        }
+
+        if (recentActivity.length < 10) {
+          recentActivity.push({
+            timestamp: event.startTs?.toISOString() ?? new Date().toISOString(),
+            type: flowType,
+            direction: isBuy ? "buy" : "sell",
+            volumeUsd: volume,
+          });
+        }
+      }
+
+      // Determine overall flow type
+      const totalTransactions = smartMoneyCount + retailCount + unknownCount;
+      let flowType: "smart_money" | "mixed" | "retail_dominated" | "unknown" = "unknown";
+      let flowLabel = "Unknown Activity";
+      let confidence = 50;
+
+      if (totalTransactions > 0) {
+        const smartMoneyRatio = smartMoneyCount / totalTransactions;
+        const retailRatio = retailCount / totalTransactions;
+
+        if (smartMoneyRatio > 0.6) {
+          flowType = "smart_money";
+          flowLabel = "Smart Money Flow";
+          confidence = Math.round(70 + smartMoneyRatio * 30);
+        } else if (retailRatio > 0.6) {
+          flowType = "retail_dominated";
+          flowLabel = "Retail Dominated";
+          confidence = Math.round(70 + retailRatio * 30);
+        } else if (smartMoneyCount > 0 || retailCount > 0) {
+          flowType = "mixed";
+          flowLabel = "Mixed Flow";
+          confidence = 60;
+        }
+      }
+
+      // Determine net flow direction
+      const netFlow = buyVolume - sellVolume;
+      const totalVolume = buyVolume + sellVolume;
+      let netFlowDirection: "bullish" | "bearish" | "neutral" = "neutral";
+      if (totalVolume > 0) {
+        const netFlowRatio = Math.abs(netFlow) / totalVolume;
+        if (netFlowRatio > 0.1) {
+          netFlowDirection = netFlow > 0 ? "bullish" : "bearish";
+        }
+      }
+
+      // Generate why bullets
+      const whyBullets: Array<{
+        text: string;
+        metric: string;
+        value: number;
+        unit?: string;
+        comparison?: string;
+      }> = [];
+
+      if (smartMoneyCount > 0) {
+        whyBullets.push({
+          text: `${smartMoneyCount} transactions identified as institutional`,
+          metric: "smart_money_txs",
+          value: smartMoneyCount,
+          unit: "transactions",
+        });
+      }
+
+      if (smartMoneyVolume > 0) {
+        whyBullets.push({
+          text: `$${(smartMoneyVolume / 1000).toFixed(1)}K in smart money volume`,
+          metric: "smart_money_volume",
+          value: smartMoneyVolume,
+          unit: "USD",
+        });
+      }
+
+      if (largestTx) {
+        whyBullets.push({
+          text: `Largest single transaction: $${largestTx.toFixed(0)}`,
+          metric: "largest_tx",
+          value: largestTx,
+          unit: "USD",
+        });
+      }
+
+      // Pad to 3 bullets if needed
+      while (whyBullets.length < 3) {
+        if (totalTransactions > 0) {
+          whyBullets.push({
+            text: `${totalTransactions} total transactions analyzed`,
+            metric: "total_txs",
+            value: totalTransactions,
+            unit: "transactions",
+          });
+        } else {
+          whyBullets.push({
+            text: "No flow data available for this market",
+            metric: "no_data",
+            value: 0,
+          });
+        }
+      }
+
+      return {
+        marketId: id,
+        flowType,
+        flowLabel,
+        confidence,
+        metrics: {
+          totalTransactions,
+          smartMoneyTransactions: smartMoneyCount,
+          retailTransactions: retailCount,
+          smartMoneyVolume,
+          retailVolume,
+          netFlowDirection,
+          largestTransaction: largestTx,
+        },
+        recentActivity,
+        whyBullets: whyBullets.slice(0, 3),
+        computedAt: new Date().toISOString(),
       };
     }
   );

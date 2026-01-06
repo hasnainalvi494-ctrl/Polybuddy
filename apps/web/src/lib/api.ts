@@ -383,6 +383,38 @@ export async function getMarketBehavior(marketId: string): Promise<BehaviorClust
   return fetchApi(`/api/analytics/markets/${marketId}/behavior`);
 }
 
+// Flow Analysis types
+export type FlowType = "smart_money" | "mixed" | "retail_dominated" | "unknown";
+export type FlowDirection = "bullish" | "bearish" | "neutral";
+
+export type FlowAnalysisResponse = {
+  marketId: string;
+  flowType: FlowType;
+  flowLabel: string;
+  confidence: number;
+  metrics: {
+    totalTransactions: number;
+    smartMoneyTransactions: number;
+    retailTransactions: number;
+    smartMoneyVolume: number;
+    retailVolume: number;
+    netFlowDirection: FlowDirection;
+    largestTransaction: number | null;
+  };
+  recentActivity: Array<{
+    timestamp: string;
+    type: "smart_money" | "retail" | "unknown";
+    direction: "buy" | "sell";
+    volumeUsd: number;
+  }>;
+  whyBullets: WhyBullet[];
+  computedAt: string;
+};
+
+export async function getMarketFlow(marketId: string): Promise<FlowAnalysisResponse> {
+  return fetchApi(`/api/analytics/markets/${marketId}/flow`);
+}
+
 // Weekly Reports types
 export type WeeklyReport = {
   id: string;

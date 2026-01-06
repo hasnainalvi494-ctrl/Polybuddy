@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, markets, marketSnapshots, retailSignals } from "@polybuddy/db";
-import { eq, and, desc, sql, gte, isNotNull } from "drizzle-orm";
+import { db, markets, marketSnapshots, retailSignals, marketRelations, constraintChecks } from "@polybuddy/db";
+import { eq, and, desc, sql, gte, isNotNull, or } from "drizzle-orm";
 
 // ============================================
 // TYPES
@@ -148,6 +148,154 @@ function computeFavorableStructureSignal(
 }
 
 // ============================================
+// SIGNAL TYPE 2: STRUCTURAL MISPRICING
+// ============================================
+
+type StructuralMispricingMetrics = {
+  relatedMarketCount: number;
+  inconsistentPairs: number;
+  avgPriceGap: number;
+  maxPriceGap: number;
+  avgConsistencyScore: number;
+};
+
+async function computeStructuralMispricingSignal(
+  marketId: string,
+  marketQuestion: string
+): Promise<{
+  label: string;
+  isFavorable: boolean;
+  confidence: "low" | "medium" | "high";
+  whyBullets: WhyBullet[];
+  metrics: StructuralMispricingMetrics;
+} | null> {
+  // Find related markets through market_relations
+  const relations = await db
+    .select({
+      id: marketRelations.id,
+      aMarketId: marketRelations.aMarketId,
+      bMarketId: marketRelations.bMarketId,
+      relationType: marketRelations.relationType,
+    })
+    .from(marketRelations)
+    .where(
+      or(
+        eq(marketRelations.aMarketId, marketId),
+        eq(marketRelations.bMarketId, marketId)
+      )
+    );
+
+  if (relations.length === 0) {
+    return null; // No related markets to compare
+  }
+
+  // Get latest consistency checks for these relations
+  const relationIds = relations.map((r) => r.id);
+  const checks = await db
+    .select()
+    .from(constraintChecks)
+    .where(sql`${constraintChecks.relationId} IN ${relationIds}`)
+    .orderBy(desc(constraintChecks.ts));
+
+  // Dedupe by relation (keep most recent)
+  const checkMap = new Map<string, typeof checks[0]>();
+  for (const check of checks) {
+    if (!checkMap.has(check.relationId)) {
+      checkMap.set(check.relationId, check);
+    }
+  }
+
+  const latestChecks = Array.from(checkMap.values());
+
+  if (latestChecks.length === 0) {
+    return null; // No consistency data
+  }
+
+  // Count inconsistencies
+  const inconsistentChecks = latestChecks.filter(
+    (c) => c.label === "potential_inconsistency_medium" || c.label === "potential_inconsistency_high"
+  );
+
+  // Calculate average consistency score
+  const avgConsistencyScore = latestChecks.reduce((sum, c) => sum + c.score, 0) / latestChecks.length;
+
+  // Extract price gaps from whyJson
+  let avgPriceGap = 0;
+  let maxPriceGap = 0;
+  for (const check of latestChecks) {
+    const why = check.whyJson as { priceGap?: number }[] | null;
+    if (Array.isArray(why)) {
+      for (const w of why) {
+        if (typeof w.priceGap === "number") {
+          avgPriceGap += Math.abs(w.priceGap);
+          maxPriceGap = Math.max(maxPriceGap, Math.abs(w.priceGap));
+        }
+      }
+    }
+  }
+  if (latestChecks.length > 0) {
+    avgPriceGap = avgPriceGap / latestChecks.length;
+  }
+
+  const hasSignificantInconsistency = inconsistentChecks.length > 0;
+  const hasLargePriceGap = maxPriceGap > 0.1; // > 10% gap
+
+  // Determine signal
+  let label: string;
+  let isFavorable: boolean;
+  let confidence: "low" | "medium" | "high";
+
+  if (hasSignificantInconsistency || hasLargePriceGap) {
+    isFavorable = true;
+    label = avgConsistencyScore < 50
+      ? "Odds Elevated vs Similar Markets"
+      : "Odds Compressed vs Similar Markets";
+    confidence = inconsistentChecks.length >= 2 ? "high" : maxPriceGap > 0.15 ? "high" : "medium";
+  } else {
+    isFavorable = false;
+    label = "Pricing Consistent with Related Markets";
+    confidence = avgConsistencyScore > 70 ? "high" : "medium";
+  }
+
+  const whyBullets: WhyBullet[] = [
+    {
+      text: `${relations.length} related market${relations.length > 1 ? "s" : ""} identified for comparison`,
+      metric: "related_markets",
+      value: relations.length,
+    },
+    {
+      text: hasSignificantInconsistency
+        ? `${inconsistentChecks.length} potential inconsistenc${inconsistentChecks.length > 1 ? "ies" : "y"} detected`
+        : `No significant inconsistencies detected across ${latestChecks.length} checks`,
+      metric: "inconsistencies",
+      value: inconsistentChecks.length,
+    },
+    {
+      text: maxPriceGap > 0
+        ? `Max price gap of ${(maxPriceGap * 100).toFixed(1)}% vs related markets`
+        : `Consistency score of ${avgConsistencyScore.toFixed(0)} indicates aligned pricing`,
+      metric: maxPriceGap > 0 ? "price_gap" : "consistency_score",
+      value: maxPriceGap > 0 ? maxPriceGap * 100 : avgConsistencyScore,
+      unit: "%",
+    },
+  ];
+
+  return {
+    label,
+    isFavorable,
+    confidence,
+    whyBullets,
+    metrics: {
+      relatedMarketCount: relations.length,
+      inconsistentPairs: inconsistentChecks.length,
+      avgPriceGap: avgPriceGap * 100,
+      maxPriceGap: maxPriceGap * 100,
+      avgConsistencyScore,
+    },
+  };
+}
+
+// ============================================
 // ROUTES
 // ============================================
 
@@ -246,6 +394,94 @@ export const retailSignalsRoutes: FastifyPluginAsync = async (app) => {
           whyBullets: result.whyBullets,
           metrics: result.metrics,
           validUntil: new Date(Date.now() + 2 * 60 * 60 * 1000), // Valid for 2 hours
+        })
+        .returning();
+
+      return {
+        id: newSignal!.id,
+        marketId: newSignal!.marketId,
+        signalType: newSignal!.signalType,
+        label: newSignal!.label,
+        isFavorable: newSignal!.isFavorable,
+        confidence: newSignal!.confidence,
+        whyBullets: result.whyBullets,
+        metrics: result.metrics,
+        computedAt: newSignal!.computedAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+  );
+
+  // Get structural mispricing signal for a market
+  typedApp.get(
+    "/markets/:marketId/structural-mispricing",
+    {
+      schema: {
+        params: z.object({ marketId: z.string().uuid() }),
+        response: {
+          200: RetailSignalSchema.nullable(),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { marketId } = request.params;
+
+      // Check for cached signal (within last hour)
+      const existingSignal = await db
+        .select()
+        .from(retailSignals)
+        .where(
+          and(
+            eq(retailSignals.marketId, marketId),
+            eq(retailSignals.signalType, "structural_mispricing"),
+            gte(retailSignals.computedAt, new Date(Date.now() - 60 * 60 * 1000))
+          )
+        )
+        .orderBy(desc(retailSignals.computedAt))
+        .limit(1);
+
+      if (existingSignal.length > 0) {
+        const signal = existingSignal[0]!;
+        return {
+          id: signal.id,
+          marketId: signal.marketId,
+          signalType: signal.signalType,
+          label: signal.label,
+          isFavorable: signal.isFavorable,
+          confidence: signal.confidence,
+          whyBullets: signal.whyBullets as WhyBullet[],
+          metrics: signal.metrics as Record<string, unknown> | null,
+          computedAt: signal.computedAt?.toISOString() || new Date().toISOString(),
+        };
+      }
+
+      // Get market data
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, marketId),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      const result = await computeStructuralMispricingSignal(marketId, market.question);
+
+      if (!result) {
+        return null; // No related markets to compare
+      }
+
+      // Store the computed signal
+      const [newSignal] = await db
+        .insert(retailSignals)
+        .values({
+          marketId,
+          signalType: "structural_mispricing",
+          label: result.label,
+          isFavorable: result.isFavorable,
+          confidence: result.confidence,
+          whyBullets: result.whyBullets,
+          metrics: result.metrics,
+          validUntil: new Date(Date.now() + 2 * 60 * 60 * 1000),
         })
         .returning();
 

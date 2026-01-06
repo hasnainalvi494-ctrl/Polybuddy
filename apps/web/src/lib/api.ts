@@ -547,6 +547,11 @@ export async function getFavorableStructureSignal(marketId: string): Promise<Ret
   return fetchApi(`/api/retail-signals/markets/${marketId}/favorable-structure`);
 }
 
+// Get structural mispricing signal for a market
+export async function getStructuralMispricingSignal(marketId: string): Promise<RetailSignal | null> {
+  return fetchApi(`/api/retail-signals/markets/${marketId}/structural-mispricing`);
+}
+
 // Get all retail signals for a market
 export async function getMarketRetailSignals(marketId: string): Promise<MarketRetailSignalsResponse> {
   return fetchApi(`/api/retail-signals/markets/${marketId}`);

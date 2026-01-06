@@ -345,3 +345,41 @@ export type BehaviorClusterResponse = {
 export async function getMarketBehavior(marketId: string): Promise<BehaviorClusterResponse> {
   return fetchApi(`/api/analytics/markets/${marketId}/behavior`);
 }
+
+// Weekly Reports types
+export type WeeklyReport = {
+  id: string;
+  weekStart: string;
+  weekEnd: string;
+  realizedPnl: number | null;
+  unrealizedPnl: number | null;
+  totalTrades: number;
+  winRate: number | null;
+  bestMarketQuestion: string | null;
+  worstMarketQuestion: string | null;
+  entryTimingScore: number | null;
+  slippagePaid: number | null;
+  concentrationScore: number | null;
+  qualityDisciplineScore: number | null;
+  patternsObserved: string[];
+  coachingNotes: string[];
+  generatedAt: string;
+  viewedAt: string | null;
+};
+
+// Weekly Reports functions
+export async function getReports(limit?: number): Promise<{ reports: WeeklyReport[] }> {
+  const query = limit ? `?limit=${limit}` : "";
+  return fetchApi(`/api/reports${query}`);
+}
+
+export async function getReport(id: string): Promise<WeeklyReport> {
+  return fetchApi(`/api/reports/${id}`);
+}
+
+export async function generateReport(weekOffset?: number): Promise<WeeklyReport> {
+  return fetchApi("/api/reports/generate", {
+    method: "POST",
+    body: JSON.stringify({ weekOffset: weekOffset || 0 }),
+  });
+}

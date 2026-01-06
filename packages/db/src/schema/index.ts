@@ -565,3 +565,44 @@ export const marketBehaviorDimensionsRelations = relations(marketBehaviorDimensi
     references: [markets.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Weekly Coaching Reports
+// ============================================
+
+export const weeklyReports = pgTable("weekly_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  weekStart: timestamp("week_start", { withTimezone: true }).notNull(),
+  weekEnd: timestamp("week_end", { withTimezone: true }).notNull(),
+  // P&L Summary
+  realizedPnl: decimal("realized_pnl", { precision: 18, scale: 2 }),
+  unrealizedPnl: decimal("unrealized_pnl", { precision: 18, scale: 2 }),
+  totalTrades: integer("total_trades").default(0),
+  winRate: decimal("win_rate", { precision: 5, scale: 2 }),
+  // Best/Worst
+  bestDecisionId: uuid("best_decision_id"),
+  worstDecisionId: uuid("worst_decision_id"),
+  bestMarketQuestion: text("best_market_question"),
+  worstMarketQuestion: text("worst_market_question"),
+  // Process Metrics (0-100)
+  entryTimingScore: integer("entry_timing_score"),
+  slippagePaid: decimal("slippage_paid", { precision: 18, scale: 2 }),
+  concentrationScore: integer("concentration_score"),
+  qualityDisciplineScore: integer("quality_discipline_score"),
+  // Patterns & Coaching
+  patternsObserved: jsonb("patterns_observed"), // Array of pattern strings
+  coachingNotes: jsonb("coaching_notes"), // Array of coaching notes
+  // Metadata
+  generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow(),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+});
+
+export const weeklyReportsRelations = relations(weeklyReports, ({ one }) => ({
+  user: one(users, {
+    fields: [weeklyReports.userId],
+    references: [users.id],
+  }),
+}));

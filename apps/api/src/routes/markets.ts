@@ -23,7 +23,67 @@ const BehaviorClusterSchema = z.object({
     timeToResolution: z.number().nullable(),
     participantConcentration: z.number().nullable(),
   }).nullable(),
+  // Retail interpretation
+  retailInterpretation: z.object({
+    friendliness: z.enum(["favorable", "neutral", "unfavorable"]),
+    whatThisMeansForRetail: z.string(),
+    commonMistake: z.string(),
+    whyRetailLoses: z.string(),
+    whenRetailCanCompete: z.string(),
+  }).nullable(),
 });
+
+// Retail interpretation by cluster type
+const CLUSTER_RETAIL_INTERPRETATION: Record<string, {
+  friendliness: "favorable" | "neutral" | "unfavorable";
+  whatThisMeansForRetail: string;
+  commonMistake: string;
+  whyRetailLoses: string;
+  whenRetailCanCompete: string;
+}> = {
+  scheduled_event: {
+    friendliness: "neutral",
+    whatThisMeansForRetail: "Events happen on known dates. Price moves are often priced in early by informed traders.",
+    commonMistake: "Waiting until the event to trade, when edge is already gone.",
+    whyRetailLoses: "Institutions price in outcomes weeks ahead. By event day, odds reflect consensus.",
+    whenRetailCanCompete: "When you have genuine local knowledge or can identify when consensus is clearly wrong.",
+  },
+  continuous_info: {
+    friendliness: "unfavorable",
+    whatThisMeansForRetail: "Information flows constantly. Prices adjust in real-time to news and data.",
+    commonMistake: "Reacting to headlines that are already priced in by faster traders.",
+    whyRetailLoses: "Professional traders monitor 24/7 with automated systems. Retail sees news minutes late.",
+    whenRetailCanCompete: "Focus on longer timeframes where speed matters less, or niche topics you follow closely.",
+  },
+  binary_catalyst: {
+    friendliness: "neutral",
+    whatThisMeansForRetail: "A single event determines the outcome. High risk, high uncertainty.",
+    commonMistake: "Oversizing positions on coin-flip events or chasing after initial moves.",
+    whyRetailLoses: "Edge is slim. Transaction costs and timing disadvantages compound losses.",
+    whenRetailCanCompete: "When you've done deep research and consensus seems clearly mispriced.",
+  },
+  high_volatility: {
+    friendliness: "unfavorable",
+    whatThisMeansForRetail: "Prices swing wildly. Emotional decisions are common and costly.",
+    commonMistake: "Panic selling on dips or FOMO buying on spikes.",
+    whyRetailLoses: "Volatility favors those with iron discipline and deep pockets. Retail capitulates at the worst times.",
+    whenRetailCanCompete: "Only if you can truly ignore short-term swings and have conviction in your analysis.",
+  },
+  long_duration: {
+    friendliness: "favorable",
+    whatThisMeansForRetail: "Long time horizon reduces the advantage of speed. Research matters more.",
+    commonMistake: "Getting bored and exiting early, or overtrading as new information arrives.",
+    whyRetailLoses: "Impatience. Retail often sells winners too early or abandons positions.",
+    whenRetailCanCompete: "When you can commit to a thesis and hold through noise. This is where retail has an edge.",
+  },
+  sports_scheduled: {
+    friendliness: "unfavorable",
+    whatThisMeansForRetail: "Heavily analyzed by sharp bettors. Lines are very efficient.",
+    commonMistake: "Betting on favorite teams or following public consensus.",
+    whyRetailLoses: "Sports betting markets are extremely efficient. Sharps crush retail consistently.",
+    whenRetailCanCompete: "Rarely. Unless you have genuine edge from deep statistical analysis or injury info.",
+  },
+};
 
 // UUID validation helper
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -603,6 +663,9 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         confidence = 65;
       }
 
+      // Get retail interpretation for this cluster
+      const retailInterp = CLUSTER_RETAIL_INTERPRETATION[cluster];
+
       // Upsert behavior dimensions
       await db
         .insert(marketBehaviorDimensions)
@@ -616,6 +679,10 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           behaviorCluster: cluster,
           clusterConfidence: confidence,
           clusterExplanation: explanation,
+          retailFriendliness: retailInterp.friendliness,
+          commonRetailMistake: retailInterp.commonMistake,
+          whyRetailLosesHere: retailInterp.whyRetailLoses,
+          whenRetailCanCompete: retailInterp.whenRetailCanCompete,
         })
         .onConflictDoUpdate({
           target: marketBehaviorDimensions.marketId,
@@ -628,6 +695,10 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
             behaviorCluster: cluster,
             clusterConfidence: confidence,
             clusterExplanation: explanation,
+            retailFriendliness: retailInterp.friendliness,
+            commonRetailMistake: retailInterp.commonMistake,
+            whyRetailLosesHere: retailInterp.whyRetailLoses,
+            whenRetailCanCompete: retailInterp.whenRetailCanCompete,
             updatedAt: new Date(),
           },
         });
@@ -642,6 +713,13 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           liquidityStability: Math.round(liquidityStability),
           timeToResolution: Math.round(timeToResolution),
           participantConcentration: Math.round(participantConcentration),
+        },
+        retailInterpretation: {
+          friendliness: retailInterp.friendliness,
+          whatThisMeansForRetail: retailInterp.whatThisMeansForRetail,
+          commonMistake: retailInterp.commonMistake,
+          whyRetailLoses: retailInterp.whyRetailLoses,
+          whenRetailCanCompete: retailInterp.whenRetailCanCompete,
         },
       };
     }

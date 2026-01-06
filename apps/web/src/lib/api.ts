@@ -362,6 +362,16 @@ export type BehaviorDimensions = {
   participantConcentration: number;
 };
 
+export type RetailFriendliness = "favorable" | "neutral" | "unfavorable";
+
+export type RetailInterpretation = {
+  friendliness: RetailFriendliness;
+  whatThisMeansForRetail: string;
+  commonMistake: string;
+  whyRetailLoses: string;
+  whenRetailCanCompete: string;
+};
+
 export type BehaviorClusterResponse = {
   marketId: string;
   cluster: BehaviorClusterType;
@@ -376,6 +386,7 @@ export type BehaviorClusterResponse = {
     color: string;
     icon: string;
   };
+  retailInterpretation?: RetailInterpretation;
   computedAt: string;
 };
 

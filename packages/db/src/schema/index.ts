@@ -100,6 +100,13 @@ export const behaviorClusterType = pgEnum("behavior_cluster_type", [
   "sports_scheduled",    // Sports/Scheduled (known timing, binary)
 ]);
 
+// Retail friendliness enum
+export const retailFriendlinessType = pgEnum("retail_friendliness_type", [
+  "favorable",
+  "neutral",
+  "unfavorable",
+]);
+
 // Consistency Check enums
 export const relationTypeEnum = pgEnum("relation_type", [
   "calendar_variant",     // Same question, different dates
@@ -588,6 +595,11 @@ export const marketBehaviorDimensions = pgTable("market_behavior_dimensions", {
   behaviorCluster: behaviorClusterType("behavior_cluster"),
   clusterConfidence: integer("cluster_confidence"), // 0-100
   clusterExplanation: text("cluster_explanation"),
+  // Retail interpretation
+  retailFriendliness: retailFriendlinessType("retail_friendliness"),
+  commonRetailMistake: text("common_retail_mistake"),
+  whyRetailLosesHere: text("why_retail_loses_here"),
+  whenRetailCanCompete: text("when_retail_can_compete"),
   // Timestamps
   computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

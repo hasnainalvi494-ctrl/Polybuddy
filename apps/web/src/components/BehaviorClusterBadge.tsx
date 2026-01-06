@@ -1,9 +1,42 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getMarketBehavior, type BehaviorClusterType } from "@/lib/api";
+import { getMarketBehavior, type BehaviorClusterType, type RetailFriendliness } from "@/lib/api";
 import { WhyBullets } from "./WhyBullets";
 import { useState } from "react";
+
+const FRIENDLINESS_STYLES: Record<RetailFriendliness, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
+  favorable: {
+    bg: "bg-green-50 dark:bg-green-900/20",
+    text: "text-green-700 dark:text-green-400",
+    label: "Favorable for Retail",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  neutral: {
+    bg: "bg-yellow-50 dark:bg-yellow-900/20",
+    text: "text-yellow-700 dark:text-yellow-400",
+    label: "Neutral for Retail",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    ),
+  },
+  unfavorable: {
+    bg: "bg-red-50 dark:bg-red-900/20",
+    text: "text-red-700 dark:text-red-400",
+    label: "Unfavorable for Retail",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+};
 
 type BehaviorClusterBadgeProps = {
   marketId: string;
@@ -171,12 +204,60 @@ export function BehaviorClusterBadge({ marketId }: BehaviorClusterBadgeProps) {
           </div>
 
           {/* Why Bullets */}
-          <div>
+          <div className="mb-4">
             <h5 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               Classification Factors
             </h5>
             <WhyBullets bullets={data.whyBullets} />
           </div>
+
+          {/* Retail Interpretation */}
+          {data.retailInterpretation && (
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+              {/* Friendliness Badge */}
+              <div className={`flex items-center gap-2 p-2 rounded-lg ${FRIENDLINESS_STYLES[data.retailInterpretation.friendliness].bg}`}>
+                <span className={FRIENDLINESS_STYLES[data.retailInterpretation.friendliness].text}>
+                  {FRIENDLINESS_STYLES[data.retailInterpretation.friendliness].icon}
+                </span>
+                <span className={`text-sm font-medium ${FRIENDLINESS_STYLES[data.retailInterpretation.friendliness].text}`}>
+                  {FRIENDLINESS_STYLES[data.retailInterpretation.friendliness].label}
+                </span>
+              </div>
+
+              {/* What this means */}
+              <div>
+                <h5 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  What This Means for Retail
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {data.retailInterpretation.whatThisMeansForRetail}
+                </p>
+              </div>
+
+              {/* Common Mistake */}
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <h5 className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Common Mistake
+                </h5>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  {data.retailInterpretation.commonMistake}
+                </p>
+              </div>
+
+              {/* When Retail Can Compete */}
+              <div>
+                <h5 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  When Retail Can Compete
+                </h5>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {data.retailInterpretation.whenRetailCanCompete}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

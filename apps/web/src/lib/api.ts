@@ -454,6 +454,57 @@ export async function getMarketContext(marketId: string): Promise<PublicContextR
   return fetchApi(`/api/analytics/markets/${marketId}/context`);
 }
 
+// Signals types
+export type SignalType = "momentum" | "contrarian" | "liquidity_opportunity" | "value_gap" | "event_catalyst";
+export type SignalStrength = "weak" | "moderate" | "strong";
+
+export type Signal = {
+  id: string;
+  marketId: string;
+  marketQuestion: string;
+  type: SignalType;
+  strength: SignalStrength;
+  direction: "bullish" | "bearish";
+  currentPrice: number;
+  targetPrice: number | null;
+  confidence: number;
+  reasoning: string[];
+  risks: string[];
+  timeHorizon: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type SignalsResponse = {
+  signals: Signal[];
+  disclaimer: string;
+  generatedAt: string;
+};
+
+export type SignalsAvailability = {
+  available: boolean;
+  countryDetected: string | null;
+  reason: string | null;
+};
+
+// Signals functions
+export async function getSignals(params?: {
+  type?: SignalType;
+  minStrength?: SignalStrength;
+  limit?: number;
+}): Promise<SignalsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.minStrength) searchParams.set("minStrength", params.minStrength);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/api/signals${query ? `?${query}` : ""}`);
+}
+
+export async function checkSignalsAvailability(): Promise<SignalsAvailability> {
+  return fetchApi("/api/signals/availability");
+}
+
 // Weekly Reports types
 export type WeeklyReport = {
   id: string;

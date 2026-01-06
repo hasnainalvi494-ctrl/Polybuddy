@@ -880,4 +880,250 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
       };
     }
   );
+
+  // =============================================
+  // PUBLIC FLOW CONTEXT - GET /api/analytics/markets/:id/context
+  // =============================================
+  typedApp.get(
+    "/markets/:id/context",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            participation: z.object({
+              totalWallets: z.number(),
+              activeWallets24h: z.number(),
+              newWallets24h: z.number(),
+              walletTrend: z.enum(["increasing", "decreasing", "stable"]),
+            }),
+            positions: z.object({
+              totalLongPositions: z.number(),
+              totalShortPositions: z.number(),
+              longShortRatio: z.number(),
+              avgPositionSize: z.number(),
+              medianPositionSize: z.number(),
+            }),
+            volume: z.object({
+              volume24h: z.number(),
+              volume7d: z.number(),
+              volumeChange24h: z.number(), // percentage
+              avgDailyVolume: z.number(),
+              isVolumeSpike: z.boolean(),
+            }),
+            largeTransactions: z.array(
+              z.object({
+                timestamp: z.string(),
+                direction: z.enum(["buy", "sell"]),
+                volumeUsd: z.number(),
+                isWhale: z.boolean(),
+              })
+            ),
+            insights: z.array(z.string()),
+            computedAt: z.string(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      // Get wallet flow events for context
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      // Get all flow events for this market
+      const allEvents = await db
+        .select({
+          walletAddress: walletFlowEvents.walletAddress,
+          side: walletFlowEvents.side,
+          notional: walletFlowEvents.notional,
+          startTs: walletFlowEvents.startTs,
+        })
+        .from(walletFlowEvents)
+        .where(eq(walletFlowEvents.marketId, id))
+        .orderBy(desc(walletFlowEvents.startTs))
+        .limit(500);
+
+      // Calculate participation metrics
+      const uniqueWallets = new Set(allEvents.map((e) => e.walletAddress));
+      const recent24hEvents = allEvents.filter(
+        (e) => e.startTs && e.startTs >= oneDayAgo
+      );
+      const activeWallets24h = new Set(recent24hEvents.map((e) => e.walletAddress));
+
+      // For new wallets, find wallets whose first transaction is in last 24h
+      const walletFirstTx = new Map<string, Date>();
+      for (const event of allEvents) {
+        if (event.startTs) {
+          const existing = walletFirstTx.get(event.walletAddress);
+          if (!existing || event.startTs < existing) {
+            walletFirstTx.set(event.walletAddress, event.startTs);
+          }
+        }
+      }
+      let newWallets24h = 0;
+      for (const [, firstTx] of walletFirstTx) {
+        if (firstTx >= oneDayAgo) newWallets24h++;
+      }
+
+      // Calculate wallet trend
+      const prevDayEvents = allEvents.filter(
+        (e) =>
+          e.startTs &&
+          e.startTs >= new Date(oneDayAgo.getTime() - 24 * 60 * 60 * 1000) &&
+          e.startTs < oneDayAgo
+      );
+      const prevDayWallets = new Set(prevDayEvents.map((e) => e.walletAddress));
+      let walletTrend: "increasing" | "decreasing" | "stable" = "stable";
+      if (activeWallets24h.size > prevDayWallets.size * 1.1) {
+        walletTrend = "increasing";
+      } else if (activeWallets24h.size < prevDayWallets.size * 0.9) {
+        walletTrend = "decreasing";
+      }
+
+      // Calculate position metrics
+      let longCount = 0;
+      let shortCount = 0;
+      const positionSizes: number[] = [];
+
+      for (const event of allEvents) {
+        const size = event.notional ? Number(event.notional) : 0;
+        positionSizes.push(size);
+        if (event.side === "buy" || event.side === "long") {
+          longCount++;
+        } else {
+          shortCount++;
+        }
+      }
+
+      const totalPositions = longCount + shortCount;
+      const avgPositionSize =
+        positionSizes.length > 0
+          ? positionSizes.reduce((a, b) => a + b, 0) / positionSizes.length
+          : 0;
+      const sortedSizes = positionSizes.sort((a, b) => a - b);
+      const medianPositionSize =
+        sortedSizes.length > 0
+          ? sortedSizes[Math.floor(sortedSizes.length / 2)] ?? 0
+          : 0;
+
+      // Calculate volume metrics
+      let volume24h = 0;
+      let volume7d = 0;
+      let volumePrev24h = 0;
+
+      for (const event of allEvents) {
+        const vol = event.notional ? Number(event.notional) : 0;
+        if (event.startTs && event.startTs >= oneDayAgo) {
+          volume24h += vol;
+        }
+        if (event.startTs && event.startTs >= sevenDaysAgo) {
+          volume7d += vol;
+        }
+        if (
+          event.startTs &&
+          event.startTs >= new Date(oneDayAgo.getTime() - 24 * 60 * 60 * 1000) &&
+          event.startTs < oneDayAgo
+        ) {
+          volumePrev24h += vol;
+        }
+      }
+
+      const avgDailyVolume = volume7d / 7;
+      const volumeChange24h =
+        volumePrev24h > 0
+          ? ((volume24h - volumePrev24h) / volumePrev24h) * 100
+          : 0;
+      const isVolumeSpike = volume24h > avgDailyVolume * 2;
+
+      // Get large transactions (whales = > $10k)
+      const largeTransactions = recent24hEvents
+        .filter((e) => (e.notional ? Number(e.notional) : 0) > 1000)
+        .slice(0, 10)
+        .map((e) => ({
+          timestamp: e.startTs?.toISOString() ?? new Date().toISOString(),
+          direction:
+            e.side === "buy" || e.side === "long"
+              ? ("buy" as const)
+              : ("sell" as const),
+          volumeUsd: e.notional ? Number(e.notional) : 0,
+          isWhale: (e.notional ? Number(e.notional) : 0) > 10000,
+        }));
+
+      // Generate insights
+      const insights: string[] = [];
+
+      if (walletTrend === "increasing") {
+        insights.push("Growing wallet participation in the last 24h");
+      }
+      if (newWallets24h > 5) {
+        insights.push(`${newWallets24h} new wallets entered this market today`);
+      }
+      if (isVolumeSpike) {
+        insights.push("Volume is 2x+ higher than 7-day average");
+      }
+      if (longCount > shortCount * 2) {
+        insights.push("Market sentiment is heavily bullish");
+      } else if (shortCount > longCount * 2) {
+        insights.push("Market sentiment is heavily bearish");
+      }
+      if (largeTransactions.filter((t) => t.isWhale).length > 0) {
+        insights.push("Whale activity detected in the last 24h");
+      }
+
+      // Pad to at least 3 insights
+      while (insights.length < 3) {
+        if (uniqueWallets.size > 100) {
+          insights.push(`${uniqueWallets.size} unique wallets have traded this market`);
+        } else if (avgPositionSize > 0) {
+          insights.push(`Average position size is $${avgPositionSize.toFixed(0)}`);
+        } else {
+          insights.push("Limited trading activity on this market");
+        }
+      }
+
+      return {
+        marketId: id,
+        participation: {
+          totalWallets: uniqueWallets.size,
+          activeWallets24h: activeWallets24h.size,
+          newWallets24h,
+          walletTrend,
+        },
+        positions: {
+          totalLongPositions: longCount,
+          totalShortPositions: shortCount,
+          longShortRatio: shortCount > 0 ? longCount / shortCount : longCount,
+          avgPositionSize,
+          medianPositionSize,
+        },
+        volume: {
+          volume24h,
+          volume7d,
+          volumeChange24h,
+          avgDailyVolume,
+          isVolumeSpike,
+        },
+        largeTransactions,
+        insights: insights.slice(0, 4),
+        computedAt: new Date().toISOString(),
+      };
+    }
+  );
 };

@@ -415,6 +415,45 @@ export async function getMarketFlow(marketId: string): Promise<FlowAnalysisRespo
   return fetchApi(`/api/analytics/markets/${marketId}/flow`);
 }
 
+// Public Flow Context types
+export type WalletTrend = "increasing" | "decreasing" | "stable";
+
+export type PublicContextResponse = {
+  marketId: string;
+  participation: {
+    totalWallets: number;
+    activeWallets24h: number;
+    newWallets24h: number;
+    walletTrend: WalletTrend;
+  };
+  positions: {
+    totalLongPositions: number;
+    totalShortPositions: number;
+    longShortRatio: number;
+    avgPositionSize: number;
+    medianPositionSize: number;
+  };
+  volume: {
+    volume24h: number;
+    volume7d: number;
+    volumeChange24h: number;
+    avgDailyVolume: number;
+    isVolumeSpike: boolean;
+  };
+  largeTransactions: Array<{
+    timestamp: string;
+    direction: "buy" | "sell";
+    volumeUsd: number;
+    isWhale: boolean;
+  }>;
+  insights: string[];
+  computedAt: string;
+};
+
+export async function getMarketContext(marketId: string): Promise<PublicContextResponse> {
+  return fetchApi(`/api/analytics/markets/${marketId}/context`);
+}
+
 // Weekly Reports types
 export type WeeklyReport = {
   id: string;

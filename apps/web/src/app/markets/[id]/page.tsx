@@ -9,6 +9,7 @@ import { ExposureRiskCard } from "@/components/ExposureRiskCard";
 import { ProHistoryPlaceholder } from "@/components/ProHistoryPlaceholder";
 import { BehaviorClusterBadge } from "@/components/BehaviorClusterBadge";
 import { FlowTypeCard } from "@/components/FlowTypeCard";
+import { PublicContextCard } from "@/components/PublicContextCard";
 
 interface QualityBreakdown {
   spreadScore: number;
@@ -245,6 +246,11 @@ export default function MarketDetailPage() {
           {/* Flow Type Card - Shows smart money vs retail activity */}
           <div className="mb-6">
             <FlowTypeCard marketId={market.id} />
+          </div>
+
+          {/* Public Context Card - Shows wallet participation and volume */}
+          <div className="mb-6">
+            <PublicContextCard marketId={market.id} />
           </div>
 
           {/* Two-column layout for Exposure Risk and Pro Placeholder */}

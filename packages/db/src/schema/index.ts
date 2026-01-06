@@ -46,6 +46,7 @@ export const alertType = pgEnum("alert_type", [
   "price_move",
   "volume_spike",
   "liquidity_drop",
+  "resolution_approaching",
 ]);
 
 export const alertStatus = pgEnum("alert_status", [
@@ -175,6 +176,21 @@ export const alerts = pgTable("alerts", {
   condition: jsonb("condition").notNull(),
   status: alertStatus("status").default("active"),
   triggeredAt: timestamp("triggered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// Notifications for triggered alerts
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  alertId: uuid("alert_id").references(() => alerts.id, { onDelete: "set null" }),
+  marketId: uuid("market_id").references(() => markets.id),
+  type: alertType("type").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"), // Store trigger details
+  read: boolean("read").default(false),
+  readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -418,9 +434,21 @@ export const watchlistMarketsRelations = relations(
   })
 );
 
-export const alertsRelations = relations(alerts, ({ one }) => ({
+export const alertsRelations = relations(alerts, ({ one, many }) => ({
   market: one(markets, {
     fields: [alerts.marketId],
+    references: [markets.id],
+  }),
+  notifications: many(notifications),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  alert: one(alerts, {
+    fields: [notifications.alertId],
+    references: [alerts.id],
+  }),
+  market: one(markets, {
+    fields: [notifications.marketId],
     references: [markets.id],
   }),
 }));

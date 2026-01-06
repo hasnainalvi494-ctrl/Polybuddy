@@ -145,6 +145,43 @@ export async function deleteAlert(alertId: string) {
   });
 }
 
+// Notification types
+export type Notification = {
+  id: string;
+  alertId: string | null;
+  marketId: string | null;
+  type: "price_move" | "volume_spike" | "liquidity_drop" | "resolution_approaching";
+  title: string;
+  message: string;
+  marketQuestion: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
+// Notification functions
+export async function getNotifications(params?: { unreadOnly?: boolean; limit?: number }): Promise<{
+  notifications: Notification[];
+  unreadCount: number;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.unreadOnly) searchParams.set("unreadOnly", "true");
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/api/alerts/notifications${query ? `?${query}` : ""}`);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<{ success: boolean }> {
+  return fetchApi(`/api/alerts/notifications/${notificationId}/read`, { method: "POST" });
+}
+
+export async function markAllNotificationsRead(): Promise<{ success: boolean; count: number }> {
+  return fetchApi("/api/alerts/notifications/read-all", { method: "POST" });
+}
+
+export async function processAlerts(): Promise<{ processed: number; triggered: number }> {
+  return fetchApi("/api/alerts/process", { method: "POST" });
+}
+
 // Portfolio
 export async function getWallets() {
   return fetchApi("/api/portfolio/wallets");

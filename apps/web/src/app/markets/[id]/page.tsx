@@ -11,6 +11,7 @@ import { BehaviorClusterBadge } from "@/components/BehaviorClusterBadge";
 import { FlowTypeCard } from "@/components/FlowTypeCard";
 import { PublicContextCard } from "@/components/PublicContextCard";
 import { RetailSignalCard } from "@/components/RetailSignalCard";
+import { ProfitSimulator } from "@/components/ProfitSimulator";
 
 interface QualityBreakdown {
   spreadScore: number;
@@ -257,6 +258,15 @@ export default function MarketDetailPage() {
           {/* Retail Signals Card - Shows conditions for retail participation */}
           <div className="mb-6">
             <RetailSignalCard marketId={market.id} />
+          </div>
+
+          {/* Profit Simulator - Shows execution impact on returns */}
+          <div className="mb-6">
+            <ProfitSimulator
+              currentPrice={market.currentPrice}
+              spread={market.spread}
+              marketQuestion={market.question}
+            />
           </div>
 
           {/* Two-column layout for Exposure Risk and Pro Placeholder */}

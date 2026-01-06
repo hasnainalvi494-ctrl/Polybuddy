@@ -627,6 +627,159 @@ async function computeEventWindowSignal(
 }
 
 // ============================================
+// SIGNAL TYPE 5: RETAIL-FRIENDLY VS UNFRIENDLY
+// ============================================
+
+type RetailFriendlinessMetrics = {
+  hoursToResolution: number | null;
+  volatilityScore: number;
+  repriceSpeed: number;
+  professionalDominance: number;
+};
+
+async function computeRetailFriendlinessSignal(
+  marketId: string,
+  market: {
+    endDate: Date | null;
+    spread: number | null;
+    depth: number | null;
+    volatilityScore: string | null;
+  }
+): Promise<{
+  label: string;
+  isFavorable: boolean;
+  confidence: "low" | "medium" | "high";
+  whyBullets: WhyBullet[];
+  metrics: RetailFriendlinessMetrics;
+} | null> {
+  const now = new Date();
+
+  // Calculate hours to resolution
+  const hoursToResolution = market.endDate
+    ? (market.endDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+    : null;
+
+  // Get recent snapshots to measure volatility and reprice speed
+  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  const recentSnapshots = await db
+    .select({
+      price: marketSnapshots.price,
+      spread: marketSnapshots.spread,
+      snapshotAt: marketSnapshots.snapshotAt,
+    })
+    .from(marketSnapshots)
+    .where(
+      and(
+        eq(marketSnapshots.marketId, marketId),
+        gte(marketSnapshots.snapshotAt, twoHoursAgo)
+      )
+    )
+    .orderBy(desc(marketSnapshots.snapshotAt))
+    .limit(20);
+
+  // Calculate volatility from price changes
+  const prices = recentSnapshots
+    .map((s) => (s.price ? Number(s.price) : null))
+    .filter((p): p is number => p !== null);
+
+  let volatilityScore = 50; // Default medium
+  if (prices.length >= 2) {
+    const changes: number[] = [];
+    for (let i = 1; i < prices.length; i++) {
+      changes.push(Math.abs(prices[i]! - prices[i - 1]!) / prices[i - 1]!);
+    }
+    const avgChange = changes.reduce((a, b) => a + b, 0) / changes.length;
+    volatilityScore = Math.min(100, avgChange * 1000); // Scale to 0-100
+  }
+
+  // Or use stored volatility score
+  if (market.volatilityScore) {
+    volatilityScore = Number(market.volatilityScore);
+  }
+
+  // Calculate reprice speed (how fast price moves)
+  let repriceSpeed = 50;
+  if (recentSnapshots.length >= 2) {
+    const firstSnapshot = recentSnapshots[recentSnapshots.length - 1];
+    const lastSnapshot = recentSnapshots[0];
+    if (firstSnapshot?.snapshotAt && lastSnapshot?.snapshotAt && firstSnapshot.price && lastSnapshot.price) {
+      const timeSpan = (lastSnapshot.snapshotAt.getTime() - firstSnapshot.snapshotAt.getTime()) / (60 * 1000); // minutes
+      const priceChange = Math.abs(Number(lastSnapshot.price) - Number(firstSnapshot.price));
+      repriceSpeed = timeSpan > 0 ? Math.min(100, (priceChange / timeSpan) * 10000) : 50;
+    }
+  }
+
+  // Estimate professional dominance
+  // Tight spreads + high volume + fast moves = pros
+  const spreadTight = market.spread ? Number(market.spread) < 0.02 : false;
+  const depthHigh = market.depth ? Number(market.depth) > 50000 : false;
+  const professionalDominance = (spreadTight ? 30 : 0) + (depthHigh ? 20 : 0) + (repriceSpeed > 60 ? 30 : 0) + (volatilityScore > 60 ? 20 : 0);
+
+  // Determine friendliness
+  const isShortHorizon = hoursToResolution !== null && hoursToResolution < 48;
+  const isHighVolatility = volatilityScore > 60;
+  const isFastRepricing = repriceSpeed > 60;
+  const isProDominated = professionalDominance > 60;
+
+  const unfriendlyFactors = [isShortHorizon, isHighVolatility, isFastRepricing, isProDominated]
+    .filter(Boolean).length;
+
+  const isFriendly = unfriendlyFactors <= 1;
+
+  let label: string;
+  let confidence: "low" | "medium" | "high";
+
+  if (isFriendly) {
+    label = "Retail-Friendly Structure";
+    confidence = unfriendlyFactors === 0 ? "high" : "medium";
+  } else {
+    label = "Retail-Unfriendly Structure";
+    confidence = unfriendlyFactors >= 3 ? "high" : "medium";
+  }
+
+  const whyBullets: WhyBullet[] = [
+    {
+      text: isShortHorizon
+        ? `Short horizon (${hoursToResolution?.toFixed(0)}h) favors traders with real-time execution`
+        : hoursToResolution
+        ? `Longer horizon (${Math.round(hoursToResolution / 24)} days) allows time to enter/exit`
+        : "No deadline pressure — time to position thoughtfully",
+      metric: "hours_to_resolution",
+      value: hoursToResolution || 0,
+      unit: "hours",
+    },
+    {
+      text: isHighVolatility
+        ? `High volatility (${volatilityScore.toFixed(0)}) requires quick reactions`
+        : `Low volatility (${volatilityScore.toFixed(0)}) allows patient execution`,
+      metric: "volatility",
+      value: volatilityScore,
+    },
+    {
+      text: isProDominated
+        ? `Market shows ${professionalDominance}% professional characteristics — sophisticated competition`
+        : `Professional dominance score ${professionalDominance}% — retail can compete`,
+      metric: "pro_dominance",
+      value: professionalDominance,
+      unit: "%",
+    },
+  ];
+
+  return {
+    label,
+    isFavorable: isFriendly,
+    confidence,
+    whyBullets,
+    metrics: {
+      hoursToResolution,
+      volatilityScore,
+      repriceSpeed,
+      professionalDominance,
+    },
+  };
+}
+
+// ============================================
 // ROUTES
 // ============================================
 
@@ -993,6 +1146,109 @@ export const retailSignalsRoutes: FastifyPluginAsync = async (app) => {
           whyBullets: result.whyBullets,
           metrics: result.metrics,
           validUntil: new Date(Date.now() + 1 * 60 * 60 * 1000),
+        })
+        .returning();
+
+      return {
+        id: newSignal!.id,
+        marketId: newSignal!.marketId,
+        signalType: newSignal!.signalType,
+        label: newSignal!.label,
+        isFavorable: newSignal!.isFavorable,
+        confidence: newSignal!.confidence,
+        whyBullets: result.whyBullets,
+        metrics: result.metrics,
+        computedAt: newSignal!.computedAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+  );
+
+  // Get retail friendliness signal for a market
+  typedApp.get(
+    "/markets/:marketId/retail-friendliness",
+    {
+      schema: {
+        params: z.object({ marketId: z.string().uuid() }),
+        response: {
+          200: RetailSignalSchema.nullable(),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { marketId } = request.params;
+
+      // Check for cached signal (within last hour)
+      const existingSignal = await db
+        .select()
+        .from(retailSignals)
+        .where(
+          and(
+            eq(retailSignals.marketId, marketId),
+            eq(retailSignals.signalType, "retail_friendliness"),
+            gte(retailSignals.computedAt, new Date(Date.now() - 60 * 60 * 1000))
+          )
+        )
+        .orderBy(desc(retailSignals.computedAt))
+        .limit(1);
+
+      if (existingSignal.length > 0) {
+        const signal = existingSignal[0]!;
+        return {
+          id: signal.id,
+          marketId: signal.marketId,
+          signalType: signal.signalType,
+          label: signal.label,
+          isFavorable: signal.isFavorable,
+          confidence: signal.confidence,
+          whyBullets: signal.whyBullets as WhyBullet[],
+          metrics: signal.metrics as Record<string, unknown> | null,
+          computedAt: signal.computedAt?.toISOString() || new Date().toISOString(),
+        };
+      }
+
+      // Get market data with latest snapshot
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, marketId),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      // Get latest snapshot for spread/depth
+      const latestSnapshot = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, marketId))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(1);
+
+      const snapshot = latestSnapshot[0];
+
+      const result = await computeRetailFriendlinessSignal(marketId, {
+        endDate: market.endDate,
+        spread: snapshot?.spread ? Number(snapshot.spread) : null,
+        depth: snapshot?.depth ? Number(snapshot.depth) : null,
+        volatilityScore: market.volatilityScore,
+      });
+
+      if (!result) {
+        return null;
+      }
+
+      // Store the computed signal
+      const [newSignal] = await db
+        .insert(retailSignals)
+        .values({
+          marketId,
+          signalType: "retail_friendliness",
+          label: result.label,
+          isFavorable: result.isFavorable,
+          confidence: result.confidence,
+          whyBullets: result.whyBullets,
+          metrics: result.metrics,
+          validUntil: new Date(Date.now() + 2 * 60 * 60 * 1000),
         })
         .returning();
 

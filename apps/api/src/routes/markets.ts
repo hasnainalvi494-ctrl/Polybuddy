@@ -192,11 +192,12 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
               .object({
                 spreadScore: z.number(),
                 depthScore: z.number(),
-                volumeScore: z.number(),
                 stalenessScore: z.number(),
-                clarityScore: z.number(),
+                volatilityScore: z.number(),
               })
               .nullable(),
+            qualitySummary: z.string().nullable(),
+            isLowQuality: z.boolean(),
           }),
           404: z.object({ error: z.string() }),
         },
@@ -226,6 +227,43 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         .orderBy(desc(marketSnapshots.snapshotAt))
         .limit(1);
 
+      const spreadScore = market.spreadScore ? Number(market.spreadScore) : null;
+      const depthScore = market.depthScore ? Number(market.depthScore) : null;
+      const stalenessScore = market.stalenessScore ? Number(market.stalenessScore) : null;
+      const volatilityScore = market.volatilityScore ? Number(market.volatilityScore) : null;
+
+      const hasBreakdown = spreadScore !== null && depthScore !== null;
+
+      // Generate quality summary
+      let qualitySummary: string | null = null;
+      if (hasBreakdown) {
+        const parts: string[] = [];
+        if (spreadScore >= 80) parts.push("tight spreads");
+        else if (spreadScore >= 50) parts.push("moderate spreads");
+        else parts.push("wide spreads");
+
+        if (depthScore >= 80) parts.push("deep liquidity");
+        else if (depthScore >= 50) parts.push("adequate liquidity");
+        else parts.push("thin liquidity");
+
+        qualitySummary = `This market has ${parts.join(" and ")}.`;
+
+        // Add slippage estimate
+        const liquidity = snapshot?.liquidity ? Number(snapshot.liquidity) : null;
+        const spread = snapshot?.spread ? Number(snapshot.spread) : null;
+        if (liquidity && liquidity > 0 && spread !== null) {
+          const tradeSize = 500;
+          const spreadCost = tradeSize * (spread / 2);
+          const marketImpact = (tradeSize / liquidity) * tradeSize * 0.5;
+          const totalSlippage = spreadCost + marketImpact;
+          if (totalSlippage > 1) {
+            qualitySummary += ` A $${tradeSize} trade would cost ~$${Math.round(totalSlippage)} in slippage.`;
+          }
+        }
+      }
+
+      const isLowQuality = market.qualityGrade === "D" || market.qualityGrade === "F";
+
       return {
         id: market.id,
         polymarketId: market.polymarketId,
@@ -244,7 +282,16 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         staleness: snapshot?.snapshotAt
           ? Math.floor((Date.now() - snapshot.snapshotAt.getTime()) / 1000 / 60)
           : null,
-        qualityBreakdown: null, // TODO: Implement quality breakdown
+        qualityBreakdown: hasBreakdown
+          ? {
+              spreadScore: spreadScore!,
+              depthScore: depthScore!,
+              stalenessScore: stalenessScore ?? 50,
+              volatilityScore: volatilityScore ?? 50,
+            }
+          : null,
+        qualitySummary,
+        isLowQuality,
       };
     }
   );

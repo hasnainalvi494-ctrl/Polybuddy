@@ -12,6 +12,7 @@ import { watchlistsRoutes } from "./routes/watchlists.js";
 import { alertsRoutes } from "./routes/alerts.js";
 import { portfolioRoutes } from "./routes/portfolio.js";
 import { healthRoutes } from "./routes/health.js";
+import { analyticsRoutes } from "./routes/analytics.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -56,6 +57,7 @@ async function buildApp() {
   await app.register(watchlistsRoutes, { prefix: "/api/watchlists" });
   await app.register(alertsRoutes, { prefix: "/api/alerts" });
   await app.register(portfolioRoutes, { prefix: "/api/portfolio" });
+  await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
   return app;
 }

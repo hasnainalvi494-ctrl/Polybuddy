@@ -204,3 +204,106 @@ export async function getPerformance(params?: { walletId?: string; period?: stri
 export async function getPortfolioSummary() {
   return fetchApi("/api/portfolio/summary");
 }
+
+// Analytics types
+export type WhyBullet = {
+  text: string;
+  metric: string;
+  value: number;
+  unit?: string;
+  comparison?: string;
+};
+
+export type MarketStateResponse = {
+  marketId: string;
+  stateLabel: "calm_liquid" | "thin_slippage" | "jumpy" | "event_driven";
+  displayLabel: string;
+  confidence: number;
+  whyBullets: WhyBullet[];
+  features: {
+    spreadPct: number | null;
+    depthUsd: number | null;
+    stalenessMinutes: number | null;
+    volatility: number | null;
+  };
+  computedAt: string;
+};
+
+export type ExposureCluster = {
+  clusterId: string;
+  label: string;
+  exposurePct: number;
+  exposureUsd: number;
+  marketCount: number;
+  confidence: number;
+  whyBullets: WhyBullet[];
+  markets: {
+    marketId: string;
+    question: string;
+    exposure: number;
+    weight: number;
+  }[];
+};
+
+export type ExposureResponse = {
+  walletId: string;
+  totalExposure: number;
+  clusters: ExposureCluster[];
+  concentrationRisk: number;
+  diversificationScore: number;
+  topClusterExposure: number;
+  warning: string | null;
+  isDangerous: boolean;
+  computedAt: string;
+};
+
+export type ConsistencyCheck = {
+  aMarketId: string;
+  bMarketId: string;
+  aQuestion: string;
+  bQuestion: string;
+  relationType: "calendar_variant" | "multi_outcome" | "inverse" | "correlated";
+  label: "looks_consistent" | "potential_inconsistency_low" | "potential_inconsistency_medium" | "potential_inconsistency_high";
+  displayLabel: string;
+  score: number;
+  confidence: number;
+  whyBullets: WhyBullet[];
+  priceA: number;
+  priceB: number;
+  computedAt: string;
+};
+
+export type ConsistencyResponse = {
+  checks: ConsistencyCheck[];
+  summary: {
+    totalPairs: number;
+    relatedPairs: number;
+    inconsistentPairs: number;
+  };
+};
+
+export type RelatedMarketsResponse = {
+  marketId: string;
+  relatedMarkets: ConsistencyCheck[];
+};
+
+// Analytics functions
+export async function getMarketState(marketId: string): Promise<MarketStateResponse> {
+  return fetchApi(`/api/analytics/markets/${marketId}/state`);
+}
+
+export async function getWalletExposure(walletId: string): Promise<ExposureResponse> {
+  return fetchApi(`/api/analytics/wallets/${walletId}/exposure`);
+}
+
+export async function checkConsistency(marketIds: string[]): Promise<ConsistencyResponse> {
+  return fetchApi("/api/analytics/consistency", {
+    method: "POST",
+    body: JSON.stringify({ marketIds }),
+  });
+}
+
+export async function getRelatedMarkets(marketId: string, limit?: number): Promise<RelatedMarketsResponse> {
+  const query = limit ? `?limit=${limit}` : "";
+  return fetchApi(`/api/analytics/markets/${marketId}/related${query}`);
+}

@@ -14,6 +14,7 @@ import {
   deletePosition,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { HiddenExposureCard } from "@/components/HiddenExposureCard";
 
 interface Wallet {
   id: string;
@@ -475,6 +476,16 @@ export default function PortfolioPage() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Hidden Exposure Analysis */}
+                  {walletPositions.positions.length > 0 && (
+                    <div className="mt-6">
+                      <HiddenExposureCard
+                        walletId={selectedWalletId!}
+                        walletLabel={walletPositions.wallet.label || undefined}
+                      />
                     </div>
                   )}
                 </div>

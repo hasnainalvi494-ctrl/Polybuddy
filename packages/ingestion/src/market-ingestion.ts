@@ -1,6 +1,7 @@
 import { db, markets, marketSnapshots } from "@polybuddy/db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { polymarketClient, type PolymarketMarket } from "./polymarket-client.js";
+import { calculateQualityScores, type QualityScores } from "./quality-calculator.js";
 
 // Infer category from question keywords if not provided by API
 function inferCategory(question: string, apiCategory: string | null | undefined): string | null {
@@ -120,6 +121,31 @@ export class MarketIngestionService {
       : null;
 
     const category = inferCategory(apiMarket.question, apiMarket.category);
+    const spread = apiMarket.spread ?? null;
+    const liquidity = apiMarket.liquidityNum ?? (apiMarket.liquidity ? parseFloat(apiMarket.liquidity) : null);
+
+    // Get price history for volatility calculation (if market exists)
+    let priceHistory: number[] = [];
+    if (existingMarket) {
+      const recentSnapshots = await db
+        .select({ price: marketSnapshots.price })
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, existingMarket.id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(24); // Last 24 snapshots for volatility
+
+      priceHistory = recentSnapshots
+        .map(s => s.price ? parseFloat(s.price) : 0)
+        .filter(p => p > 0);
+    }
+
+    // Calculate quality scores
+    const qualityScores = calculateQualityScores({
+      spread,
+      liquidity,
+      lastUpdateMinutes: 0, // Just updated now
+      priceHistory: price ? [...priceHistory, price] : priceHistory,
+    });
 
     const marketData = {
       polymarketId: apiMarket.id,
@@ -128,6 +154,12 @@ export class MarketIngestionService {
       category,
       endDate: apiMarket.endDate ? new Date(apiMarket.endDate) : null,
       resolved: apiMarket.closed,
+      qualityGrade: qualityScores.grade,
+      qualityScore: qualityScores.overallScore.toString(),
+      spreadScore: qualityScores.spreadScore.toString(),
+      depthScore: qualityScores.depthScore.toString(),
+      stalenessScore: qualityScores.stalenessScore.toString(),
+      volatilityScore: qualityScores.volatilityScore.toString(),
       metadata: {
         outcomes: apiMarket.outcomes,
         active: apiMarket.active,

@@ -7,7 +7,12 @@
     ".": "./src/index.ts",
     "./quality": "./src/quality/index.ts",
     "./clustering": "./src/clustering/index.ts",
-    "./performance": "./src/performance/index.ts"
+    "./performance": "./src/performance/index.ts",
+    "./market-state": "./src/market-state/index.ts",
+    "./trade-review": "./src/trade-review/index.ts",
+    "./hidden-exposure": "./src/hidden-exposure/index.ts",
+    "./consistency-check": "./src/consistency-check/index.ts",
+    "./flow-type": "./src/flow-type/index.ts"
   },
   "scripts": {
     "build": "tsc",

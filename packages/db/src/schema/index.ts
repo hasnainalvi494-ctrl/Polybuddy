@@ -54,6 +54,50 @@ export const alertStatus = pgEnum("alert_status", [
   "dismissed",
 ]);
 
+// Market State enums
+export const marketStateLabel = pgEnum("market_state_label", [
+  "calm_liquid",      // Calm & Liquid
+  "thin_slippage",    // Thin — Slippage Risk
+  "jumpy",            // Jumpier Than Usual
+  "event_driven",     // Event-driven — Expect Gaps
+]);
+
+export const stateEventType = pgEnum("state_event_type", [
+  "state_change",
+  "liquidity_drop",
+  "spread_widen",
+  "volatility_spike",
+]);
+
+export const stateEventSeverity = pgEnum("state_event_severity", [
+  "low",
+  "medium",
+  "high",
+]);
+
+// Flow Type enums
+export const flowLabelType = pgEnum("flow_label_type", [
+  "one_off_spike",        // One-off Spike
+  "sustained_accumulation", // Sustained Accumulation
+  "crowd_chase",          // Crowd Chase
+  "exhaustion_move",      // Exhaustion Move
+]);
+
+// Consistency Check enums
+export const relationTypeEnum = pgEnum("relation_type", [
+  "calendar_variant",     // Same question, different dates
+  "multi_outcome",        // Part of same event
+  "inverse",              // Logically opposite
+  "correlated",           // Historically correlated
+]);
+
+export const consistencyLabel = pgEnum("consistency_label", [
+  "looks_consistent",
+  "potential_inconsistency_low",
+  "potential_inconsistency_medium",
+  "potential_inconsistency_high",
+]);
+
 // Markets table
 export const markets = pgTable("markets", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -66,6 +110,10 @@ export const markets = pgTable("markets", {
   outcome: varchar("outcome", { length: 50 }),
   qualityGrade: marketQualityGrade("quality_grade"),
   qualityScore: decimal("quality_score", { precision: 5, scale: 2 }),
+  spreadScore: decimal("spread_score", { precision: 5, scale: 2 }),
+  depthScore: decimal("depth_score", { precision: 5, scale: 2 }),
+  stalenessScore: decimal("staleness_score", { precision: 5, scale: 2 }),
+  volatilityScore: decimal("volatility_score", { precision: 5, scale: 2 }),
   clusterLabel: varchar("cluster_label", { length: 50 }),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -146,6 +194,165 @@ export const portfolioPositions = pgTable("portfolio_positions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+// ============================================
+// FEATURE A: Market State / Regime Detection
+// ============================================
+
+// Rolling market features computed from orderbook + trades
+export const marketFeatures = pgTable("market_features", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  ts: timestamp("ts", { withTimezone: true }).notNull(),
+  spread: decimal("spread", { precision: 10, scale: 6 }),
+  depth: decimal("depth", { precision: 18, scale: 2 }),
+  staleness: integer("staleness"), // seconds since last trade
+  volProxy: decimal("vol_proxy", { precision: 10, scale: 6 }), // rolling volatility
+  impactProxy: decimal("impact_proxy", { precision: 10, scale: 6 }), // price impact estimate
+  tradeCount: integer("trade_count"), // trades in window
+  volumeUsd: decimal("volume_usd", { precision: 18, scale: 2 }),
+});
+
+// Market state periods with labels
+export const marketStates = pgTable("market_states", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  startTs: timestamp("start_ts", { withTimezone: true }).notNull(),
+  endTs: timestamp("end_ts", { withTimezone: true }),
+  stateLabel: marketStateLabel("state_label").notNull(),
+  confidence: integer("confidence").notNull(), // 0-100
+  whyJson: jsonb("why_json").notNull(), // Array of 3 "why" bullets with numbers
+});
+
+// State change events
+export const marketStateEvents = pgTable("market_state_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  ts: timestamp("ts", { withTimezone: true }).notNull(),
+  eventType: stateEventType("event_type").notNull(),
+  severity: stateEventSeverity("severity").notNull(),
+  whyJson: jsonb("why_json").notNull(),
+});
+
+// ============================================
+// FEATURE E: Trade Review (Decision Quality)
+// ============================================
+
+export const decisionReviews = pgTable("decision_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletId: uuid("wallet_id")
+    .notNull()
+    .references(() => trackedWallets.id, { onDelete: "cascade" }),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  tradeTs: timestamp("trade_ts", { withTimezone: true }).notNull(),
+  side: varchar("side", { length: 10 }).notNull(), // buy/sell
+  notional: decimal("notional", { precision: 18, scale: 2 }),
+  score: integer("score").notNull(), // 0-100
+  confidence: integer("confidence").notNull(), // 0-100
+  label: varchar("label", { length: 50 }).notNull(), // e.g., "good_process", "risky_process"
+  whyJson: jsonb("why_json").notNull(), // Array of 3 "why" bullets
+  spreadAtEntry: decimal("spread_at_entry", { precision: 10, scale: 6 }),
+  depthAtEntry: decimal("depth_at_entry", { precision: 18, scale: 2 }),
+  priceChange15m: decimal("price_change_15m", { precision: 10, scale: 6 }),
+  marketStateAtEntry: marketStateLabel("market_state_at_entry"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// ============================================
+// FEATURE D: Hidden Exposure (Portfolio Clustering)
+// ============================================
+
+export const exposureClusters = pgTable("exposure_clusters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletId: uuid("wallet_id")
+    .notNull()
+    .references(() => trackedWallets.id, { onDelete: "cascade" }),
+  clusterId: varchar("cluster_id", { length: 100 }).notNull(), // e.g., "politics_us_2024"
+  ts: timestamp("ts", { withTimezone: true }).notNull(),
+  exposurePct: decimal("exposure_pct", { precision: 5, scale: 2 }).notNull(),
+  label: varchar("label", { length: 100 }).notNull(), // Human-readable cluster name
+  confidence: integer("confidence").notNull(),
+  whyJson: jsonb("why_json").notNull(),
+});
+
+export const exposureClusterMembers = pgTable("exposure_cluster_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clusterId: uuid("cluster_id")
+    .notNull()
+    .references(() => exposureClusters.id, { onDelete: "cascade" }),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  weight: decimal("weight", { precision: 5, scale: 4 }), // Contribution to cluster
+  exposure: decimal("exposure", { precision: 18, scale: 2 }), // $ exposure in this market
+});
+
+// ============================================
+// FEATURE C: Consistency Check (Cross-Market Constraints)
+// ============================================
+
+export const marketRelations = pgTable("market_relations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  aMarketId: uuid("a_market_id")
+    .notNull()
+    .references(() => markets.id),
+  bMarketId: uuid("b_market_id")
+    .notNull()
+    .references(() => markets.id),
+  relationType: relationTypeEnum("relation_type").notNull(),
+  relationMeta: jsonb("relation_meta"), // Additional context
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const constraintChecks = pgTable("constraint_checks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  relationId: uuid("relation_id")
+    .notNull()
+    .references(() => marketRelations.id, { onDelete: "cascade" }),
+  ts: timestamp("ts", { withTimezone: true }).notNull(),
+  score: integer("score").notNull(), // 0-100, higher = more consistent
+  confidence: integer("confidence").notNull(),
+  label: consistencyLabel("label").notNull(),
+  whyJson: jsonb("why_json").notNull(),
+});
+
+// ============================================
+// FEATURE B: Flow Type (Flow Persistence vs Noise)
+// ============================================
+
+export const walletFlowEvents = pgTable("wallet_flow_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletAddress: varchar("wallet_address", { length: 42 }).notNull(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  startTs: timestamp("start_ts", { withTimezone: true }).notNull(),
+  endTs: timestamp("end_ts", { withTimezone: true }),
+  notional: decimal("notional", { precision: 18, scale: 2 }).notNull(),
+  tradeCount: integer("trade_count").notNull(),
+  side: varchar("side", { length: 10 }).notNull(), // net direction
+  meta: jsonb("meta"), // Additional flow metadata
+});
+
+export const flowLabels = pgTable("flow_labels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  flowEventId: uuid("flow_event_id")
+    .notNull()
+    .references(() => walletFlowEvents.id, { onDelete: "cascade" }),
+  label: flowLabelType("label").notNull(),
+  score: integer("score").notNull(), // 0-100
+  confidence: integer("confidence").notNull(),
+  whyJson: jsonb("why_json").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
@@ -166,6 +373,11 @@ export const marketsRelations = relations(markets, ({ many }) => ({
   watchlistMarkets: many(watchlistMarkets),
   alerts: many(alerts),
   positions: many(portfolioPositions),
+  features: many(marketFeatures),
+  states: many(marketStates),
+  stateEvents: many(marketStateEvents),
+  decisionReviews: many(decisionReviews),
+  flowEvents: many(walletFlowEvents),
 }));
 
 export const marketSnapshotsRelations = relations(
@@ -205,6 +417,8 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
 
 export const trackedWalletsRelations = relations(trackedWallets, ({ many }) => ({
   positions: many(portfolioPositions),
+  decisionReviews: many(decisionReviews),
+  exposureClusters: many(exposureClusters),
 }));
 
 export const portfolioPositionsRelations = relations(
@@ -220,3 +434,92 @@ export const portfolioPositionsRelations = relations(
     }),
   })
 );
+
+// ============================================
+// New Feature Relations
+// ============================================
+
+export const marketFeaturesRelations = relations(marketFeatures, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketFeatures.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const marketStatesRelations = relations(marketStates, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketStates.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const marketStateEventsRelations = relations(marketStateEvents, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketStateEvents.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const decisionReviewsRelations = relations(decisionReviews, ({ one }) => ({
+  wallet: one(trackedWallets, {
+    fields: [decisionReviews.walletId],
+    references: [trackedWallets.id],
+  }),
+  market: one(markets, {
+    fields: [decisionReviews.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const exposureClustersRelations = relations(exposureClusters, ({ one, many }) => ({
+  wallet: one(trackedWallets, {
+    fields: [exposureClusters.walletId],
+    references: [trackedWallets.id],
+  }),
+  members: many(exposureClusterMembers),
+}));
+
+export const exposureClusterMembersRelations = relations(exposureClusterMembers, ({ one }) => ({
+  cluster: one(exposureClusters, {
+    fields: [exposureClusterMembers.clusterId],
+    references: [exposureClusters.id],
+  }),
+  market: one(markets, {
+    fields: [exposureClusterMembers.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const marketRelationsRelations = relations(marketRelations, ({ one, many }) => ({
+  marketA: one(markets, {
+    fields: [marketRelations.aMarketId],
+    references: [markets.id],
+  }),
+  marketB: one(markets, {
+    fields: [marketRelations.bMarketId],
+    references: [markets.id],
+  }),
+  checks: many(constraintChecks),
+}));
+
+export const constraintChecksRelations = relations(constraintChecks, ({ one }) => ({
+  relation: one(marketRelations, {
+    fields: [constraintChecks.relationId],
+    references: [marketRelations.id],
+  }),
+}));
+
+export const walletFlowEventsRelations = relations(walletFlowEvents, ({ one, many }) => ({
+  market: one(markets, {
+    fields: [walletFlowEvents.marketId],
+    references: [markets.id],
+  }),
+  labels: many(flowLabels),
+}));
+
+export const flowLabelsRelations = relations(flowLabels, ({ one }) => ({
+  flowEvent: one(walletFlowEvents, {
+    fields: [flowLabels.flowEventId],
+    references: [walletFlowEvents.id],
+  }),
+}));

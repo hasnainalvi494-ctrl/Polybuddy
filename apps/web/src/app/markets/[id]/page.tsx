@@ -4,6 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { getMarket } from "@/lib/api";
 import { PriceHistoryChart } from "@/components/PriceHistoryChart";
+import { MarketQualityScore } from "@/components/MarketQualityScore";
+import { MarketStateCard } from "@/components/MarketStateCard";
+import { RelatedMarketsCard } from "@/components/RelatedMarketsCard";
+
+interface QualityBreakdown {
+  spreadScore: number;
+  depthScore: number;
+  stalenessScore: number;
+  volatilityScore: number;
+}
 
 interface MarketDetail {
   id: string;
@@ -14,8 +24,12 @@ interface MarketDetail {
   endDate: string | null;
   qualityGrade: string | null;
   qualityScore: number | null;
+  qualityBreakdown: QualityBreakdown | null;
+  qualitySummary: string | null;
+  isLowQuality: boolean;
   currentPrice: number | null;
   volume24h: number | null;
+  liquidity: number | null;
   spread: number | null;
   depth: number | null;
   staleness: number | null;
@@ -122,6 +136,22 @@ export default function MarketDetailPage() {
           <PriceHistoryChart marketId={market.id} />
         </div>
 
+        <div className="mb-8">
+          <MarketQualityScore
+            grade={market.qualityGrade}
+            score={market.qualityScore}
+            breakdown={market.qualityBreakdown}
+            summary={market.qualitySummary}
+            isLowQuality={market.isLowQuality}
+          />
+        </div>
+
+        {/* Analytics Cards - Market State & Related Markets */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <MarketStateCard marketId={market.id} />
+          <RelatedMarketsCard marketId={market.id} limit={5} />
+        </div>
+
         <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6 mb-8">
           <h2 className="text-lg font-semibold mb-4">Market Details</h2>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -133,26 +163,10 @@ export default function MarketDetailPage() {
               <dt className="text-sm text-gray-500">Polymarket ID</dt>
               <dd className="font-mono text-sm">{market.polymarketId}</dd>
             </div>
-            {market.qualityGrade && (
-              <div>
-                <dt className="text-sm text-gray-500">Quality Grade</dt>
-                <dd className="font-medium">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded ${
-                      market.qualityGrade === "A"
-                        ? "bg-green-100 text-green-800"
-                        : market.qualityGrade === "B"
-                        ? "bg-blue-100 text-blue-800"
-                        : market.qualityGrade === "C"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {market.qualityGrade}
-                  </span>
-                </dd>
-              </div>
-            )}
+            <div>
+              <dt className="text-sm text-gray-500">Liquidity</dt>
+              <dd className="font-medium">{formatVolume(market.liquidity)}</dd>
+            </div>
           </dl>
         </div>
 

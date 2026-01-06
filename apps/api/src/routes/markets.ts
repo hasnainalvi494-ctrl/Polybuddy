@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, markets, marketSnapshots, marketBehaviorDimensions } from "@polybuddy/db";
+import { db, markets, marketSnapshots, marketBehaviorDimensions, retailFlowGuard } from "@polybuddy/db";
 import { eq, desc, asc, ilike, sql, and, gte } from "drizzle-orm";
 
 // Behavior cluster type
@@ -82,6 +82,52 @@ const CLUSTER_RETAIL_INTERPRETATION: Record<string, {
     commonMistake: "Betting on favorite teams or following public consensus.",
     whyRetailLoses: "Sports betting markets are extremely efficient. Sharps crush retail consistently.",
     whenRetailCanCompete: "Rarely. Unless you have genuine edge from deep statistical analysis or injury info.",
+  },
+};
+
+// Flow Guard schema
+const FlowGuardSchema = z.object({
+  label: z.enum(["historically_noisy", "pro_dominant", "retail_actionable"]),
+  confidence: z.enum(["low", "medium", "high"]),
+  whyBullets: z.array(z.object({
+    text: z.string(),
+    metric: z.string().optional(),
+    value: z.number().optional(),
+    unit: z.string().optional(),
+  })),
+  commonRetailMistake: z.string(),
+  metrics: z.object({
+    largeEarlyTradesPct: z.number().nullable(),
+    orderBookConcentration: z.number().nullable(),
+    depthShiftSpeed: z.number().nullable(),
+    repricingSpeed: z.number().nullable(),
+  }).optional(),
+});
+
+// Flow Guard interpretation by label
+const FLOW_GUARD_INTERPRETATION: Record<string, {
+  displayLabel: string;
+  severity: "warning" | "caution" | "info";
+  explanation: string;
+  commonMistake: string;
+}> = {
+  historically_noisy: {
+    displayLabel: "Historically Noisy",
+    severity: "caution",
+    explanation: "Flow signals in this market have been unreliable. Volume spikes and order patterns don't consistently predict price direction.",
+    commonMistake: "Assuming large volume means informed trading. In noisy markets, volume often reflects noise, not signal.",
+  },
+  pro_dominant: {
+    displayLabel: "Pro-Dominant Flow",
+    severity: "warning",
+    explanation: "Professional traders dominate this market's flow. Large early trades and rapid repricing suggest informed activity.",
+    commonMistake: "Following the flow hoping to ride the coattails. By the time retail sees the move, the edge is already captured.",
+  },
+  retail_actionable: {
+    displayLabel: "Retail-Actionable",
+    severity: "info",
+    explanation: "Rare: Flow signals in this market may benefit patient retail traders. Lower professional concentration detected.",
+    commonMistake: "Overconfidence. Even favorable flow doesn't guarantee profits. Stick to disciplined position sizing.",
   },
 };
 
@@ -428,6 +474,15 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           timeToResolution: behaviorDims.timeToResolution,
           participantConcentration: behaviorDims.participantConcentration,
         },
+        retailInterpretation: behaviorDims.retailFriendliness ? {
+          friendliness: behaviorDims.retailFriendliness,
+          whatThisMeansForRetail: behaviorDims.behaviorCluster
+            ? CLUSTER_RETAIL_INTERPRETATION[behaviorDims.behaviorCluster]?.whatThisMeansForRetail || ""
+            : "",
+          commonMistake: behaviorDims.commonRetailMistake || "",
+          whyRetailLoses: behaviorDims.whyRetailLosesHere || "",
+          whenRetailCanCompete: behaviorDims.whenRetailCanCompete || "",
+        } : null,
       } : null;
 
       return {
@@ -664,7 +719,13 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       // Get retail interpretation for this cluster
-      const retailInterp = CLUSTER_RETAIL_INTERPRETATION[cluster];
+      const retailInterp = CLUSTER_RETAIL_INTERPRETATION[cluster] || {
+        friendliness: "neutral" as const,
+        whatThisMeansForRetail: "Market behavior analysis unavailable.",
+        commonMistake: "Entering without understanding market structure.",
+        whyRetailLoses: "Unknown market dynamics.",
+        whenRetailCanCompete: "When you have done thorough research.",
+      };
 
       // Upsert behavior dimensions
       await db
@@ -720,6 +781,235 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           commonMistake: retailInterp.commonMistake,
           whyRetailLoses: retailInterp.whyRetailLoses,
           whenRetailCanCompete: retailInterp.whenRetailCanCompete,
+        },
+      };
+    }
+  );
+
+  // Compute Flow Guard for a market
+  typedApp.post(
+    "/:id/compute-flow-guard",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: FlowGuardSchema,
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      // Get market
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      // Get historical snapshots for flow analysis
+      const snapshots = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(50);
+
+      // Compute flow metrics
+      // 1. Large early trades percentage - estimate from volume spikes early in market life
+      let largeEarlyTradesPct = 0;
+      if (snapshots.length >= 5) {
+        const volumes = snapshots.map(s => Number(s.volume24h) || 0);
+        const maxVol = Math.max(...volumes);
+        const avgVol = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+        // Early concentration of volume suggests large early trades
+        const earlyVolumes = volumes.slice(-5); // Oldest 5
+        const earlyAvg = earlyVolumes.reduce((a, b) => a + b, 0) / earlyVolumes.length;
+        largeEarlyTradesPct = avgVol > 0 ? Math.min(100, (earlyAvg / avgVol) * 100) : 50;
+      }
+
+      // 2. Order book concentration - estimate from liquidity variability
+      let orderBookConcentration = 50;
+      if (snapshots.length >= 3) {
+        const liquidities = snapshots.map(s => Number(s.liquidity) || 0).filter(l => l > 0);
+        if (liquidities.length >= 3) {
+          const max = Math.max(...liquidities);
+          const min = Math.min(...liquidities);
+          const avg = liquidities.reduce((a, b) => a + b, 0) / liquidities.length;
+          // Large variance in liquidity suggests concentration
+          orderBookConcentration = avg > 0 ? Math.min(100, ((max - min) / avg) * 50) : 50;
+        }
+      }
+
+      // 3. Depth shift speed - how quickly does depth change?
+      let depthShiftSpeed = 0;
+      if (snapshots.length >= 2) {
+        const depths = snapshots.map(s => Number(s.depth) || 0);
+        let totalShift = 0;
+        for (let i = 1; i < depths.length; i++) {
+          const prevDepth = depths[i-1]!;
+          const currDepth = depths[i]!;
+          if (prevDepth > 0) {
+            totalShift += Math.abs(currDepth - prevDepth) / prevDepth;
+          }
+        }
+        depthShiftSpeed = Math.min(100, (totalShift / (depths.length - 1)) * 100);
+      }
+
+      // 4. Repricing speed - how quickly do prices move?
+      let repricingSpeed = 0;
+      if (snapshots.length >= 2) {
+        const prices = snapshots.map(s => Number(s.price) || 0.5);
+        let totalMove = 0;
+        for (let i = 1; i < prices.length; i++) {
+          const prevPrice = prices[i-1]!;
+          const currPrice = prices[i]!;
+          totalMove += Math.abs(currPrice - prevPrice);
+        }
+        repricingSpeed = Math.min(100, (totalMove / (prices.length - 1)) * 500);
+      }
+
+      // Classify flow
+      let label: "historically_noisy" | "pro_dominant" | "retail_actionable";
+      let confidence: "low" | "medium" | "high";
+      const whyBullets: Array<{ text: string; metric: string; value: number; unit: string }> = [];
+
+      // Pro-dominant: high early trades, high concentration, fast repricing
+      const proScore = (largeEarlyTradesPct * 0.3) + (orderBookConcentration * 0.3) + (repricingSpeed * 0.4);
+      // Noisy: high variance but no clear pattern
+      const noisyScore = (depthShiftSpeed * 0.5) + (Math.abs(50 - orderBookConcentration) * 0.5);
+
+      if (proScore > 60) {
+        label = "pro_dominant";
+        confidence = proScore > 75 ? "high" : "medium";
+        whyBullets.push(
+          { text: "Early volume concentration", metric: "Large early trades", value: Math.round(largeEarlyTradesPct), unit: "%" },
+          { text: "Order book shows concentration", metric: "Book concentration", value: Math.round(orderBookConcentration), unit: "score" },
+          { text: "Fast price adjustments", metric: "Repricing speed", value: Math.round(repricingSpeed), unit: "score" }
+        );
+      } else if (noisyScore > 50 || snapshots.length < 10) {
+        label = "historically_noisy";
+        confidence = snapshots.length < 10 ? "low" : "medium";
+        whyBullets.push(
+          { text: "Depth changes frequently", metric: "Depth volatility", value: Math.round(depthShiftSpeed), unit: "score" },
+          { text: "No clear flow pattern", metric: "Pattern clarity", value: Math.round(100 - noisyScore), unit: "score" },
+          { text: "Insufficient history", metric: "Data points", value: snapshots.length, unit: "snapshots" }
+        );
+      } else {
+        label = "retail_actionable";
+        confidence = proScore < 30 ? "high" : "medium";
+        whyBullets.push(
+          { text: "Lower professional concentration", metric: "Pro activity", value: Math.round(proScore), unit: "score" },
+          { text: "Stable order book", metric: "Book stability", value: Math.round(100 - orderBookConcentration), unit: "score" },
+          { text: "Moderate repricing", metric: "Price stability", value: Math.round(100 - repricingSpeed), unit: "score" }
+        );
+      }
+
+      const interp = FLOW_GUARD_INTERPRETATION[label];
+      const commonRetailMistake = interp?.commonMistake || "Entering without understanding flow dynamics.";
+
+      // Upsert flow guard
+      await db
+        .insert(retailFlowGuard)
+        .values({
+          marketId: id,
+          label,
+          confidence,
+          whyBullets,
+          commonRetailMistake,
+          largeEarlyTradesPct: String(Math.round(largeEarlyTradesPct * 100) / 100),
+          orderBookConcentration: String(Math.round(orderBookConcentration * 100) / 100),
+          depthShiftSpeed: String(Math.round(depthShiftSpeed * 100) / 100),
+          repricingSpeed: String(Math.round(repricingSpeed * 100) / 100),
+        })
+        .onConflictDoUpdate({
+          target: retailFlowGuard.marketId,
+          set: {
+            label,
+            confidence,
+            whyBullets,
+            commonRetailMistake,
+            largeEarlyTradesPct: String(Math.round(largeEarlyTradesPct * 100) / 100),
+            orderBookConcentration: String(Math.round(orderBookConcentration * 100) / 100),
+            depthShiftSpeed: String(Math.round(depthShiftSpeed * 100) / 100),
+            repricingSpeed: String(Math.round(repricingSpeed * 100) / 100),
+            updatedAt: new Date(),
+          },
+        });
+
+      return {
+        label,
+        confidence,
+        whyBullets,
+        commonRetailMistake,
+        metrics: {
+          largeEarlyTradesPct: Math.round(largeEarlyTradesPct * 100) / 100,
+          orderBookConcentration: Math.round(orderBookConcentration * 100) / 100,
+          depthShiftSpeed: Math.round(depthShiftSpeed * 100) / 100,
+          repricingSpeed: Math.round(repricingSpeed * 100) / 100,
+        },
+      };
+    }
+  );
+
+  // Get Flow Guard for a market
+  typedApp.get(
+    "/:id/flow-guard",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: FlowGuardSchema.extend({
+            displayLabel: z.string(),
+            severity: z.enum(["warning", "caution", "info"]),
+            explanation: z.string(),
+            disclaimer: z.string(),
+          }).nullable(),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      const [guard] = await db
+        .select()
+        .from(retailFlowGuard)
+        .where(eq(retailFlowGuard.marketId, id))
+        .limit(1);
+
+      if (!guard) {
+        return null;
+      }
+
+      const interp = FLOW_GUARD_INTERPRETATION[guard.label] || {
+        displayLabel: "Unknown",
+        severity: "caution",
+        explanation: "Flow analysis unavailable.",
+        commonMistake: "Entering without understanding flow dynamics.",
+      };
+
+      return {
+        label: guard.label,
+        confidence: guard.confidence,
+        whyBullets: guard.whyBullets as Array<{ text: string; metric?: string; value?: number; unit?: string }>,
+        commonRetailMistake: guard.commonRetailMistake,
+        displayLabel: interp.displayLabel,
+        severity: interp.severity,
+        explanation: interp.explanation,
+        disclaimer: "Public on-chain data. Flow signals often disadvantage retail traders.",
+        metrics: {
+          largeEarlyTradesPct: guard.largeEarlyTradesPct ? Number(guard.largeEarlyTradesPct) : null,
+          orderBookConcentration: guard.orderBookConcentration ? Number(guard.orderBookConcentration) : null,
+          depthShiftSpeed: guard.depthShiftSpeed ? Number(guard.depthShiftSpeed) : null,
+          repricingSpeed: guard.repricingSpeed ? Number(guard.repricingSpeed) : null,
         },
       };
     }

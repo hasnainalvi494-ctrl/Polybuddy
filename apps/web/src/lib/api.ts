@@ -715,7 +715,7 @@ export type DailyAttentionResponse = {
   whatChanged: Array<{
     marketId: string;
     question: string;
-    changeType: "state_shift" | "event_window" | "mispricing";
+    changeType: "state_shift" | "event_window" | "mispricing" | "flow_guard";
     description: string;
   }>;
   generatedAt: string;
@@ -723,4 +723,45 @@ export type DailyAttentionResponse = {
 
 export async function getDailyAttention(): Promise<DailyAttentionResponse> {
   return fetchApi("/api/daily");
+}
+
+// ============================================
+// RETAIL FLOW GUARD
+// ============================================
+
+export type FlowGuardLabel = "historically_noisy" | "pro_dominant" | "retail_actionable";
+export type FlowGuardSeverity = "warning" | "caution" | "info";
+
+export type FlowGuardWhyBullet = {
+  text: string;
+  metric?: string;
+  value?: number;
+  unit?: string;
+};
+
+export type FlowGuardResponse = {
+  label: FlowGuardLabel;
+  confidence: "low" | "medium" | "high";
+  whyBullets: FlowGuardWhyBullet[];
+  commonRetailMistake: string;
+  displayLabel: string;
+  severity: FlowGuardSeverity;
+  explanation: string;
+  disclaimer: string;
+  metrics?: {
+    largeEarlyTradesPct: number | null;
+    orderBookConcentration: number | null;
+    depthShiftSpeed: number | null;
+    repricingSpeed: number | null;
+  };
+};
+
+export async function getFlowGuard(marketId: string): Promise<FlowGuardResponse | null> {
+  return fetchApi(`/api/markets/${marketId}/flow-guard`);
+}
+
+export async function computeFlowGuard(marketId: string): Promise<FlowGuardResponse> {
+  return fetchApi(`/api/markets/${marketId}/compute-flow-guard`, {
+    method: "POST",
+  });
 }

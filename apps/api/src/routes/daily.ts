@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, markets, marketSnapshots, retailSignals, marketBehaviorDimensions } from "@polybuddy/db";
+import { db, markets, marketSnapshots, retailSignals, marketBehaviorDimensions, retailFlowGuard } from "@polybuddy/db";
 import { eq, desc, sql, and, gte, lte, isNotNull } from "drizzle-orm";
 
 const DailyResponseSchema = z.object({
@@ -28,7 +28,7 @@ const DailyResponseSchema = z.object({
   whatChanged: z.array(z.object({
     marketId: z.string(),
     question: z.string(),
-    changeType: z.enum(["state_shift", "event_window", "mispricing"]),
+    changeType: z.enum(["state_shift", "event_window", "mispricing", "flow_guard"]),
     description: z.string(),
   })),
   generatedAt: z.string(),
@@ -92,6 +92,39 @@ export const dailyRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
+      // Add markets with retail-actionable flow guard to worth attention
+      const retailActionableMarkets = await db
+        .select({
+          marketId: retailFlowGuard.marketId,
+          confidence: retailFlowGuard.confidence,
+          whyBullets: retailFlowGuard.whyBullets,
+        })
+        .from(retailFlowGuard)
+        .where(eq(retailFlowGuard.label, "retail_actionable"))
+        .limit(4);
+
+      for (const flowGuard of retailActionableMarkets) {
+        const market = await db.query.markets.findFirst({
+          where: eq(markets.id, flowGuard.marketId),
+        });
+        if (market && !worthAttention.some(w => w.id === market.id)) {
+          const bullets = (flowGuard.whyBullets as Array<{ text: string; metric?: string; value?: number; unit?: string }>) || [];
+          worthAttention.push({
+            id: market.id,
+            question: market.question,
+            category: market.category,
+            setupLabel: "Retail-Actionable Flow",
+            confidence: flowGuard.confidence === "high" ? 85 : flowGuard.confidence === "medium" ? 65 : 45,
+            whyBullets: bullets.slice(0, 3).map(b => ({
+              text: b.text || b.metric || "Metric",
+              value: String(b.value ?? "N/A"),
+              unit: b.unit || "",
+            })),
+            whyThisMatters: "Rare: Flow signals in this market may benefit patient retail traders.",
+          });
+        }
+      }
+
       // Get markets with unfavorable signals (retail traps)
       const unfavorableSignals = await db
         .select({
@@ -124,6 +157,31 @@ export const dailyRoutes: FastifyPluginAsync = async (app) => {
             category: market.category,
             warningLabel: signal.label,
             commonMistake: behavior?.commonRetailMistake || getDefaultMistake(signal.signalType as string),
+          });
+        }
+      }
+
+      // Add markets with pro-dominant flow guard to retail traps
+      const proDominantMarkets = await db
+        .select({
+          marketId: retailFlowGuard.marketId,
+          commonMistake: retailFlowGuard.commonRetailMistake,
+        })
+        .from(retailFlowGuard)
+        .where(eq(retailFlowGuard.label, "pro_dominant"))
+        .limit(10);
+
+      for (const flowGuard of proDominantMarkets.slice(0, 4)) {
+        const market = await db.query.markets.findFirst({
+          where: eq(markets.id, flowGuard.marketId),
+        });
+        if (market && !retailTraps.some(t => t.id === market.id)) {
+          retailTraps.push({
+            id: market.id,
+            question: market.question,
+            category: market.category,
+            warningLabel: "Pro-Dominant Flow",
+            commonMistake: flowGuard.commonMistake,
           });
         }
       }

@@ -12,6 +12,7 @@ import { FlowTypeCard } from "@/components/FlowTypeCard";
 import { PublicContextCard } from "@/components/PublicContextCard";
 import { RetailSignalCard } from "@/components/RetailSignalCard";
 import { ProfitSimulator } from "@/components/ProfitSimulator";
+import { FlowGuardSection } from "@/components/FlowGuardBadge";
 
 interface QualityBreakdown {
   spreadScore: number;
@@ -248,6 +249,11 @@ export default function MarketDetailPage() {
           {/* Flow Type Card - Shows smart money vs retail activity */}
           <div className="mb-6">
             <FlowTypeCard marketId={market.id} />
+          </div>
+
+          {/* Flow Guard - Interprets flow for retail users */}
+          <div className="mb-6">
+            <FlowGuardSection marketId={market.id} />
           </div>
 
           {/* Public Context Card - Shows wallet participation and volume */}

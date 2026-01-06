@@ -107,6 +107,13 @@ export const retailFriendlinessType = pgEnum("retail_friendliness_type", [
   "unfavorable",
 ]);
 
+// Retail Flow Guard enum
+export const flowGuardLabelType = pgEnum("flow_guard_label_type", [
+  "historically_noisy",    // Flow signals unreliable in this market
+  "pro_dominant",          // Professional flow dominates - retail disadvantaged
+  "retail_actionable",     // Rare: flow signals may benefit retail
+]);
+
 // Consistency Check enums
 export const relationTypeEnum = pgEnum("relation_type", [
   "calendar_variant",     // Same question, different dates
@@ -718,5 +725,39 @@ export const signalSubscriptionsRelations = relations(signalSubscriptions, ({ on
   user: one(users, {
     fields: [signalSubscriptions.userId],
     references: [users.id],
+  }),
+}));
+
+// ============================================
+// FEATURE: Retail Flow Guard
+// ============================================
+
+export const retailFlowGuard = pgTable("retail_flow_guard", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id)
+    .unique(),
+  // Flow Guard Label
+  label: flowGuardLabelType("label").notNull(),
+  confidence: signalConfidence("confidence").notNull(),
+  // Explanation bullets
+  whyBullets: jsonb("why_bullets").notNull(), // [{text, metric, value, unit}]
+  // Common retail mistake for this flow type
+  commonRetailMistake: text("common_retail_mistake").notNull(),
+  // Flow metrics used for classification
+  largeEarlyTradesPct: decimal("large_early_trades_pct", { precision: 5, scale: 2 }),
+  orderBookConcentration: decimal("order_book_concentration", { precision: 5, scale: 2 }),
+  depthShiftSpeed: decimal("depth_shift_speed", { precision: 10, scale: 4 }),
+  repricingSpeed: decimal("repricing_speed", { precision: 10, scale: 4 }),
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const retailFlowGuardRelations = relations(retailFlowGuard, ({ one }) => ({
+  market: one(markets, {
+    fields: [retailFlowGuard.marketId],
+    references: [markets.id],
   }),
 }));

@@ -90,10 +90,11 @@ function TrapCard({ market }: { market: DailyAttentionResponse["retailTraps"][0]
 }
 
 function ChangeCard({ change }: { change: DailyAttentionResponse["whatChanged"][0] }) {
-  const typeStyles = {
+  const typeStyles: Record<string, { bg: string; text: string }> = {
     state_shift: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-400" },
     event_window: { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-700 dark:text-orange-400" },
     mispricing: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400" },
+    flow_guard: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400" },
   };
 
   const style = typeStyles[change.changeType] || typeStyles.state_shift;

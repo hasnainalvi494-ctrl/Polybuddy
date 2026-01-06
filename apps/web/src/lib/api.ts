@@ -557,6 +557,11 @@ export async function getCrowdChasingSignal(marketId: string): Promise<RetailSig
   return fetchApi(`/api/retail-signals/markets/${marketId}/crowd-chasing`);
 }
 
+// Get event window signal for a market
+export async function getEventWindowSignal(marketId: string): Promise<RetailSignal | null> {
+  return fetchApi(`/api/retail-signals/markets/${marketId}/event-window`);
+}
+
 // Get all retail signals for a market
 export async function getMarketRetailSignals(marketId: string): Promise<MarketRetailSignalsResponse> {
   return fetchApi(`/api/retail-signals/markets/${marketId}`);

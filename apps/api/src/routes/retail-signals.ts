@@ -474,6 +474,159 @@ async function computeCrowdChasingSignal(
 }
 
 // ============================================
+// SIGNAL TYPE 4: EVENT WINDOW OPENING
+// ============================================
+
+type EventWindowMetrics = {
+  hoursUntilEvent: number | null;
+  historicalMoveAvg: number;
+  currentStability: number;
+  eventType: string | null;
+};
+
+async function computeEventWindowSignal(
+  marketId: string,
+  market: {
+    endDate: Date | null;
+    category: string | null;
+    clusterLabel: string | null;
+  }
+): Promise<{
+  label: string;
+  isFavorable: boolean;
+  confidence: "low" | "medium" | "high";
+  whyBullets: WhyBullet[];
+  metrics: EventWindowMetrics;
+} | null> {
+  const now = new Date();
+
+  // Need an end date to determine event timing
+  if (!market.endDate) {
+    return null;
+  }
+
+  const hoursUntilEnd = (market.endDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+  // Only generate signal if event is within a reasonable window (1-168 hours)
+  if (hoursUntilEnd <= 0 || hoursUntilEnd > 168) {
+    return null;
+  }
+
+  // Get recent snapshots to measure current stability
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const recentSnapshots = await db
+    .select({
+      price: marketSnapshots.price,
+      snapshotAt: marketSnapshots.snapshotAt,
+    })
+    .from(marketSnapshots)
+    .where(
+      and(
+        eq(marketSnapshots.marketId, marketId),
+        gte(marketSnapshots.snapshotAt, oneWeekAgo)
+      )
+    )
+    .orderBy(desc(marketSnapshots.snapshotAt))
+    .limit(100);
+
+  if (recentSnapshots.length < 5) {
+    return null; // Not enough data
+  }
+
+  // Calculate stability (standard deviation of prices)
+  const prices = recentSnapshots
+    .map((s) => (s.price ? Number(s.price) : null))
+    .filter((p): p is number => p !== null);
+
+  const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+  const variance = prices.reduce((sum, p) => sum + Math.pow(p - avgPrice, 2), 0) / prices.length;
+  const stdDev = Math.sqrt(variance);
+
+  // Stability score: lower stdDev = higher stability (0-100)
+  const currentStability = Math.max(0, Math.min(100, 100 - stdDev * 500));
+
+  // Determine event type based on cluster label or category
+  const eventType = market.clusterLabel || market.category || "unknown";
+
+  // Historical move average based on event type (simplified heuristics)
+  let historicalMoveAvg = 10; // Default 10%
+  if (market.clusterLabel === "scheduled_event" || market.clusterLabel === "sports_scheduled") {
+    historicalMoveAvg = 25; // Scheduled events often have big moves
+  } else if (market.clusterLabel === "binary_catalyst") {
+    historicalMoveAvg = 35; // Binary catalysts can swing hard
+  } else if (market.clusterLabel === "high_volatility") {
+    historicalMoveAvg = 20;
+  }
+
+  // Determine if this is an actionable window
+  const isNearEvent = hoursUntilEnd <= 48;
+  const isStable = currentStability > 60;
+  const hasHistoricalPattern = historicalMoveAvg > 15;
+
+  const isActionableWindow = isNearEvent && isStable && hasHistoricalPattern;
+
+  let label: string;
+  let isFavorable: boolean;
+  let confidence: "low" | "medium" | "high";
+
+  if (isActionableWindow) {
+    isFavorable = true;
+    label = "Information Window Approaching";
+    confidence = hoursUntilEnd <= 12 ? "high" : hoursUntilEnd <= 24 ? "medium" : "low";
+  } else if (isNearEvent && !isStable) {
+    isFavorable = false;
+    label = "Event Approaching — Already Volatile";
+    confidence = "medium";
+  } else {
+    isFavorable = false;
+    label = "No Imminent Catalyst Window";
+    confidence = "low";
+  }
+
+  // Format hours for display
+  const hoursDisplay = hoursUntilEnd < 1
+    ? `${Math.round(hoursUntilEnd * 60)} minutes`
+    : hoursUntilEnd < 24
+    ? `${Math.round(hoursUntilEnd)} hours`
+    : `${Math.round(hoursUntilEnd / 24)} days`;
+
+  const whyBullets: WhyBullet[] = [
+    {
+      text: `Resolution in ${hoursDisplay} — ${isNearEvent ? "repricing window opening" : "time to position"}`,
+      metric: "hours_until_event",
+      value: hoursUntilEnd,
+      unit: "hours",
+    },
+    {
+      text: `Historical moves of ${historicalMoveAvg}% typical for ${eventType} markets`,
+      metric: "historical_move_avg",
+      value: historicalMoveAvg,
+      unit: "%",
+    },
+    {
+      text: isStable
+        ? `Current stability score ${currentStability.toFixed(0)} — price consolidating before event`
+        : `Stability score ${currentStability.toFixed(0)} — already pricing in volatility`,
+      metric: "stability",
+      value: currentStability,
+    },
+  ];
+
+  return {
+    label,
+    isFavorable,
+    confidence,
+    whyBullets,
+    metrics: {
+      hoursUntilEvent: hoursUntilEnd,
+      historicalMoveAvg,
+      currentStability,
+      eventType,
+    },
+  };
+}
+
+// ============================================
 // ROUTES
 // ============================================
 
@@ -748,6 +901,98 @@ export const retailSignalsRoutes: FastifyPluginAsync = async (app) => {
           whyBullets: result.whyBullets,
           metrics: result.metrics,
           validUntil: new Date(Date.now() + 1 * 60 * 60 * 1000), // Valid for 1 hour (more dynamic)
+        })
+        .returning();
+
+      return {
+        id: newSignal!.id,
+        marketId: newSignal!.marketId,
+        signalType: newSignal!.signalType,
+        label: newSignal!.label,
+        isFavorable: newSignal!.isFavorable,
+        confidence: newSignal!.confidence,
+        whyBullets: result.whyBullets,
+        metrics: result.metrics,
+        computedAt: newSignal!.computedAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+  );
+
+  // Get event window signal for a market
+  typedApp.get(
+    "/markets/:marketId/event-window",
+    {
+      schema: {
+        params: z.object({ marketId: z.string().uuid() }),
+        response: {
+          200: RetailSignalSchema.nullable(),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { marketId } = request.params;
+
+      // Check for cached signal (within last hour)
+      const existingSignal = await db
+        .select()
+        .from(retailSignals)
+        .where(
+          and(
+            eq(retailSignals.marketId, marketId),
+            eq(retailSignals.signalType, "event_window"),
+            gte(retailSignals.computedAt, new Date(Date.now() - 60 * 60 * 1000))
+          )
+        )
+        .orderBy(desc(retailSignals.computedAt))
+        .limit(1);
+
+      if (existingSignal.length > 0) {
+        const signal = existingSignal[0]!;
+        return {
+          id: signal.id,
+          marketId: signal.marketId,
+          signalType: signal.signalType,
+          label: signal.label,
+          isFavorable: signal.isFavorable,
+          confidence: signal.confidence,
+          whyBullets: signal.whyBullets as WhyBullet[],
+          metrics: signal.metrics as Record<string, unknown> | null,
+          computedAt: signal.computedAt?.toISOString() || new Date().toISOString(),
+        };
+      }
+
+      // Get market data
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, marketId),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      const result = await computeEventWindowSignal(marketId, {
+        endDate: market.endDate,
+        category: market.category,
+        clusterLabel: market.clusterLabel,
+      });
+
+      if (!result) {
+        return null; // No event window to track
+      }
+
+      // Store the computed signal
+      const [newSignal] = await db
+        .insert(retailSignals)
+        .values({
+          marketId,
+          signalType: "event_window",
+          label: result.label,
+          isFavorable: result.isFavorable,
+          confidence: result.confidence,
+          whyBullets: result.whyBullets,
+          metrics: result.metrics,
+          validUntil: new Date(Date.now() + 1 * 60 * 60 * 1000),
         })
         .returning();
 

@@ -268,8 +268,42 @@ export function PublicContextCard({ marketId }: PublicContextCardProps) {
         </div>
       )}
 
+      {/* Large Wallet Entry Summary */}
+      {data.participation.largeWalletsEntered24h !== undefined && data.participation.largeWalletsEntered24h > 0 && (
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              {data.participation.largeWalletsEntered24h} wallet{data.participation.largeWalletsEntered24h !== 1 ? 's' : ''} with &gt;$10K entered {data.participation.largeWalletsEnteredDirection || 'YES'} in last 24h
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Volume vs Average Indicator */}
+      {data.volume.volumeVsAverage !== undefined && (
+        <div className="mt-3 flex items-center justify-between text-sm">
+          <span className="text-gray-500 dark:text-gray-400">Volume vs 7d avg:</span>
+          <span className={`font-medium ${
+            data.volume.volumeVsAverage > 1.5 ? 'text-orange-600 dark:text-orange-400' :
+            data.volume.volumeVsAverage > 1 ? 'text-green-600 dark:text-green-400' :
+            'text-gray-600 dark:text-gray-400'
+          }`}>
+            {(data.volume.volumeVsAverage * 100).toFixed(0)}% of average
+            {data.volume.volumeVsAverage > 1.5 && ' (Elevated)'}
+          </span>
+        </div>
+      )}
+
+      {/* Disclaimer */}
+      <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-700/50 rounded text-xs text-gray-500 dark:text-gray-400">
+        <span className="font-medium">Disclaimer:</span> Public on-chain data. Not trading advice.
+      </div>
+
       {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
         <p className="text-xs text-gray-400 text-right">
           Updated {formatTime(data.computedAt)}
         </p>

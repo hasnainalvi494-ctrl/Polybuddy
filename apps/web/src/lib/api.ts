@@ -425,6 +425,8 @@ export type PublicContextResponse = {
     activeWallets24h: number;
     newWallets24h: number;
     walletTrend: WalletTrend;
+    largeWalletsEntered24h?: number; // Wallets with >$10K entered in last 24h
+    largeWalletsEnteredDirection?: "YES" | "NO"; // Which direction they entered
   };
   positions: {
     totalLongPositions: number;
@@ -439,6 +441,7 @@ export type PublicContextResponse = {
     volumeChange24h: number;
     avgDailyVolume: number;
     isVolumeSpike: boolean;
+    volumeVsAverage?: number; // Ratio of 24h volume to 7d average
   };
   largeTransactions: Array<{
     timestamp: string;

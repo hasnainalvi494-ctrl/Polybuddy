@@ -1,8 +1,29 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, markets, marketSnapshots } from "@polybuddy/db";
+import { db, markets, marketSnapshots, marketBehaviorDimensions } from "@polybuddy/db";
 import { eq, desc, asc, ilike, sql, and, gte } from "drizzle-orm";
+
+// Behavior cluster type
+const BehaviorClusterSchema = z.object({
+  cluster: z.enum([
+    "scheduled_event",
+    "continuous_info",
+    "binary_catalyst",
+    "high_volatility",
+    "long_duration",
+    "sports_scheduled",
+  ]).nullable(),
+  confidence: z.number().nullable(),
+  explanation: z.string().nullable(),
+  dimensions: z.object({
+    infoCadence: z.number().nullable(),
+    infoStructure: z.number().nullable(),
+    liquidityStability: z.number().nullable(),
+    timeToResolution: z.number().nullable(),
+    participantConcentration: z.number().nullable(),
+  }).nullable(),
+});
 
 // UUID validation helper
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -262,6 +283,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
               .nullable(),
             qualitySummary: z.string().nullable(),
             isLowQuality: z.boolean(),
+            behaviorCluster: BehaviorClusterSchema.nullable(),
           }),
           404: z.object({ error: z.string() }),
         },
@@ -328,6 +350,26 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
 
       const isLowQuality = market.qualityGrade === "D" || market.qualityGrade === "F";
 
+      // Get behavior cluster dimensions
+      const [behaviorDims] = await db
+        .select()
+        .from(marketBehaviorDimensions)
+        .where(eq(marketBehaviorDimensions.marketId, id))
+        .limit(1);
+
+      const behaviorCluster = behaviorDims ? {
+        cluster: behaviorDims.behaviorCluster,
+        confidence: behaviorDims.clusterConfidence,
+        explanation: behaviorDims.clusterExplanation,
+        dimensions: {
+          infoCadence: behaviorDims.infoCadence,
+          infoStructure: behaviorDims.infoStructure,
+          liquidityStability: behaviorDims.liquidityStability,
+          timeToResolution: behaviorDims.timeToResolution,
+          participantConcentration: behaviorDims.participantConcentration,
+        },
+      } : null;
+
       return {
         id: market.id,
         polymarketId: market.polymarketId,
@@ -356,6 +398,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           : null,
         qualitySummary,
         isLowQuality,
+        behaviorCluster,
       };
     }
   );
@@ -426,6 +469,180 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           price: s.price ? Number(s.price) : 0,
           volume: s.volume24h ? Number(s.volume24h) : 0,
         })),
+      };
+    }
+  );
+
+  // Compute behavior cluster for a market
+  typedApp.post(
+    "/:id/compute-cluster",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: BehaviorClusterSchema,
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      // Get market
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      // Get historical snapshots for analysis
+      const snapshots = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(100);
+
+      // Compute dimensions
+      const now = new Date();
+      const endDate = market.endDate;
+      const hoursToResolution = endDate
+        ? Math.max(0, (endDate.getTime() - now.getTime()) / (1000 * 60 * 60))
+        : null;
+
+      // Info cadence: How frequently does new info arrive? (0-100)
+      // Sports = high cadence, long-term political = low
+      let infoCadence = 50;
+      const category = market.category?.toLowerCase() || "";
+      if (category.includes("sports") || category.includes("nba") || category.includes("nfl")) {
+        infoCadence = 90;
+      } else if (category.includes("crypto") || category.includes("bitcoin")) {
+        infoCadence = 80;
+      } else if (category.includes("politics") || category.includes("election")) {
+        infoCadence = 40;
+      }
+
+      // Info structure: Continuous vs discrete (0=continuous, 100=single event)
+      let infoStructure = 50;
+      if (hoursToResolution !== null && hoursToResolution < 24) {
+        infoStructure = 90; // Binary event coming soon
+      } else if (category.includes("sports")) {
+        infoStructure = 95; // Sports are discrete events
+      } else if (category.includes("will") && category.includes("2025")) {
+        infoStructure = 70; // Year-end resolution
+      }
+
+      // Liquidity stability: How stable is liquidity? (from snapshots)
+      let liquidityStability = 50;
+      if (snapshots.length >= 5) {
+        const liquidities = snapshots
+          .map(s => s.liquidity ? Number(s.liquidity) : 0)
+          .filter(l => l > 0);
+        if (liquidities.length >= 3) {
+          const avg = liquidities.reduce((a, b) => a + b, 0) / liquidities.length;
+          const variance = liquidities.reduce((sum, l) => sum + Math.pow(l - avg, 2), 0) / liquidities.length;
+          const cv = Math.sqrt(variance) / avg; // Coefficient of variation
+          liquidityStability = Math.max(0, Math.min(100, 100 - cv * 100));
+        }
+      }
+
+      // Time to resolution (normalized 0-100, lower = sooner)
+      let timeToResolution = 50;
+      if (hoursToResolution !== null) {
+        if (hoursToResolution < 24) timeToResolution = 10;
+        else if (hoursToResolution < 168) timeToResolution = 30; // < 1 week
+        else if (hoursToResolution < 720) timeToResolution = 50; // < 1 month
+        else if (hoursToResolution < 2160) timeToResolution = 70; // < 3 months
+        else timeToResolution = 90;
+      }
+
+      // Participant concentration: Estimate from volume patterns
+      let participantConcentration = 50;
+      if (snapshots.length >= 5) {
+        const volumes = snapshots
+          .map(s => s.volume24h ? Number(s.volume24h) : 0)
+          .filter(v => v > 0);
+        if (volumes.length >= 3) {
+          const maxVol = Math.max(...volumes);
+          const avgVol = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+          // High max/avg ratio suggests concentrated activity
+          participantConcentration = Math.min(100, (maxVol / avgVol) * 20);
+        }
+      }
+
+      // Determine cluster based on dimensions
+      let cluster: "scheduled_event" | "continuous_info" | "binary_catalyst" | "high_volatility" | "long_duration" | "sports_scheduled";
+      let explanation: string;
+      let confidence = 70;
+
+      if (category.includes("sports") || category.includes("nba") || category.includes("nfl") || category.includes("soccer")) {
+        cluster = "sports_scheduled";
+        explanation = "Sports market with known event timing and binary outcome";
+        confidence = 95;
+      } else if (infoStructure > 80 && timeToResolution < 30) {
+        cluster = "binary_catalyst";
+        explanation = "Single event resolution approaching with binary outcome";
+        confidence = 85;
+      } else if (infoCadence > 70 && liquidityStability < 40) {
+        cluster = "high_volatility";
+        explanation = "Frequent information flow with unstable liquidity";
+        confidence = 75;
+      } else if (timeToResolution > 70) {
+        cluster = "long_duration";
+        explanation = "Long time to resolution, suitable for position building";
+        confidence = 80;
+      } else if (infoStructure > 60) {
+        cluster = "scheduled_event";
+        explanation = "Scheduled event with known timing (election, earnings, etc)";
+        confidence = 70;
+      } else {
+        cluster = "continuous_info";
+        explanation = "Ongoing information flow affects pricing continuously";
+        confidence = 65;
+      }
+
+      // Upsert behavior dimensions
+      await db
+        .insert(marketBehaviorDimensions)
+        .values({
+          marketId: id,
+          infoCadence: Math.round(infoCadence),
+          infoStructure: Math.round(infoStructure),
+          liquidityStability: Math.round(liquidityStability),
+          timeToResolution: Math.round(timeToResolution),
+          participantConcentration: Math.round(participantConcentration),
+          behaviorCluster: cluster,
+          clusterConfidence: confidence,
+          clusterExplanation: explanation,
+        })
+        .onConflictDoUpdate({
+          target: marketBehaviorDimensions.marketId,
+          set: {
+            infoCadence: Math.round(infoCadence),
+            infoStructure: Math.round(infoStructure),
+            liquidityStability: Math.round(liquidityStability),
+            timeToResolution: Math.round(timeToResolution),
+            participantConcentration: Math.round(participantConcentration),
+            behaviorCluster: cluster,
+            clusterConfidence: confidence,
+            clusterExplanation: explanation,
+            updatedAt: new Date(),
+          },
+        });
+
+      return {
+        cluster,
+        confidence,
+        explanation,
+        dimensions: {
+          infoCadence: Math.round(infoCadence),
+          infoStructure: Math.round(infoStructure),
+          liquidityStability: Math.round(liquidityStability),
+          timeToResolution: Math.round(timeToResolution),
+          participantConcentration: Math.round(participantConcentration),
+        },
       };
     }
   );

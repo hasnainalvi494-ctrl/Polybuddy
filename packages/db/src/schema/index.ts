@@ -634,3 +634,71 @@ export const weeklyReportsRelations = relations(weeklyReports, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Retail Signal System
+// ============================================
+
+export const retailSignalType = pgEnum("retail_signal_type", [
+  "favorable_structure",      // Low friction market structure
+  "structural_mispricing",    // Odds stretched vs related markets
+  "crowd_chasing",            // FOMO/late entry risk
+  "event_window",             // Information window approaching
+  "retail_friendliness",      // Retail-friendly vs unfriendly structure
+]);
+
+export const signalConfidence = pgEnum("signal_confidence", [
+  "low",
+  "medium",
+  "high",
+]);
+
+export const retailSignals = pgTable("retail_signals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  signalType: retailSignalType("signal_type").notNull(),
+  // Label is the human-readable signal output
+  label: varchar("label", { length: 200 }).notNull(),
+  // Whether this is favorable or unfavorable for retail
+  isFavorable: boolean("is_favorable").notNull(),
+  confidence: signalConfidence("confidence").notNull(),
+  // 3 "Why" bullets with numbers (stored as JSON array)
+  whyBullets: jsonb("why_bullets").notNull(), // [{text, metric, value, unit}]
+  // Raw metrics used to compute signal
+  metrics: jsonb("metrics"), // Signal-specific metrics
+  // Validity
+  validFrom: timestamp("valid_from", { withTimezone: true }).defaultNow(),
+  validUntil: timestamp("valid_until", { withTimezone: true }),
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+});
+
+export const retailSignalsRelations = relations(retailSignals, ({ one }) => ({
+  market: one(markets, {
+    fields: [retailSignals.marketId],
+    references: [markets.id],
+  }),
+}));
+
+// Signal subscriptions for users
+export const signalSubscriptions = pgTable("signal_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  signalType: retailSignalType("signal_type").notNull(),
+  enabled: boolean("enabled").default(true),
+  // Region opt-in required
+  regionOptIn: boolean("region_opt_in").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const signalSubscriptionsRelations = relations(signalSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [signalSubscriptions.userId],
+    references: [users.id],
+  }),
+}));

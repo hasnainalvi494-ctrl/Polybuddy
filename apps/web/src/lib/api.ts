@@ -505,6 +505,53 @@ export async function checkSignalsAvailability(): Promise<SignalsAvailability> {
   return fetchApi("/api/signals/availability");
 }
 
+// ============================================
+// RETAIL SIGNALS
+// ============================================
+
+export type RetailSignalType =
+  | "favorable_structure"
+  | "structural_mispricing"
+  | "crowd_chasing"
+  | "event_window"
+  | "retail_friendliness";
+
+export type SignalConfidenceLevel = "low" | "medium" | "high";
+
+export type RetailWhyBullet = {
+  text: string;
+  metric: string;
+  value: number;
+  unit?: string;
+};
+
+export type RetailSignal = {
+  id: string;
+  marketId: string;
+  signalType: RetailSignalType;
+  label: string;
+  isFavorable: boolean;
+  confidence: SignalConfidenceLevel;
+  whyBullets: RetailWhyBullet[];
+  metrics: Record<string, unknown> | null;
+  computedAt: string;
+};
+
+export type MarketRetailSignalsResponse = {
+  marketId: string;
+  signals: RetailSignal[];
+};
+
+// Get favorable structure signal for a market
+export async function getFavorableStructureSignal(marketId: string): Promise<RetailSignal | null> {
+  return fetchApi(`/api/retail-signals/markets/${marketId}/favorable-structure`);
+}
+
+// Get all retail signals for a market
+export async function getMarketRetailSignals(marketId: string): Promise<MarketRetailSignalsResponse> {
+  return fetchApi(`/api/retail-signals/markets/${marketId}`);
+}
+
 // Weekly Reports types
 export type WeeklyReport = {
   id: string;

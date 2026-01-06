@@ -690,3 +690,37 @@ export async function generateReport(weekOffset?: number): Promise<WeeklyReport>
     body: JSON.stringify({ weekOffset: weekOffset || 0 }),
   });
 }
+
+// ============================================
+// DAILY ATTENTION
+// ============================================
+
+export type DailyAttentionResponse = {
+  worthAttention: Array<{
+    id: string;
+    question: string;
+    category: string | null;
+    setupLabel: string;
+    confidence: number;
+    whyBullets: Array<{ text: string; value: string; unit: string }>;
+    whyThisMatters: string;
+  }>;
+  retailTraps: Array<{
+    id: string;
+    question: string;
+    category: string | null;
+    warningLabel: string;
+    commonMistake: string;
+  }>;
+  whatChanged: Array<{
+    marketId: string;
+    question: string;
+    changeType: "state_shift" | "event_window" | "mispricing";
+    description: string;
+  }>;
+  generatedAt: string;
+};
+
+export async function getDailyAttention(): Promise<DailyAttentionResponse> {
+  return fetchApi("/api/daily");
+}

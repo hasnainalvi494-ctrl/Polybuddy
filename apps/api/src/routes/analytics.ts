@@ -16,9 +16,12 @@ import {
   isExposureDangerous,
   detectRelation,
   checkConsistency,
+  classifyBehavior,
+  getClusterDisplayInfo,
   type MarketFeaturesInput,
   type PositionInput,
   type MarketPairInput,
+  type MarketInput,
 } from "@polybuddy/analytics";
 
 // UUID validation helper
@@ -511,6 +514,99 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
       return {
         marketId: id,
         relatedMarkets,
+      };
+    }
+  );
+
+  // =============================================
+  // BEHAVIOR CLUSTER - GET /api/analytics/markets/:id/behavior
+  // =============================================
+  typedApp.get(
+    "/markets/:id/behavior",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            cluster: z.enum([
+              "scheduled_event",
+              "continuous_info",
+              "binary_catalyst",
+              "high_volatility",
+              "long_duration",
+              "sports_scheduled",
+            ]),
+            clusterLabel: z.string(),
+            confidence: z.number(),
+            explanation: z.string(),
+            dimensions: z.object({
+              infoCadence: z.number(),
+              infoStructure: z.number(),
+              liquidityStability: z.number(),
+              timeToResolution: z.number(),
+              participantConcentration: z.number(),
+            }),
+            whyBullets: z.array(WhyBulletSchema),
+            displayInfo: z.object({
+              label: z.string(),
+              description: z.string(),
+              color: z.string(),
+              icon: z.string(),
+            }),
+            computedAt: z.string(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      // Get market
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      // Get latest snapshot for metrics
+      const [snapshot] = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(1);
+
+      // Build market input
+      const marketInput: MarketInput = {
+        marketId: id,
+        question: market.question,
+        category: market.category,
+        endDate: market.endDate,
+        avgSpread: snapshot?.spread ? Number(snapshot.spread) : null,
+        avgVolume24h: snapshot?.volume24h ? Number(snapshot.volume24h) : null,
+      };
+
+      const result = classifyBehavior(marketInput);
+      const displayInfo = getClusterDisplayInfo(result.cluster);
+
+      return {
+        marketId: result.marketId,
+        cluster: result.cluster,
+        clusterLabel: result.clusterLabel,
+        confidence: result.confidence,
+        explanation: result.explanation,
+        dimensions: result.dimensions,
+        whyBullets: result.whyBullets,
+        displayInfo,
+        computedAt: result.computedAt.toISOString(),
       };
     }
   );

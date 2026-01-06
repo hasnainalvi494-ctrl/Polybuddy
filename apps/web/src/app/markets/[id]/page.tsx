@@ -7,6 +7,7 @@ import { PriceHistoryChart } from "@/components/PriceHistoryChart";
 import { MarketBehaviorCard } from "@/components/MarketBehaviorCard";
 import { ExposureRiskCard } from "@/components/ExposureRiskCard";
 import { ProHistoryPlaceholder } from "@/components/ProHistoryPlaceholder";
+import { BehaviorClusterBadge } from "@/components/BehaviorClusterBadge";
 
 interface QualityBreakdown {
   spreadScore: number;
@@ -149,6 +150,7 @@ export default function MarketDetailPage() {
                 <span className={`text-xs px-2.5 py-1 rounded-full ${timeHorizon.isShort ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400" : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"}`}>
                   {timeHorizon.label} horizon
                 </span>
+                <BehaviorClusterBadge marketId={market.id} />
               </div>
             </div>
           </div>

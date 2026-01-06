@@ -307,3 +307,41 @@ export async function getRelatedMarkets(marketId: string, limit?: number): Promi
   const query = limit ? `?limit=${limit}` : "";
   return fetchApi(`/api/analytics/markets/${marketId}/related${query}`);
 }
+
+// Behavior Cluster types
+export type BehaviorClusterType =
+  | "scheduled_event"
+  | "continuous_info"
+  | "binary_catalyst"
+  | "high_volatility"
+  | "long_duration"
+  | "sports_scheduled";
+
+export type BehaviorDimensions = {
+  infoCadence: number;
+  infoStructure: number;
+  liquidityStability: number;
+  timeToResolution: number;
+  participantConcentration: number;
+};
+
+export type BehaviorClusterResponse = {
+  marketId: string;
+  cluster: BehaviorClusterType;
+  clusterLabel: string;
+  confidence: number;
+  explanation: string;
+  dimensions: BehaviorDimensions;
+  whyBullets: WhyBullet[];
+  displayInfo: {
+    label: string;
+    description: string;
+    color: string;
+    icon: string;
+  };
+  computedAt: string;
+};
+
+export async function getMarketBehavior(marketId: string): Promise<BehaviorClusterResponse> {
+  return fetchApi(`/api/analytics/markets/${marketId}/behavior`);
+}

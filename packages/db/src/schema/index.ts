@@ -83,6 +83,16 @@ export const flowLabelType = pgEnum("flow_label_type", [
   "exhaustion_move",      // Exhaustion Move
 ]);
 
+// Behavior Cluster enum
+export const behaviorClusterType = pgEnum("behavior_cluster_type", [
+  "scheduled_event",     // Scheduled Event (e.g., elections, earnings)
+  "continuous_info",     // Continuous Info (e.g., ongoing geopolitical)
+  "binary_catalyst",     // Binary Catalyst (single event resolution)
+  "high_volatility",     // High Volatility (jumpy, news-driven)
+  "long_duration",       // Long Duration (months away)
+  "sports_scheduled",    // Sports/Scheduled (known timing, binary)
+]);
+
 // Consistency Check enums
 export const relationTypeEnum = pgEnum("relation_type", [
   "calendar_variant",     // Same question, different dates
@@ -521,5 +531,37 @@ export const flowLabelsRelations = relations(flowLabels, ({ one }) => ({
   flowEvent: one(walletFlowEvents, {
     fields: [flowLabels.flowEventId],
     references: [walletFlowEvents.id],
+  }),
+}));
+
+// ============================================
+// FEATURE: Behavior-Based Market Clustering
+// ============================================
+
+export const marketBehaviorDimensions = pgTable("market_behavior_dimensions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id)
+    .unique(),
+  // 5 dimensions (0-100 scale)
+  infoCadence: integer("info_cadence"), // How often new info arrives (0=rare, 100=constant)
+  infoStructure: integer("info_structure"), // Structured vs unstructured (0=unstructured, 100=scheduled)
+  liquidityStability: integer("liquidity_stability"), // How stable is liquidity (0=volatile, 100=stable)
+  timeToResolution: integer("time_to_resolution"), // 0=minutes, 100=months+
+  participantConcentration: integer("participant_concentration"), // 0=distributed, 100=concentrated
+  // Cluster assignment
+  behaviorCluster: behaviorClusterType("behavior_cluster"),
+  clusterConfidence: integer("cluster_confidence"), // 0-100
+  clusterExplanation: text("cluster_explanation"),
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const marketBehaviorDimensionsRelations = relations(marketBehaviorDimensions, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketBehaviorDimensions.marketId],
+    references: [markets.id],
   }),
 }));

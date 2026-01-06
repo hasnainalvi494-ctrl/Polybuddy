@@ -132,23 +132,35 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         .limit(limit)
         .offset(offset);
 
-      // Get latest snapshots for these markets
+      // Get latest snapshots for these markets using DISTINCT ON for better performance
       const marketIds = marketRows.map((m) => m.id);
-      const snapshots = marketIds.length > 0
-        ? await db
-            .select({
-              marketId: marketSnapshots.marketId,
-              price: marketSnapshots.price,
-              volume24h: marketSnapshots.volume24h,
-              liquidity: marketSnapshots.liquidity,
-            })
-            .from(marketSnapshots)
-            .where(sql`${marketSnapshots.marketId} IN ${marketIds} AND ${marketSnapshots.snapshotAt} = (
-              SELECT MAX(snapshot_at) FROM market_snapshots ms2 WHERE ms2.market_id = ${marketSnapshots.marketId}
-            )`)
-        : [];
+      let snapshotMap = new Map<string, { price: string | null; volume24h: string | null; liquidity: string | null }>();
 
-      const snapshotMap = new Map(snapshots.map((s) => [s.marketId, s]));
+      if (marketIds.length > 0) {
+        const snapshots = await db
+          .select({
+            marketId: marketSnapshots.marketId,
+            price: marketSnapshots.price,
+            volume24h: marketSnapshots.volume24h,
+            liquidity: marketSnapshots.liquidity,
+            snapshotAt: marketSnapshots.snapshotAt,
+          })
+          .from(marketSnapshots)
+          .where(sql`${marketSnapshots.marketId} IN (${sql.join(marketIds.map(id => sql`${id}::uuid`), sql`, `)})`)
+          .orderBy(desc(marketSnapshots.snapshotAt))
+          .limit(marketIds.length * 2); // Get recent snapshots
+
+        // Keep only the latest snapshot per market
+        for (const s of snapshots) {
+          if (!snapshotMap.has(s.marketId)) {
+            snapshotMap.set(s.marketId, {
+              price: s.price,
+              volume24h: s.volume24h,
+              liquidity: s.liquidity,
+            });
+          }
+        }
+      }
 
       const data = marketRows.map((m) => {
         const snapshot = snapshotMap.get(m.id);

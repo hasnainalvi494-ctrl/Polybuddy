@@ -552,6 +552,11 @@ export async function getStructuralMispricingSignal(marketId: string): Promise<R
   return fetchApi(`/api/retail-signals/markets/${marketId}/structural-mispricing`);
 }
 
+// Get crowd chasing signal for a market
+export async function getCrowdChasingSignal(marketId: string): Promise<RetailSignal | null> {
+  return fetchApi(`/api/retail-signals/markets/${marketId}/crowd-chasing`);
+}
+
 // Get all retail signals for a market
 export async function getMarketRetailSignals(marketId: string): Promise<MarketRetailSignalsResponse> {
   return fetchApi(`/api/retail-signals/markets/${marketId}`);

@@ -8,6 +8,7 @@ import {
   portfolioPositions,
   decisionReviews,
   markets,
+  hiddenExposureLinks,
 } from "@polybuddy/db";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
@@ -32,8 +33,14 @@ function generatePatterns(metrics: {
   concentrationScore: number;
   qualityDisciplineScore: number;
   totalTrades: number;
+  linkedPositionCount?: number;
 }): string[] {
   const patterns: string[] = [];
+
+  // Hidden exposure warning - add first as it's a critical pattern
+  if (metrics.linkedPositionCount && metrics.linkedPositionCount >= 2) {
+    patterns.push(`You held ${metrics.linkedPositionCount} linked positions this week — they move together, increasing drawdowns without increasing edge`);
+  }
 
   if (metrics.winRate < 40 && metrics.totalTrades >= 3) {
     patterns.push("Win rate below 40% — consider reducing position sizes");
@@ -320,12 +327,42 @@ export const reportsRoutes: FastifyPluginAsync = async (app) => {
       const qualityDisciplineScore = 50 + Math.floor(Math.random() * 35); // 50-85
       const realizedPnl = (Math.random() - 0.4) * 500; // -$200 to +$300
 
+      // Count linked positions from hidden exposure detection
+      let linkedPositionCount = 0;
+      if (walletIds.length > 0) {
+        // Get user's position market IDs
+        const positionMarketIds = await db
+          .select({ marketId: portfolioPositions.marketId })
+          .from(portfolioPositions)
+          .where(sql`${portfolioPositions.walletId} IN ${walletIds}`);
+
+        const marketIds = positionMarketIds.map(p => p.marketId);
+
+        if (marketIds.length > 1) {
+          // Check for highly linked markets among user's positions
+          const linkedPairs = await db
+            .select({ id: hiddenExposureLinks.id })
+            .from(hiddenExposureLinks)
+            .where(
+              and(
+                sql`${hiddenExposureLinks.marketAId} IN (${sql.join(marketIds.map(id => sql`${id}::uuid`), sql`, `)})`,
+                sql`${hiddenExposureLinks.marketBId} IN (${sql.join(marketIds.map(id => sql`${id}::uuid`), sql`, `)})`,
+                sql`${hiddenExposureLinks.exposureLabel} = 'highly_linked'`
+              )
+            );
+
+          // Count unique markets in linked pairs (roughly)
+          linkedPositionCount = Math.min(marketIds.length, linkedPairs.length * 2);
+        }
+      }
+
       const patterns = generatePatterns({
         winRate,
         entryTimingScore,
         concentrationScore,
         qualityDisciplineScore,
         totalTrades,
+        linkedPositionCount,
       });
 
       const coachingNotes = generateCoachingNotes({

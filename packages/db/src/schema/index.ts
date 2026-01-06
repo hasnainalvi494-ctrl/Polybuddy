@@ -761,3 +761,112 @@ export const retailFlowGuardRelations = relations(retailFlowGuard, ({ one }) => 
     references: [markets.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Hidden Exposure Detector
+// ============================================
+
+// Exposure link label enum
+export const exposureLinkLabel = pgEnum("exposure_link_label", [
+  "independent",        // Outcomes largely unrelated
+  "partially_linked",   // Some shared drivers
+  "highly_linked",      // Effectively the same bet
+]);
+
+// Market resolution drivers - what determines the outcome
+export const marketResolutionDrivers = pgTable("market_resolution_drivers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id)
+    .unique(),
+  // Underlying asset or subject (e.g., BTC, ETH, Trump, Fed)
+  underlyingAsset: varchar("underlying_asset", { length: 100 }),
+  // Resolution source (exchange, oracle, news outlet)
+  resolutionSource: varchar("resolution_source", { length: 200 }),
+  // Resolution window start/end for time overlap detection
+  resolutionWindowStart: timestamp("resolution_window_start", { withTimezone: true }),
+  resolutionWindowEnd: timestamp("resolution_window_end", { withTimezone: true }),
+  // Narrative dependency - the event or story this depends on
+  narrativeDependency: varchar("narrative_dependency", { length: 200 }),
+  // Asset category for grouping
+  assetCategory: varchar("asset_category", { length: 50 }),
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+});
+
+export const marketResolutionDriversRelations = relations(marketResolutionDrivers, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketResolutionDrivers.marketId],
+    references: [markets.id],
+  }),
+}));
+
+// Hidden exposure links between markets
+export const hiddenExposureLinks = pgTable("hidden_exposure_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketAId: uuid("market_a_id")
+    .notNull()
+    .references(() => markets.id),
+  marketBId: uuid("market_b_id")
+    .notNull()
+    .references(() => markets.id),
+  // Exposure classification
+  exposureLabel: exposureLinkLabel("exposure_label").notNull(),
+  // Plain English explanation
+  explanation: text("explanation").notNull(),
+  // Example outcome showing how they're linked
+  exampleOutcome: text("example_outcome").notNull(),
+  // What mistake this warning prevents
+  mistakePrevented: text("mistake_prevented").notNull(),
+  // Shared driver type (asset, time, narrative)
+  sharedDriverType: varchar("shared_driver_type", { length: 50 }).notNull(),
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+});
+
+export const hiddenExposureLinksRelations = relations(hiddenExposureLinks, ({ one }) => ({
+  marketA: one(markets, {
+    fields: [hiddenExposureLinks.marketAId],
+    references: [markets.id],
+  }),
+  marketB: one(markets, {
+    fields: [hiddenExposureLinks.marketBId],
+    references: [markets.id],
+  }),
+}));
+
+// Portfolio hidden exposure warnings for users
+export const portfolioExposureWarnings = pgTable("portfolio_exposure_warnings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  walletId: uuid("wallet_id")
+    .notNull()
+    .references(() => trackedWallets.id, { onDelete: "cascade" }),
+  // Markets involved in the exposure
+  marketIds: jsonb("market_ids").notNull(), // Array of market IDs
+  // Warning details
+  exposureLabel: exposureLinkLabel("exposure_label").notNull(),
+  warningTitle: varchar("warning_title", { length: 200 }).notNull(),
+  explanation: text("explanation").notNull(),
+  exampleOutcome: text("example_outcome").notNull(),
+  mistakePrevented: text("mistake_prevented").notNull(),
+  // Is this warning dismissed by user?
+  dismissed: boolean("dismissed").default(false),
+  dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+});
+
+export const portfolioExposureWarningsRelations = relations(portfolioExposureWarnings, ({ one }) => ({
+  user: one(users, {
+    fields: [portfolioExposureWarnings.userId],
+    references: [users.id],
+  }),
+  wallet: one(trackedWallets, {
+    fields: [portfolioExposureWarnings.walletId],
+    references: [trackedWallets.id],
+  }),
+}));

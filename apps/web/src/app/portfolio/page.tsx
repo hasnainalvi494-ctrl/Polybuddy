@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { HiddenExposureCard } from "@/components/HiddenExposureCard";
+import { HiddenExposureBadge } from "@/components/HiddenExposureWarning";
 
 interface Wallet {
   id: string;
@@ -428,12 +429,15 @@ export default function PortfolioPage() {
                         >
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0 mr-4">
+                              <div className="flex items-start gap-2">
                               <Link
                                 href={`/markets/${position.marketId}`}
                                 className="font-medium hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2"
                               >
                                 {position.marketQuestion}
                               </Link>
+                              <HiddenExposureBadge marketId={position.marketId} />
+                            </div>
                               <p className="text-sm text-gray-500 mt-1">
                                 {position.outcome} &bull; {position.shares.toFixed(2)} shares
                               </p>

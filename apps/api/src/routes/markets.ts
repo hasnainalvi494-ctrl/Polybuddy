@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, markets, marketSnapshots, marketBehaviorDimensions, retailFlowGuard } from "@polybuddy/db";
+import { db, markets, marketSnapshots, marketBehaviorDimensions, retailFlowGuard, marketResolutionDrivers, hiddenExposureLinks } from "@polybuddy/db";
 import { eq, desc, asc, ilike, sql, and, gte } from "drizzle-orm";
 
 // Behavior cluster type
@@ -1011,6 +1011,503 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           depthShiftSpeed: guard.depthShiftSpeed ? Number(guard.depthShiftSpeed) : null,
           repricingSpeed: guard.repricingSpeed ? Number(guard.repricingSpeed) : null,
         },
+      };
+    }
+  );
+
+  // ============================================
+  // HIDDEN EXPOSURE DETECTOR ENDPOINTS
+  // ============================================
+
+  // Schema for hidden exposure response
+  const HiddenExposureSchema = z.object({
+    marketId: z.string(),
+    linkedMarkets: z.array(z.object({
+      marketId: z.string(),
+      question: z.string(),
+      exposureLabel: z.enum(["independent", "partially_linked", "highly_linked"]),
+      explanation: z.string(),
+      exampleOutcome: z.string(),
+      mistakePrevented: z.string(),
+      sharedDriverType: z.string(),
+    })),
+    totalLinked: z.number(),
+    highlyLinkedCount: z.number(),
+    warningLevel: z.enum(["none", "caution", "warning"]),
+  });
+
+  // Exposure interpretation
+  const EXPOSURE_INTERPRETATION: Record<string, {
+    warningTitle: string;
+    severity: "none" | "caution" | "warning";
+  }> = {
+    independent: {
+      warningTitle: "Markets resolve independently",
+      severity: "none",
+    },
+    partially_linked: {
+      warningTitle: "Partial overlap detected",
+      severity: "caution",
+    },
+    highly_linked: {
+      warningTitle: "These markets move together",
+      severity: "warning",
+    },
+  };
+
+  // Extract resolution drivers from market question/category
+  function extractResolutionDrivers(market: { question: string; category: string | null; endDate: Date | null }) {
+    const question = market.question.toLowerCase();
+    const category = market.category?.toLowerCase() || "";
+
+    // Detect underlying asset
+    let underlyingAsset: string | null = null;
+    let assetCategory: string | null = null;
+
+    // Crypto assets
+    const cryptoPatterns: Record<string, string> = {
+      "bitcoin": "BTC", "btc": "BTC",
+      "ethereum": "ETH", "eth": "ETH",
+      "solana": "SOL", "sol": "SOL",
+      "dogecoin": "DOGE", "doge": "DOGE",
+      "xrp": "XRP", "ripple": "XRP",
+    };
+    for (const [pattern, asset] of Object.entries(cryptoPatterns)) {
+      if (question.includes(pattern)) {
+        underlyingAsset = asset;
+        assetCategory = "crypto";
+        break;
+      }
+    }
+
+    // Political figures
+    const politicalPatterns: Record<string, string> = {
+      "trump": "Trump", "donald trump": "Trump",
+      "biden": "Biden", "joe biden": "Biden",
+      "harris": "Harris", "kamala": "Harris",
+      "desantis": "DeSantis",
+      "newsom": "Newsom",
+    };
+    if (!underlyingAsset) {
+      for (const [pattern, asset] of Object.entries(politicalPatterns)) {
+        if (question.includes(pattern)) {
+          underlyingAsset = asset;
+          assetCategory = "politics";
+          break;
+        }
+      }
+    }
+
+    // Economic indicators
+    const econPatterns: Record<string, string> = {
+      "fed": "Fed", "federal reserve": "Fed", "interest rate": "Fed",
+      "inflation": "Inflation", "cpi": "Inflation",
+      "recession": "Recession", "gdp": "GDP",
+      "unemployment": "Unemployment",
+    };
+    if (!underlyingAsset) {
+      for (const [pattern, asset] of Object.entries(econPatterns)) {
+        if (question.includes(pattern)) {
+          underlyingAsset = asset;
+          assetCategory = "economics";
+          break;
+        }
+      }
+    }
+
+    // Events/Narrative
+    let narrativeDependency: string | null = null;
+    if (question.includes("election") || question.includes("vote")) {
+      narrativeDependency = "election";
+    } else if (question.includes("approve") || question.includes("approval")) {
+      narrativeDependency = "approval_rating";
+    } else if (question.includes("price") && assetCategory === "crypto") {
+      narrativeDependency = "price_movement";
+    } else if (question.includes("win") || question.includes("winner")) {
+      narrativeDependency = "competition_outcome";
+    }
+
+    // Resolution source
+    let resolutionSource: string | null = null;
+    if (assetCategory === "crypto") {
+      resolutionSource = "exchange_price";
+    } else if (assetCategory === "politics") {
+      resolutionSource = "official_results";
+    } else if (category.includes("sports")) {
+      resolutionSource = "game_result";
+    }
+
+    return {
+      underlyingAsset,
+      assetCategory,
+      narrativeDependency,
+      resolutionSource,
+      resolutionWindowStart: market.endDate ? new Date(market.endDate.getTime() - 24 * 60 * 60 * 1000) : null,
+      resolutionWindowEnd: market.endDate,
+    };
+  }
+
+  // Classify exposure between two markets
+  function classifyExposure(driversA: ReturnType<typeof extractResolutionDrivers>, driversB: ReturnType<typeof extractResolutionDrivers>, questionA: string, questionB: string): {
+    label: "independent" | "partially_linked" | "highly_linked";
+    explanation: string;
+    exampleOutcome: string;
+    mistakePrevented: string;
+    sharedDriverType: string;
+  } {
+    // Check for same underlying asset
+    if (driversA.underlyingAsset && driversA.underlyingAsset === driversB.underlyingAsset) {
+      // Same asset = highly linked
+      return {
+        label: "highly_linked",
+        explanation: `Both markets depend on ${driversA.underlyingAsset}. If one moves, the other likely moves the same way.`,
+        exampleOutcome: `If ${driversA.underlyingAsset} surges, both of these bets could win or lose together.`,
+        mistakePrevented: "Thinking you're diversified when you're actually doubling down on the same outcome.",
+        sharedDriverType: "asset",
+      };
+    }
+
+    // Check for same narrative dependency
+    if (driversA.narrativeDependency && driversA.narrativeDependency === driversB.narrativeDependency) {
+      return {
+        label: "highly_linked",
+        explanation: `Both markets are driven by the same event or narrative.`,
+        exampleOutcome: `The same news could resolve both markets in the same direction.`,
+        mistakePrevented: "Betting on the same story multiple times without realizing it.",
+        sharedDriverType: "narrative",
+      };
+    }
+
+    // Check for same asset category with time overlap
+    if (driversA.assetCategory && driversA.assetCategory === driversB.assetCategory) {
+      // Check time window overlap
+      const hasTimeOverlap = driversA.resolutionWindowEnd && driversB.resolutionWindowEnd &&
+        driversA.resolutionWindowStart && driversB.resolutionWindowStart &&
+        driversA.resolutionWindowStart <= driversB.resolutionWindowEnd &&
+        driversB.resolutionWindowStart <= driversA.resolutionWindowEnd;
+
+      if (hasTimeOverlap) {
+        return {
+          label: "partially_linked",
+          explanation: `Both markets are in the ${driversA.assetCategory} category and resolve around the same time.`,
+          exampleOutcome: `A major ${driversA.assetCategory} event could affect both markets at once.`,
+          mistakePrevented: "Ignoring sector-wide risks that could hit multiple positions.",
+          sharedDriverType: "category_time",
+        };
+      }
+
+      return {
+        label: "partially_linked",
+        explanation: `Both markets are in the ${driversA.assetCategory} sector and may be influenced by similar forces.`,
+        exampleOutcome: `Sector-wide trends could push both in the same direction.`,
+        mistakePrevented: "Over-concentrating in one sector without seeing the pattern.",
+        sharedDriverType: "category",
+      };
+    }
+
+    // Check resolution source
+    if (driversA.resolutionSource && driversA.resolutionSource === driversB.resolutionSource) {
+      return {
+        label: "partially_linked",
+        explanation: `Both markets resolve based on the same type of data source.`,
+        exampleOutcome: `If the resolution source has issues or delays, both markets are affected.`,
+        mistakePrevented: "Not realizing your bets share resolution infrastructure.",
+        sharedDriverType: "resolution_source",
+      };
+    }
+
+    return {
+      label: "independent",
+      explanation: "These markets appear to resolve based on different factors.",
+      exampleOutcome: "One market's outcome shouldn't directly affect the other.",
+      mistakePrevented: "",
+      sharedDriverType: "none",
+    };
+  }
+
+  // Compute resolution drivers for a market
+  typedApp.post(
+    "/:id/compute-drivers",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            underlyingAsset: z.string().nullable(),
+            assetCategory: z.string().nullable(),
+            narrativeDependency: z.string().nullable(),
+            resolutionSource: z.string().nullable(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      const drivers = extractResolutionDrivers({
+        question: market.question,
+        category: market.category,
+        endDate: market.endDate,
+      });
+
+      // Upsert drivers
+      await db
+        .insert(marketResolutionDrivers)
+        .values({
+          marketId: id,
+          underlyingAsset: drivers.underlyingAsset,
+          assetCategory: drivers.assetCategory,
+          narrativeDependency: drivers.narrativeDependency,
+          resolutionSource: drivers.resolutionSource,
+          resolutionWindowStart: drivers.resolutionWindowStart,
+          resolutionWindowEnd: drivers.resolutionWindowEnd,
+        })
+        .onConflictDoUpdate({
+          target: marketResolutionDrivers.marketId,
+          set: {
+            underlyingAsset: drivers.underlyingAsset,
+            assetCategory: drivers.assetCategory,
+            narrativeDependency: drivers.narrativeDependency,
+            resolutionSource: drivers.resolutionSource,
+            resolutionWindowStart: drivers.resolutionWindowStart,
+            resolutionWindowEnd: drivers.resolutionWindowEnd,
+            computedAt: new Date(),
+          },
+        });
+
+      return {
+        marketId: id,
+        underlyingAsset: drivers.underlyingAsset,
+        assetCategory: drivers.assetCategory,
+        narrativeDependency: drivers.narrativeDependency,
+        resolutionSource: drivers.resolutionSource,
+      };
+    }
+  );
+
+  // Get hidden exposure links for a market
+  typedApp.get(
+    "/:id/hidden-exposure",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: HiddenExposureSchema,
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      // Get existing links
+      const links = await db
+        .select({
+          id: hiddenExposureLinks.id,
+          marketAId: hiddenExposureLinks.marketAId,
+          marketBId: hiddenExposureLinks.marketBId,
+          exposureLabel: hiddenExposureLinks.exposureLabel,
+          explanation: hiddenExposureLinks.explanation,
+          exampleOutcome: hiddenExposureLinks.exampleOutcome,
+          mistakePrevented: hiddenExposureLinks.mistakePrevented,
+          sharedDriverType: hiddenExposureLinks.sharedDriverType,
+        })
+        .from(hiddenExposureLinks)
+        .where(
+          sql`${hiddenExposureLinks.marketAId} = ${id}::uuid OR ${hiddenExposureLinks.marketBId} = ${id}::uuid`
+        );
+
+      // Get linked market details
+      const linkedMarketIds = links.map(l => l.marketAId === id ? l.marketBId : l.marketAId);
+
+      let linkedMarketsData: Array<{ id: string; question: string }> = [];
+      if (linkedMarketIds.length > 0) {
+        linkedMarketsData = await db
+          .select({ id: markets.id, question: markets.question })
+          .from(markets)
+          .where(sql`${markets.id} IN (${sql.join(linkedMarketIds.map(mid => sql`${mid}::uuid`), sql`, `)})`);
+      }
+
+      const linkedMarketsMap = new Map(linkedMarketsData.map(m => [m.id, m.question]));
+
+      const linkedMarkets = links.map(link => {
+        const linkedId = link.marketAId === id ? link.marketBId : link.marketAId;
+        return {
+          marketId: linkedId,
+          question: linkedMarketsMap.get(linkedId) || "Unknown market",
+          exposureLabel: link.exposureLabel,
+          explanation: link.explanation,
+          exampleOutcome: link.exampleOutcome,
+          mistakePrevented: link.mistakePrevented,
+          sharedDriverType: link.sharedDriverType,
+        };
+      });
+
+      const highlyLinkedCount = linkedMarkets.filter(m => m.exposureLabel === "highly_linked").length;
+      const partiallyLinkedCount = linkedMarkets.filter(m => m.exposureLabel === "partially_linked").length;
+
+      let warningLevel: "none" | "caution" | "warning" = "none";
+      if (highlyLinkedCount > 0) {
+        warningLevel = "warning";
+      } else if (partiallyLinkedCount > 0) {
+        warningLevel = "caution";
+      }
+
+      return {
+        marketId: id,
+        linkedMarkets,
+        totalLinked: linkedMarkets.length,
+        highlyLinkedCount,
+        warningLevel,
+      };
+    }
+  );
+
+  // Compute hidden exposure links for a market against all others
+  typedApp.post(
+    "/:id/compute-exposure",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            linksCreated: z.number(),
+            highlyLinked: z.number(),
+            partiallyLinked: z.number(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      // Get drivers for this market
+      const driversA = extractResolutionDrivers({
+        question: market.question,
+        category: market.category,
+        endDate: market.endDate,
+      });
+
+      // Store drivers
+      await db
+        .insert(marketResolutionDrivers)
+        .values({
+          marketId: id,
+          underlyingAsset: driversA.underlyingAsset,
+          assetCategory: driversA.assetCategory,
+          narrativeDependency: driversA.narrativeDependency,
+          resolutionSource: driversA.resolutionSource,
+          resolutionWindowStart: driversA.resolutionWindowStart,
+          resolutionWindowEnd: driversA.resolutionWindowEnd,
+        })
+        .onConflictDoUpdate({
+          target: marketResolutionDrivers.marketId,
+          set: {
+            underlyingAsset: driversA.underlyingAsset,
+            assetCategory: driversA.assetCategory,
+            narrativeDependency: driversA.narrativeDependency,
+            resolutionSource: driversA.resolutionSource,
+            resolutionWindowStart: driversA.resolutionWindowStart,
+            resolutionWindowEnd: driversA.resolutionWindowEnd,
+            computedAt: new Date(),
+          },
+        });
+
+      // Get other markets with resolved=false
+      const otherMarkets = await db
+        .select({
+          id: markets.id,
+          question: markets.question,
+          category: markets.category,
+          endDate: markets.endDate,
+        })
+        .from(markets)
+        .where(sql`${markets.id} != ${id}::uuid AND ${markets.resolved} = false`)
+        .limit(200);
+
+      let linksCreated = 0;
+      let highlyLinked = 0;
+      let partiallyLinked = 0;
+
+      for (const otherMarket of otherMarkets) {
+        const driversB = extractResolutionDrivers({
+          question: otherMarket.question,
+          category: otherMarket.category,
+          endDate: otherMarket.endDate,
+        });
+
+        const exposure = classifyExposure(driversA, driversB, market.question, otherMarket.question);
+
+        // Only store non-independent links
+        if (exposure.label !== "independent") {
+          // Check if link already exists
+          const existingLink = await db
+            .select({ id: hiddenExposureLinks.id })
+            .from(hiddenExposureLinks)
+            .where(
+              sql`(${hiddenExposureLinks.marketAId} = ${id}::uuid AND ${hiddenExposureLinks.marketBId} = ${otherMarket.id}::uuid)
+                OR (${hiddenExposureLinks.marketAId} = ${otherMarket.id}::uuid AND ${hiddenExposureLinks.marketBId} = ${id}::uuid)`
+            )
+            .limit(1);
+
+          if (existingLink.length === 0) {
+            await db.insert(hiddenExposureLinks).values({
+              marketAId: id,
+              marketBId: otherMarket.id,
+              exposureLabel: exposure.label,
+              explanation: exposure.explanation,
+              exampleOutcome: exposure.exampleOutcome,
+              mistakePrevented: exposure.mistakePrevented,
+              sharedDriverType: exposure.sharedDriverType,
+            });
+            linksCreated++;
+          }
+
+          if (exposure.label === "highly_linked") {
+            highlyLinked++;
+          } else if (exposure.label === "partially_linked") {
+            partiallyLinked++;
+          }
+        }
+      }
+
+      return {
+        marketId: id,
+        linksCreated,
+        highlyLinked,
+        partiallyLinked,
       };
     }
   );

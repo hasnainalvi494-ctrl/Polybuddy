@@ -765,3 +765,61 @@ export async function computeFlowGuard(marketId: string): Promise<FlowGuardRespo
     method: "POST",
   });
 }
+
+// ============================================
+// HIDDEN EXPOSURE DETECTOR
+// ============================================
+
+export type ExposureLinkLabel = "independent" | "partially_linked" | "highly_linked";
+
+export type LinkedMarket = {
+  marketId: string;
+  question: string;
+  exposureLabel: ExposureLinkLabel;
+  explanation: string;
+  exampleOutcome: string;
+  mistakePrevented: string;
+  sharedDriverType: string;
+};
+
+export type HiddenExposureResponse = {
+  marketId: string;
+  linkedMarkets: LinkedMarket[];
+  totalLinked: number;
+  highlyLinkedCount: number;
+  warningLevel: "none" | "caution" | "warning";
+};
+
+export type ResolutionDriversResponse = {
+  marketId: string;
+  underlyingAsset: string | null;
+  assetCategory: string | null;
+  narrativeDependency: string | null;
+  resolutionSource: string | null;
+};
+
+export type ComputeExposureResponse = {
+  marketId: string;
+  linksCreated: number;
+  highlyLinked: number;
+  partiallyLinked: number;
+};
+
+// Get hidden exposure for a market
+export async function getHiddenExposure(marketId: string): Promise<HiddenExposureResponse> {
+  return fetchApi(`/api/markets/${marketId}/hidden-exposure`);
+}
+
+// Compute resolution drivers for a market
+export async function computeResolutionDrivers(marketId: string): Promise<ResolutionDriversResponse> {
+  return fetchApi(`/api/markets/${marketId}/compute-drivers`, {
+    method: "POST",
+  });
+}
+
+// Compute hidden exposure links for a market
+export async function computeHiddenExposure(marketId: string): Promise<ComputeExposureResponse> {
+  return fetchApi(`/api/markets/${marketId}/compute-exposure`, {
+    method: "POST",
+  });
+}

@@ -13,6 +13,7 @@ import { PublicContextCard } from "@/components/PublicContextCard";
 import { RetailSignalCard } from "@/components/RetailSignalCard";
 import { ProfitSimulator } from "@/components/ProfitSimulator";
 import { FlowGuardSection } from "@/components/FlowGuardBadge";
+import { HiddenExposureWarning } from "@/components/HiddenExposureWarning";
 
 interface QualityBreakdown {
   spreadScore: number;
@@ -180,6 +181,11 @@ export default function MarketDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Hidden Exposure Warning */}
+        <div className="mb-6">
+          <HiddenExposureWarning marketId={market.id} />
+        </div>
 
         {/* Key metrics with interpretations */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

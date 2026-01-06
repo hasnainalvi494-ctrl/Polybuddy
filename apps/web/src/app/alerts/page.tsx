@@ -22,13 +22,30 @@ type AlertCondition =
   | { type: "price_move"; direction: "above" | "below"; threshold: number }
   | { type: "volume_spike"; multiplier: number; timeWindow: number }
   | { type: "liquidity_drop"; dropPercent: number; timeWindow: number }
-  | { type: "resolution_approaching"; hoursBeforeEnd: number };
+  | { type: "resolution_approaching"; hoursBeforeEnd: number }
+  // Retail signal alert types
+  | { type: "favorable_structure"; minConfidence: "low" | "medium" | "high" }
+  | { type: "structural_mispricing"; minConfidence: "low" | "medium" | "high" }
+  | { type: "crowd_chasing"; minConfidence: "low" | "medium" | "high" }
+  | { type: "event_window"; minConfidence: "low" | "medium" | "high" }
+  | { type: "retail_friendly"; minConfidence: "low" | "medium" | "high" };
+
+type AlertType =
+  | "price_move"
+  | "volume_spike"
+  | "liquidity_drop"
+  | "resolution_approaching"
+  | "favorable_structure"
+  | "structural_mispricing"
+  | "crowd_chasing"
+  | "event_window"
+  | "retail_friendly";
 
 interface Alert {
   id: string;
   marketId: string;
   marketQuestion: string;
-  type: "price_move" | "volume_spike" | "liquidity_drop" | "resolution_approaching";
+  type: AlertType;
   condition: AlertCondition;
   status: "active" | "triggered" | "dismissed";
   triggeredAt: string | null;
@@ -73,6 +90,39 @@ function NotificationIcon({ type }: { type: string }) {
           </svg>
         </div>
       );
+    case "favorable_structure":
+      return (
+        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+          <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      );
+    case "crowd_chasing":
+      return (
+        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+          <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+      );
+    case "event_window":
+      return (
+        <div className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
+          <svg className="w-4 h-4 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+      );
+    case "structural_mispricing":
+    case "retail_friendly":
+      return (
+        <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+          <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        </div>
+      );
     default:
       return (
         <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
@@ -92,13 +142,14 @@ export default function AlertsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
-  const [alertType, setAlertType] = useState<"price_move" | "volume_spike" | "liquidity_drop" | "resolution_approaching">("price_move");
+  const [alertType, setAlertType] = useState<AlertType>("price_move");
   const [priceDirection, setPriceDirection] = useState<"above" | "below">("above");
   const [priceThreshold, setPriceThreshold] = useState("0.5");
   const [volumeMultiplier, setVolumeMultiplier] = useState("2");
   const [liquidityDropPercent, setLiquidityDropPercent] = useState("20");
   const [hoursBeforeEnd, setHoursBeforeEnd] = useState("24");
   const [timeWindow, setTimeWindow] = useState("3600");
+  const [minConfidence, setMinConfidence] = useState<"low" | "medium" | "high">("medium");
 
   const queryClient = useQueryClient();
 
@@ -185,6 +236,7 @@ export default function AlertsPage() {
     setLiquidityDropPercent("20");
     setHoursBeforeEnd("24");
     setTimeWindow("3600");
+    setMinConfidence("medium");
   };
 
   if (authLoading || !isAuthenticated) {
@@ -219,12 +271,18 @@ export default function AlertsPage() {
         type: "resolution_approaching",
         hoursBeforeEnd: parseInt(hoursBeforeEnd, 10),
       };
-    } else {
+    } else if (alertType === "liquidity_drop") {
       condition = {
         type: "liquidity_drop",
         dropPercent: parseFloat(liquidityDropPercent),
         timeWindow: parseInt(timeWindow, 10),
       };
+    } else {
+      // Signal alert types
+      condition = {
+        type: alertType,
+        minConfidence,
+      } as AlertCondition;
     }
 
     createMutation.mutate(condition);
@@ -256,9 +314,20 @@ export default function AlertsPage() {
       return `Volume ${condition.multiplier}x spike`;
     } else if (condition.type === "resolution_approaching") {
       return `${condition.hoursBeforeEnd}h before resolution`;
-    } else {
+    } else if (condition.type === "liquidity_drop") {
       return `Liquidity drops ${condition.dropPercent}%`;
+    } else if (condition.type === "favorable_structure") {
+      return `Favorable structure (${condition.minConfidence}+ conf)`;
+    } else if (condition.type === "structural_mispricing") {
+      return `Mispricing detected (${condition.minConfidence}+ conf)`;
+    } else if (condition.type === "crowd_chasing") {
+      return `Crowd chasing warning (${condition.minConfidence}+ conf)`;
+    } else if (condition.type === "event_window") {
+      return `Event window opens (${condition.minConfidence}+ conf)`;
+    } else if (condition.type === "retail_friendly") {
+      return `Retail-friendly (${condition.minConfidence}+ conf)`;
     }
+    return "Unknown condition";
   };
 
   const getStatusBadge = (status: string) => {
@@ -284,6 +353,17 @@ export default function AlertsPage() {
         return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400";
       case "resolution_approaching":
         return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+      // Signal alert types
+      case "favorable_structure":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+      case "structural_mispricing":
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400";
+      case "crowd_chasing":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+      case "event_window":
+        return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400";
+      case "retail_friendly":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -419,7 +499,10 @@ export default function AlertsPage() {
               <>
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-2">Alert Type</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+
+                  {/* Market Alerts */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Market Conditions</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                     <button
                       onClick={() => setAlertType("price_move")}
                       className={`px-4 py-2 rounded-lg text-sm transition-colors ${
@@ -459,6 +542,61 @@ export default function AlertsPage() {
                       }`}
                     >
                       Liquidity Drop
+                    </button>
+                  </div>
+
+                  {/* Signal Alerts */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Retail Signals</p>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <button
+                      onClick={() => setAlertType("favorable_structure")}
+                      className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                        alertType === "favorable_structure"
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      Favorable
+                    </button>
+                    <button
+                      onClick={() => setAlertType("crowd_chasing")}
+                      className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                        alertType === "crowd_chasing"
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      Crowd Chase
+                    </button>
+                    <button
+                      onClick={() => setAlertType("event_window")}
+                      className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                        alertType === "event_window"
+                          ? "bg-cyan-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      Event Window
+                    </button>
+                    <button
+                      onClick={() => setAlertType("structural_mispricing")}
+                      className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                        alertType === "structural_mispricing"
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      Mispricing
+                    </button>
+                    <button
+                      onClick={() => setAlertType("retail_friendly")}
+                      className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                        alertType === "retail_friendly"
+                          ? "bg-teal-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      Retail-Friendly
                     </button>
                   </div>
                 </div>
@@ -537,6 +675,31 @@ export default function AlertsPage() {
                         className="w-24 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                       />
                       <span className="text-gray-600 dark:text-gray-400">%</span>
+                    </div>
+                  )}
+
+                  {/* Signal alert conditions */}
+                  {["favorable_structure", "structural_mispricing", "crowd_chasing", "event_window", "retail_friendly"].includes(alertType) && (
+                    <div className="space-y-3">
+                      <div className="flex gap-4 items-center">
+                        <span>Minimum confidence</span>
+                        <select
+                          value={minConfidence}
+                          onChange={(e) => setMinConfidence(e.target.value as "low" | "medium" | "high")}
+                          className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {alertType === "favorable_structure" && "Alert when market shows favorable structure for retail participation"}
+                        {alertType === "structural_mispricing" && "Alert when related markets show pricing inconsistencies"}
+                        {alertType === "crowd_chasing" && "Alert when crowd/FOMO patterns detected (warning)"}
+                        {alertType === "event_window" && "Alert when market enters an event repricing window"}
+                        {alertType === "retail_friendly" && "Alert when market conditions become retail-friendly"}
+                      </p>
                     </div>
                   )}
                 </div>

@@ -47,6 +47,12 @@ export const alertType = pgEnum("alert_type", [
   "volume_spike",
   "liquidity_drop",
   "resolution_approaching",
+  // Retail signal alert types
+  "favorable_structure",
+  "structural_mispricing",
+  "crowd_chasing",
+  "event_window",
+  "retail_friendly",
 ]);
 
 export const alertStatus = pgEnum("alert_status", [

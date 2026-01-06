@@ -1,9 +1,22 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, alerts, markets, notifications, marketSnapshots } from "@polybuddy/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { db, alerts, markets, notifications, marketSnapshots, retailSignals } from "@polybuddy/db";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
+
+// All alert types including retail signals
+const AlertTypeEnum = z.enum([
+  "price_move",
+  "volume_spike",
+  "liquidity_drop",
+  "resolution_approaching",
+  "favorable_structure",
+  "structural_mispricing",
+  "crowd_chasing",
+  "event_window",
+  "retail_friendly",
+]);
 
 const AlertConditionSchema = z.discriminatedUnion("type", [
   z.object({
@@ -25,13 +38,34 @@ const AlertConditionSchema = z.discriminatedUnion("type", [
     type: z.literal("resolution_approaching"),
     hoursBeforeEnd: z.number().min(1).max(168), // 1h to 1 week
   }),
+  // Retail signal alert conditions
+  z.object({
+    type: z.literal("favorable_structure"),
+    minConfidence: z.enum(["low", "medium", "high"]).default("medium"),
+  }),
+  z.object({
+    type: z.literal("structural_mispricing"),
+    minConfidence: z.enum(["low", "medium", "high"]).default("medium"),
+  }),
+  z.object({
+    type: z.literal("crowd_chasing"),
+    minConfidence: z.enum(["low", "medium", "high"]).default("low"), // Default low to catch early
+  }),
+  z.object({
+    type: z.literal("event_window"),
+    minConfidence: z.enum(["low", "medium", "high"]).default("medium"),
+  }),
+  z.object({
+    type: z.literal("retail_friendly"),
+    minConfidence: z.enum(["low", "medium", "high"]).default("medium"),
+  }),
 ]);
 
 const AlertSchema = z.object({
   id: z.string().uuid(),
   marketId: z.string().uuid(),
   marketQuestion: z.string(),
-  type: z.enum(["price_move", "volume_spike", "liquidity_drop", "resolution_approaching"]),
+  type: AlertTypeEnum,
   condition: AlertConditionSchema,
   status: z.enum(["active", "triggered", "dismissed"]),
   triggeredAt: z.string().nullable(),
@@ -42,7 +76,7 @@ const NotificationSchema = z.object({
   id: z.string().uuid(),
   alertId: z.string().uuid().nullable(),
   marketId: z.string().uuid().nullable(),
-  type: z.enum(["price_move", "volume_spike", "liquidity_drop", "resolution_approaching"]),
+  type: AlertTypeEnum,
   title: z.string(),
   message: z.string(),
   marketQuestion: z.string().nullable(),
@@ -526,6 +560,51 @@ export const alertsRoutes: FastifyPluginAsync = async (app) => {
             // Simulated - would need historical liquidity tracking
             break;
           }
+
+          // Retail signal alert types - check if a matching signal exists
+          case "favorable_structure":
+          case "structural_mispricing":
+          case "crowd_chasing":
+          case "event_window":
+          case "retail_friendly": {
+            // Map retail_friendly to retail_friendliness signal type
+            const signalType = condition.type === "retail_friendly"
+              ? "retail_friendliness"
+              : condition.type;
+
+            // Check for recent matching signal
+            const confidenceLevels = ["low", "medium", "high"];
+            const minIndex = confidenceLevels.indexOf(condition.minConfidence || "medium");
+            const validConfidences = confidenceLevels.slice(minIndex);
+
+            const recentSignal = await db
+              .select()
+              .from(retailSignals)
+              .where(
+                and(
+                  eq(retailSignals.marketId, alert.marketId),
+                  eq(retailSignals.signalType, signalType),
+                  gte(retailSignals.computedAt, new Date(now.getTime() - 4 * 60 * 60 * 1000)),
+                  // For crowd chasing, trigger on unfavorable (warning)
+                  // For others, trigger on favorable
+                  condition.type === "crowd_chasing"
+                    ? eq(retailSignals.isFavorable, false)
+                    : eq(retailSignals.isFavorable, true)
+                )
+              )
+              .orderBy(desc(retailSignals.computedAt))
+              .limit(1);
+
+            if (recentSignal.length > 0) {
+              const signal = recentSignal[0]!;
+              // Check confidence meets minimum
+              if (validConfidences.includes(signal.confidence)) {
+                shouldTrigger = true;
+                message = signal.label;
+              }
+            }
+            break;
+          }
         }
 
         if (shouldTrigger) {
@@ -565,6 +644,17 @@ function getAlertTitle(type: string): string {
       return "Resolution Approaching";
     case "liquidity_drop":
       return "Liquidity Alert";
+    // Retail signal alert titles
+    case "favorable_structure":
+      return "Favorable Market Structure";
+    case "structural_mispricing":
+      return "Structural Mispricing Detected";
+    case "crowd_chasing":
+      return "Crowd Chasing Warning";
+    case "event_window":
+      return "Event Window Opening";
+    case "retail_friendly":
+      return "Retail-Friendly Conditions";
     default:
       return "Alert Triggered";
   }

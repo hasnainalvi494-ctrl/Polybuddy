@@ -572,6 +572,73 @@ export async function getMarketRetailSignals(marketId: string): Promise<MarketRe
   return fetchApi(`/api/retail-signals/markets/${marketId}`);
 }
 
+// Daily signals types
+export type DailySignalsMarket = {
+  marketId: string;
+  question: string;
+  category: string | null;
+  currentPrice: number | null;
+  signals: RetailSignal[];
+};
+
+export type DailySignalsCrowdMarket = {
+  marketId: string;
+  question: string;
+  category: string | null;
+  currentPrice: number | null;
+  signal: RetailSignal;
+};
+
+export type DailySignalsEventMarket = {
+  marketId: string;
+  question: string;
+  category: string | null;
+  currentPrice: number | null;
+  hoursUntilEvent: number;
+  signal: RetailSignal;
+};
+
+export type DailySignalsResponse = {
+  date: string;
+  available: boolean;
+  reason?: string;
+  summary: {
+    totalMarkets: number;
+    favorableCount: number;
+    crowdChasingCount: number;
+    eventWindowCount: number;
+  };
+  favorableMarkets: DailySignalsMarket[];
+  crowdChasingMarkets: DailySignalsCrowdMarket[];
+  eventWindowMarkets: DailySignalsEventMarket[];
+  generatedAt: string;
+  disclaimer: string;
+};
+
+// Get daily signals summary
+export async function getDailySignals(): Promise<DailySignalsResponse> {
+  return fetchApi("/api/retail-signals/daily");
+}
+
+// Check if daily signals are available (region check)
+export async function checkDailySignalsAvailability(): Promise<{ available: boolean; reason?: string }> {
+  try {
+    const response = await fetch(`${API_BASE}/api/retail-signals/daily`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    if (response.status === 403) {
+      const data = await response.json();
+      return { available: false, reason: data.reason };
+    }
+
+    return { available: true };
+  } catch {
+    return { available: false, reason: "Unable to check availability" };
+  }
+}
+
 // Weekly Reports types
 export type WeeklyReport = {
   id: string;

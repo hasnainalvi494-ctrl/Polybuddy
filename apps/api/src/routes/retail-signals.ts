@@ -1266,6 +1266,267 @@ export const retailSignalsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
+  // Get daily signals summary (aggregated across markets)
+  typedApp.get(
+    "/daily",
+    {
+      schema: {
+        response: {
+          200: z.object({
+            date: z.string(),
+            available: z.boolean(),
+            reason: z.string().optional(),
+            summary: z.object({
+              totalMarkets: z.number(),
+              favorableCount: z.number(),
+              crowdChasingCount: z.number(),
+              eventWindowCount: z.number(),
+            }),
+            favorableMarkets: z.array(z.object({
+              marketId: z.string().uuid(),
+              question: z.string(),
+              category: z.string().nullable(),
+              currentPrice: z.number().nullable(),
+              signals: z.array(RetailSignalSchema),
+            })),
+            crowdChasingMarkets: z.array(z.object({
+              marketId: z.string().uuid(),
+              question: z.string(),
+              category: z.string().nullable(),
+              currentPrice: z.number().nullable(),
+              signal: RetailSignalSchema,
+            })),
+            eventWindowMarkets: z.array(z.object({
+              marketId: z.string().uuid(),
+              question: z.string(),
+              category: z.string().nullable(),
+              currentPrice: z.number().nullable(),
+              hoursUntilEvent: z.number(),
+              signal: RetailSignalSchema,
+            })),
+            generatedAt: z.string(),
+            disclaimer: z.string(),
+          }),
+          403: z.object({ error: z.string(), reason: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      // Simple region check - in production this would use GeoIP
+      // For now, check for a header or default to available
+      const clientCountry = (request.headers["cf-ipcountry"] as string) ||
+                           (request.headers["x-vercel-ip-country"] as string) ||
+                           "UNKNOWN";
+
+      const isUS = clientCountry === "US";
+
+      if (isUS) {
+        return reply.status(403).send({
+          error: "Not available in your region",
+          reason: "Daily signals are not available for users in the United States due to regulatory considerations.",
+        });
+      }
+
+      const now = new Date();
+      const today = now.toISOString().split("T")[0]!;
+      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+
+      // Get recent retail signals grouped by type
+      const recentSignals = await db
+        .select({
+          signal: retailSignals,
+          marketQuestion: markets.question,
+          marketCategory: markets.category,
+          marketEndDate: markets.endDate,
+        })
+        .from(retailSignals)
+        .innerJoin(markets, eq(retailSignals.marketId, markets.id))
+        .where(
+          and(
+            gte(retailSignals.computedAt, fourHoursAgo),
+            eq(retailSignals.isFavorable, true)
+          )
+        )
+        .orderBy(desc(retailSignals.computedAt))
+        .limit(200);
+
+      // Get crowd chasing signals (unfavorable)
+      const crowdChasingSignals = await db
+        .select({
+          signal: retailSignals,
+          marketQuestion: markets.question,
+          marketCategory: markets.category,
+        })
+        .from(retailSignals)
+        .innerJoin(markets, eq(retailSignals.marketId, markets.id))
+        .where(
+          and(
+            eq(retailSignals.signalType, "crowd_chasing"),
+            eq(retailSignals.isFavorable, false),
+            gte(retailSignals.computedAt, fourHoursAgo)
+          )
+        )
+        .orderBy(desc(retailSignals.computedAt))
+        .limit(50);
+
+      // Get event window signals
+      const eventWindowSignals = await db
+        .select({
+          signal: retailSignals,
+          marketQuestion: markets.question,
+          marketCategory: markets.category,
+          marketEndDate: markets.endDate,
+        })
+        .from(retailSignals)
+        .innerJoin(markets, eq(retailSignals.marketId, markets.id))
+        .where(
+          and(
+            eq(retailSignals.signalType, "event_window"),
+            eq(retailSignals.isFavorable, true),
+            gte(retailSignals.computedAt, fourHoursAgo)
+          )
+        )
+        .orderBy(desc(retailSignals.computedAt))
+        .limit(50);
+
+      // Get latest snapshot prices for markets
+      const marketIds = new Set([
+        ...recentSignals.map((s) => s.signal.marketId),
+        ...crowdChasingSignals.map((s) => s.signal.marketId),
+        ...eventWindowSignals.map((s) => s.signal.marketId),
+      ]);
+
+      const priceMap = new Map<string, number>();
+      if (marketIds.size > 0) {
+        const latestSnapshots = await db
+          .select({
+            marketId: marketSnapshots.marketId,
+            price: marketSnapshots.price,
+          })
+          .from(marketSnapshots)
+          .where(sql`${marketSnapshots.marketId} IN ${Array.from(marketIds)}`)
+          .orderBy(desc(marketSnapshots.snapshotAt));
+
+        // Dedupe by market
+        for (const snap of latestSnapshots) {
+          if (!priceMap.has(snap.marketId) && snap.price) {
+            priceMap.set(snap.marketId, Number(snap.price));
+          }
+        }
+      }
+
+      // Group favorable signals by market
+      const favorableByMarket = new Map<string, {
+        marketId: string;
+        question: string;
+        category: string | null;
+        signals: typeof recentSignals[0]["signal"][];
+      }>();
+
+      for (const row of recentSignals) {
+        const existing = favorableByMarket.get(row.signal.marketId);
+        if (existing) {
+          existing.signals.push(row.signal);
+        } else {
+          favorableByMarket.set(row.signal.marketId, {
+            marketId: row.signal.marketId,
+            question: row.marketQuestion,
+            category: row.marketCategory,
+            signals: [row.signal],
+          });
+        }
+      }
+
+      // Filter to markets with 2+ favorable signals (higher quality)
+      const favorableMarkets = Array.from(favorableByMarket.values())
+        .filter((m) => m.signals.length >= 2)
+        .map((m) => ({
+          marketId: m.marketId,
+          question: m.question,
+          category: m.category,
+          currentPrice: priceMap.get(m.marketId) ?? null,
+          signals: m.signals.map((s) => ({
+            id: s.id,
+            marketId: s.marketId,
+            signalType: s.signalType,
+            label: s.label,
+            isFavorable: s.isFavorable,
+            confidence: s.confidence,
+            whyBullets: s.whyBullets as WhyBullet[],
+            metrics: s.metrics as Record<string, unknown> | null,
+            computedAt: s.computedAt?.toISOString() || now.toISOString(),
+          })),
+        }))
+        .slice(0, 20);
+
+      // Format crowd chasing markets
+      const crowdChasingMarkets = crowdChasingSignals
+        .map((row) => ({
+          marketId: row.signal.marketId,
+          question: row.marketQuestion,
+          category: row.marketCategory,
+          currentPrice: priceMap.get(row.signal.marketId) ?? null,
+          signal: {
+            id: row.signal.id,
+            marketId: row.signal.marketId,
+            signalType: row.signal.signalType,
+            label: row.signal.label,
+            isFavorable: row.signal.isFavorable,
+            confidence: row.signal.confidence,
+            whyBullets: row.signal.whyBullets as WhyBullet[],
+            metrics: row.signal.metrics as Record<string, unknown> | null,
+            computedAt: row.signal.computedAt?.toISOString() || now.toISOString(),
+          },
+        }))
+        .slice(0, 15);
+
+      // Format event window markets
+      const eventWindowMarkets = eventWindowSignals
+        .map((row) => {
+          const metrics = row.signal.metrics as { hoursUntilEvent?: number } | null;
+          return {
+            marketId: row.signal.marketId,
+            question: row.marketQuestion,
+            category: row.marketCategory,
+            currentPrice: priceMap.get(row.signal.marketId) ?? null,
+            hoursUntilEvent: metrics?.hoursUntilEvent ??
+              (row.marketEndDate
+                ? (row.marketEndDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+                : 999),
+            signal: {
+              id: row.signal.id,
+              marketId: row.signal.marketId,
+              signalType: row.signal.signalType,
+              label: row.signal.label,
+              isFavorable: row.signal.isFavorable,
+              confidence: row.signal.confidence,
+              whyBullets: row.signal.whyBullets as WhyBullet[],
+              metrics: row.signal.metrics as Record<string, unknown> | null,
+              computedAt: row.signal.computedAt?.toISOString() || now.toISOString(),
+            },
+          };
+        })
+        .sort((a, b) => a.hoursUntilEvent - b.hoursUntilEvent)
+        .slice(0, 15);
+
+      return {
+        date: today,
+        available: true,
+        summary: {
+          totalMarkets: marketIds.size,
+          favorableCount: favorableMarkets.length,
+          crowdChasingCount: crowdChasingMarkets.length,
+          eventWindowCount: eventWindowMarkets.length,
+        },
+        favorableMarkets,
+        crowdChasingMarkets,
+        eventWindowMarkets,
+        generatedAt: now.toISOString(),
+        disclaimer: "Signals describe market conditions, not trading recommendations. Past patterns do not guarantee future results.",
+      };
+    }
+  );
+
   // Get all retail signals for a market
   typedApp.get(
     "/markets/:marketId",

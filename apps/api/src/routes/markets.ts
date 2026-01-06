@@ -104,33 +104,85 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         .where(conditions.length > 0 ? and(...conditions) : undefined);
       const total = Number(countResult[0]?.count ?? 0);
 
-      // Build order by
-      const orderColumn = {
-        volume: sql`(SELECT volume_24h FROM market_snapshots WHERE market_id = markets.id ORDER BY snapshot_at DESC LIMIT 1)`,
-        quality: markets.qualityScore,
-        endDate: markets.endDate,
-        createdAt: markets.createdAt,
-      }[sortBy];
-
       const orderDir = sortOrder === "asc" ? asc : desc;
 
-      // Get markets with latest snapshot data
-      const marketRows = await db
-        .select({
-          id: markets.id,
-          polymarketId: markets.polymarketId,
-          question: markets.question,
-          category: markets.category,
+      let marketRows: {
+        id: string;
+        polymarketId: string;
+        question: string;
+        category: string | null;
+        endDate: Date | null;
+        qualityGrade: "A" | "B" | "C" | "D" | "F" | null;
+        qualityScore: string | null;
+        clusterLabel: string | null;
+      }[];
+
+      // For volume sorting, use a different strategy to avoid slow correlated subquery
+      if (sortBy === "volume") {
+        // Get markets with their latest volume in a single optimized query
+        const volumeResults = await db.execute<{ market_id: string; volume_24h: string }>(sql`
+          SELECT DISTINCT ON (market_id) market_id, volume_24h
+          FROM market_snapshots
+          WHERE volume_24h IS NOT NULL
+          ORDER BY market_id, snapshot_at DESC
+        `);
+
+        // Convert to array and sort by volume
+        const volumeRows = Array.from(volumeResults) as { market_id: string; volume_24h: string }[];
+        const sortedByVolume = volumeRows
+          .map(r => ({ marketId: r.market_id, volume: Number(r.volume_24h) || 0 }))
+          .sort((a, b) => sortOrder === "desc" ? b.volume - a.volume : a.volume - b.volume)
+          .slice(offset, offset + limit);
+
+        const sortedMarketIds = sortedByVolume.map(r => r.marketId);
+
+        if (sortedMarketIds.length > 0) {
+          // Fetch market details for these IDs
+          const marketsData = await db
+            .select({
+              id: markets.id,
+              polymarketId: markets.polymarketId,
+              question: markets.question,
+              category: markets.category,
+              endDate: markets.endDate,
+              qualityGrade: markets.qualityGrade,
+              qualityScore: markets.qualityScore,
+              clusterLabel: markets.clusterLabel,
+            })
+            .from(markets)
+            .where(sql`${markets.id} IN (${sql.join(sortedMarketIds.map((id: string) => sql`${id}::uuid`), sql`, `)})`);
+
+          // Reorder to match volume sort order
+          const marketMap = new Map(marketsData.map(m => [m.id, m]));
+          marketRows = sortedMarketIds.map((id: string) => marketMap.get(id)!).filter(Boolean);
+        } else {
+          marketRows = [];
+        }
+      } else {
+        // Standard sorting for other columns
+        const orderColumn = {
+          quality: markets.qualityScore,
           endDate: markets.endDate,
-          qualityGrade: markets.qualityGrade,
-          qualityScore: markets.qualityScore,
-          clusterLabel: markets.clusterLabel,
-        })
-        .from(markets)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(orderDir(orderColumn ?? markets.createdAt))
-        .limit(limit)
-        .offset(offset);
+          createdAt: markets.createdAt,
+        }[sortBy];
+
+        marketRows = await db
+          .select({
+            id: markets.id,
+            polymarketId: markets.polymarketId,
+            question: markets.question,
+            category: markets.category,
+            endDate: markets.endDate,
+            qualityGrade: markets.qualityGrade,
+            qualityScore: markets.qualityScore,
+            clusterLabel: markets.clusterLabel,
+          })
+          .from(markets)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+          .orderBy(orderDir(orderColumn ?? markets.createdAt))
+          .limit(limit)
+          .offset(offset);
+      }
 
       // Get latest snapshots for these markets using DISTINCT ON for better performance
       const marketIds = marketRows.map((m) => m.id);

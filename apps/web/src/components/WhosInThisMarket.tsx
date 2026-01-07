@@ -311,6 +311,77 @@ function getCommonMistakes(
   return mistakes.slice(0, 3);
 }
 
+// Generate "How to use this" guidance - non-advisory, practical bullets
+function getHowToUseThis(
+  yesSummary: string,
+  noSummary: string,
+  yesMomentum: MomentumState,
+  noMomentum: MomentumState
+): string[] {
+  const guidance: string[] = [];
+  const yesIsDominant = yesSummary === "few_dominant";
+  const noIsDominant = noSummary === "few_dominant";
+  const yesIsRetail = yesSummary === "broad_retail";
+  const noIsRetail = noSummary === "broad_retail";
+
+  // Momentum flip warning
+  if (yesMomentum === "building" || noMomentum === "building") {
+    guidance.push("Watch for momentum flips—participation shifts often come with faster repricing.");
+  }
+
+  // Step moves for concentrated positions
+  if (yesIsDominant || noIsDominant) {
+    guidance.push("If one side is concentrated, expect quicker moves when that side changes. Prices often change in steps, not smoothly.");
+  }
+
+  // Fading activity
+  if (yesMomentum === "fading" || noMomentum === "fading") {
+    guidance.push("If activity is fading, price may stay quiet until attention returns.");
+  }
+
+  // Retail crowding execution
+  if (yesIsRetail || noIsRetail) {
+    guidance.push("With retail crowding, watch your entry timing—crowded trades tend to get worse fills when sentiment shifts.");
+  }
+
+  // Mixed participation liquidity
+  if (yesSummary === "mixed_participation" || noSummary === "mixed_participation") {
+    guidance.push("Mixed crowds can provide decent liquidity, but that can change fast if larger players exit.");
+  }
+
+  // General
+  if (guidance.length === 0) {
+    guidance.push("Monitor participation changes—shifts in who's active often precede price moves.");
+  }
+
+  return guidance.slice(0, 3);
+}
+
+// Check if participation is symmetric (no clear edge)
+function isParticipationSymmetric(
+  yesSummary: string,
+  noSummary: string,
+  yesMomentum: MomentumState,
+  noMomentum: MomentumState,
+  yesScore: number,
+  noScore: number
+): boolean {
+  // Both sides same summary
+  if (yesSummary === noSummary && yesSummary === "mixed_participation") {
+    return true;
+  }
+  // Both momentum stable and similar scores
+  if (yesMomentum === "stable" && noMomentum === "stable" && Math.abs(yesScore - noScore) < 15) {
+    return true;
+  }
+  return false;
+}
+
+// Check if activity is too thin
+function isActivityThin(yesScore: number, noScore: number): boolean {
+  return yesScore < 30 && noScore < 30;
+}
+
 // Side card component with momentum
 function SideCard({ side, data }: { side: "YES" | "NO"; data: ParticipationSide }) {
   const activityTrend = getActivityTrend(data.participantQualityBand);
@@ -458,9 +529,17 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
     noSummary
   );
 
+  const yesScore = data.yes?.participantQualityScore ?? 50;
+  const noScore = data.no?.participantQualityScore ?? 50;
+
   const whatThisMeans = getWhatThisMeans(yesSummary, noSummary);
   const whyRetailCares = getWhyRetailCares(yesSummary, noSummary, yesBreakdown, noBreakdown);
   const commonMistakes = getCommonMistakes(yesSummary, noSummary, yesMomentum.state, noMomentum.state);
+  const howToUseThis = getHowToUseThis(yesSummary, noSummary, yesMomentum.state, noMomentum.state);
+
+  // Check for symmetric/thin data states
+  const isSymmetric = isParticipationSymmetric(yesSummary, noSummary, yesMomentum.state, noMomentum.state, yesScore, noScore);
+  const isThin = isActivityThin(yesScore, noScore);
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
@@ -477,6 +556,17 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
         </p>
       </div>
 
+      {/* No clear edge state */}
+      {(isSymmetric || isThin) && (
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+            {isThin
+              ? "Not enough recent activity to read participation structure yet."
+              : "Participation looks balanced right now—no clear crowding or asymmetry detected."}
+          </p>
+        </div>
+      )}
+
       {/* Side-by-side comparison */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {data.yes && <SideCard side="YES" data={data.yes} />}
@@ -484,49 +574,68 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
       </div>
 
       {/* Setup Clarity indicator */}
-      {data.yes && data.no && (
+      {data.yes && data.no && !isSymmetric && !isThin && (
         <div className="mb-6">
           <SetupClarityIndicator yesBand={yesBand} noBand={noBand} />
         </div>
       )}
 
-      {/* Explanation blocks */}
-      <div className="space-y-4">
-        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">
-            What this usually means
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-            {whatThisMeans}
-          </p>
-        </div>
-
-        <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30">
-          <p className="text-xs font-medium text-amber-800 dark:text-amber-400 uppercase tracking-wide mb-2">
-            Why retail should care
-          </p>
-          <p className="text-sm text-amber-700 dark:text-amber-300/80 leading-relaxed">
-            {whyRetailCares}
-          </p>
-        </div>
-
-        {/* What often trips people up - NEW SECTION */}
-        {commonMistakes.length > 0 && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-100 dark:border-rose-900/30">
-            <p className="text-xs font-medium text-rose-800 dark:text-rose-400 uppercase tracking-wide mb-2">
-              What often trips people up here
+      {/* Explanation blocks - only show if not symmetric/thin */}
+      {!isSymmetric && !isThin && (
+        <div className="space-y-4">
+          <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">
+              What this usually means
             </p>
-            <ul className="space-y-2">
-              {commonMistakes.map((mistake, idx) => (
-                <li key={idx} className="text-sm text-rose-700 dark:text-rose-300/80 leading-relaxed flex items-start gap-2">
-                  <span className="text-rose-400 dark:text-rose-500 mt-0.5">•</span>
-                  <span>{mistake}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              {whatThisMeans}
+            </p>
           </div>
-        )}
-      </div>
+
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30">
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-400 uppercase tracking-wide mb-2">
+              Why retail should care
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-300/80 leading-relaxed">
+              {whyRetailCares}
+            </p>
+          </div>
+
+          {/* What often trips people up */}
+          {commonMistakes.length > 0 && (
+            <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-100 dark:border-rose-900/30">
+              <p className="text-xs font-medium text-rose-800 dark:text-rose-400 uppercase tracking-wide mb-2">
+                What often trips people up here
+              </p>
+              <ul className="space-y-2">
+                {commonMistakes.map((mistake, idx) => (
+                  <li key={idx} className="text-sm text-rose-700 dark:text-rose-300/80 leading-relaxed flex items-start gap-2">
+                    <span className="text-rose-400 dark:text-rose-500 mt-0.5">•</span>
+                    <span>{mistake}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* How to use this - NEW SECTION */}
+          {howToUseThis.length > 0 && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-400 uppercase tracking-wide mb-2">
+                How to use this
+              </p>
+              <ul className="space-y-2">
+                {howToUseThis.map((tip, idx) => (
+                  <li key={idx} className="text-sm text-blue-700 dark:text-blue-300/80 leading-relaxed flex items-start gap-2">
+                    <span className="text-blue-400 dark:text-blue-500 mt-0.5">•</span>
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Minimal disclaimer */}
       <p className="mt-5 text-[10px] text-gray-400 dark:text-gray-500">

@@ -7,8 +7,8 @@ import { Navigation } from "@/components/Navigation";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Poly Buddy - Polymarket Decision Assistant",
-  description: "Market analysis, performance tracking, and decision support for Polymarket",
+  title: "Pulse - Market Structure Signals",
+  description: "Live structural signals across prediction markets. See where retail traders can compete — and where hidden risks quietly punish late or crowded entries.",
 };
 
 export default function RootLayout({
@@ -17,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="dark">
+      <body className={`${inter.className} bg-gray-950 text-gray-100`}>
         <Providers>
           <Navigation />
           {children}

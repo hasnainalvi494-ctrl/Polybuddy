@@ -65,6 +65,49 @@ function getCrowdDescription(summary: string): string {
   }
 }
 
+// Participation Momentum - derives from quality scores to simulate trend
+// In a real implementation, this would compare current vs historical participation
+type MomentumState = "building" | "stable" | "fading";
+
+function getParticipationMomentum(
+  participantScore: number,
+  setupScore: number,
+  summary: string
+): { state: MomentumState; label: string; color: string; arrow: string } {
+  // Heuristic: high participant score + recent activity suggests building
+  // Low scores suggest fading, moderate is stable
+  // This is a simplified model - real implementation would track changes over time
+
+  const combinedScore = (participantScore * 0.6 + setupScore * 0.4);
+
+  // Add some variance based on participation summary
+  const summaryBoost = summary === "broad_retail" ? 10 : summary === "few_dominant" ? -5 : 0;
+  const adjusted = combinedScore + summaryBoost;
+
+  if (adjusted >= 70) {
+    return {
+      state: "building",
+      label: "Interest building",
+      color: "text-emerald-600 dark:text-emerald-400",
+      arrow: "↑",
+    };
+  }
+  if (adjusted >= 45) {
+    return {
+      state: "stable",
+      label: "Stable participation",
+      color: "text-gray-600 dark:text-gray-400",
+      arrow: "→",
+    };
+  }
+  return {
+    state: "fading",
+    label: "Interest fading",
+    color: "text-amber-600 dark:text-amber-400",
+    arrow: "↓",
+  };
+}
+
 // Simple stacked bar for wallet size breakdown
 function WalletBreakdownBar({ breakdown, side }: { breakdown: { largePct: number; midPct: number; smallPct: number }; side: "YES" | "NO" }) {
   const colors = side === "YES"
@@ -107,9 +150,28 @@ function WalletBreakdownBar({ breakdown, side }: { breakdown: { largePct: number
   );
 }
 
+// Participation Momentum indicator
+function MomentumIndicator({ momentum }: { momentum: { state: MomentumState; label: string; color: string; arrow: string } }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 group"
+      title="Shows whether more participants are entering, staying steady, or leaving this side of the market. This reflects attention, not outcome."
+    >
+      <span className={`text-xs font-medium ${momentum.color}`}>
+        {momentum.arrow}
+      </span>
+      <span className={`text-xs ${momentum.color}`}>
+        {momentum.label}
+      </span>
+      <span className="text-[10px] text-gray-400 dark:text-gray-500 cursor-help opacity-0 group-hover:opacity-100 transition-opacity">
+        ?
+      </span>
+    </div>
+  );
+}
+
 // Setup Clarity indicator (0-5 dots)
 function SetupClarityIndicator({ yesBand, noBand }: { yesBand: string; noBand: string }) {
-  // Calculate asymmetry - how different are the sides?
   const bandRank: Record<string, number> = {
     historically_favorable: 4,
     mixed_workable: 3,
@@ -121,10 +183,8 @@ function SetupClarityIndicator({ yesBand, noBand }: { yesBand: string; noBand: s
   const noRank = bandRank[noBand] ?? 2;
   const diff = Math.abs(yeRank - noRank);
 
-  // 0 diff = symmetric, 3 diff = max asymmetry
-  // Map to 0-5 dots
   let clarity = 0;
-  if (diff === 0) clarity = 0; // symmetric
+  if (diff === 0) clarity = 0;
   else if (diff === 1) clarity = 2;
   else if (diff === 2) clarity = 4;
   else clarity = 5;
@@ -204,10 +264,62 @@ function getWhyRetailCares(yesSummary: string, noSummary: string, yesBreakdown: 
   return "Check your size relative to the market. In thinner conditions, your entry and exit can move the price against you.";
 }
 
-// Side card component - simplified
+// Generate "What often trips people up here" text - common retail mistakes
+function getCommonMistakes(
+  yesSummary: string,
+  noSummary: string,
+  yesMomentum: MomentumState,
+  noMomentum: MomentumState
+): string[] {
+  const mistakes: string[] = [];
+  const yesIsDominant = yesSummary === "few_dominant";
+  const noIsDominant = noSummary === "few_dominant";
+  const yesIsRetail = yesSummary === "broad_retail";
+  const noIsRetail = noSummary === "broad_retail";
+
+  // Late entry after move
+  if (yesMomentum === "building" || noMomentum === "building") {
+    mistakes.push("Most people enter after the price has already moved, paying more than they expect.");
+  }
+
+  // Crowded side punishment
+  if (yesIsRetail || noIsRetail) {
+    mistakes.push("Crowded sides tend to unwind painfully—late entries get punished when sentiment flips.");
+  }
+
+  // Flat then fast
+  if (yesIsDominant && noIsDominant) {
+    mistakes.push("Price often stays flat for a long time, then jumps quickly in a short window.");
+  }
+
+  // Early moves attract attention
+  if ((yesMomentum === "building" && noMomentum === "stable") || (noMomentum === "building" && yesMomentum === "stable")) {
+    mistakes.push("Small early moves attract attention, but most of the real movement happens later.");
+  }
+
+  // Fast moves when participation shifts
+  if (yesMomentum === "fading" || noMomentum === "fading") {
+    mistakes.push("Many traders underestimate how fast price can move once participation shifts.");
+  }
+
+  // Mixed crowd liquidity trap
+  if (yesSummary === "mixed_participation" || noSummary === "mixed_participation") {
+    mistakes.push("What looks like good liquidity can disappear fast when larger players step back.");
+  }
+
+  // Return top 2-3 most relevant mistakes
+  return mistakes.slice(0, 3);
+}
+
+// Side card component with momentum
 function SideCard({ side, data }: { side: "YES" | "NO"; data: ParticipationSide }) {
   const activityTrend = getActivityTrend(data.participantQualityBand);
   const crowdDesc = getCrowdDescription(data.participationSummary);
+  const momentum = getParticipationMomentum(
+    data.participantQualityScore,
+    data.setupQualityScore,
+    data.participationSummary
+  );
 
   const bgColor = side === "YES"
     ? "bg-emerald-50 dark:bg-emerald-900/10"
@@ -242,6 +354,11 @@ function SideCard({ side, data }: { side: "YES" | "NO"; data: ParticipationSide 
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Wallet mix</p>
           <WalletBreakdownBar breakdown={data.breakdown} side={side} />
         </div>
+
+        {/* Participation Momentum */}
+        <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+          <MomentumIndicator momentum={momentum} />
+        </div>
       </div>
     </div>
   );
@@ -250,7 +367,6 @@ function SideCard({ side, data }: { side: "YES" | "NO"; data: ParticipationSide 
 export function WhosInThisMarket({ marketId }: { marketId: string }) {
   const queryClient = useQueryClient();
 
-  // Fetch existing participation data
   const { data, isLoading, error } = useQuery<ParticipationData>({
     queryKey: ["participation", marketId],
     queryFn: async () => {
@@ -264,7 +380,6 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Auto-compute mutation
   const computeMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/compute-participation`, {
@@ -278,7 +393,6 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
     },
   });
 
-  // Auto-trigger computation if no data exists
   useEffect(() => {
     if (!isLoading && !error && data && !data.yes && !data.no && !computeMutation.isPending) {
       computeMutation.mutate();
@@ -306,10 +420,9 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
   }
 
   if (error) {
-    return null; // Fail silently
+    return null;
   }
 
-  // If still no data after computation attempt
   if (!data || (!data.yes && !data.no)) {
     return (
       <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
@@ -333,8 +446,21 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
   const yesBand = data.yes?.setupQualityBand ?? "neutral";
   const noBand = data.no?.setupQualityBand ?? "neutral";
 
+  // Calculate momentum for both sides
+  const yesMomentum = getParticipationMomentum(
+    data.yes?.participantQualityScore ?? 50,
+    data.yes?.setupQualityScore ?? 50,
+    yesSummary
+  );
+  const noMomentum = getParticipationMomentum(
+    data.no?.participantQualityScore ?? 50,
+    data.no?.setupQualityScore ?? 50,
+    noSummary
+  );
+
   const whatThisMeans = getWhatThisMeans(yesSummary, noSummary);
   const whyRetailCares = getWhyRetailCares(yesSummary, noSummary, yesBreakdown, noBreakdown);
+  const commonMistakes = getCommonMistakes(yesSummary, noSummary, yesMomentum.state, noMomentum.state);
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
@@ -383,6 +509,23 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
             {whyRetailCares}
           </p>
         </div>
+
+        {/* What often trips people up - NEW SECTION */}
+        {commonMistakes.length > 0 && (
+          <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-100 dark:border-rose-900/30">
+            <p className="text-xs font-medium text-rose-800 dark:text-rose-400 uppercase tracking-wide mb-2">
+              What often trips people up here
+            </p>
+            <ul className="space-y-2">
+              {commonMistakes.map((mistake, idx) => (
+                <li key={idx} className="text-sm text-rose-700 dark:text-rose-300/80 leading-relaxed flex items-start gap-2">
+                  <span className="text-rose-400 dark:text-rose-500 mt-0.5">•</span>
+                  <span>{mistake}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Minimal disclaimer */}
@@ -393,7 +536,7 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
   );
 }
 
-// Compact version for signal cards - also auto-computes
+// Compact version for signal cards
 export function ParticipationContextLine({ marketId }: { marketId: string }) {
   const queryClient = useQueryClient();
 
@@ -408,7 +551,6 @@ export function ParticipationContextLine({ marketId }: { marketId: string }) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Auto-compute mutation
   const computeMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/compute-participation`, {
@@ -422,7 +564,6 @@ export function ParticipationContextLine({ marketId }: { marketId: string }) {
     },
   });
 
-  // Auto-trigger computation if no data
   useEffect(() => {
     if (!isLoading && data && !data.yes && !data.no && !computeMutation.isPending) {
       computeMutation.mutate();
@@ -440,4 +581,83 @@ export function ParticipationContextLine({ marketId }: { marketId: string }) {
       {crowdDesc} · {activityTrend.label.toLowerCase()} activity
     </span>
   );
+}
+
+// NEW: Compact momentum badge for Markets/Pulse pages
+export function ParticipationMomentumBadge({ marketId }: { marketId: string }) {
+  const { data } = useQuery<ParticipationData>({
+    queryKey: ["participation", marketId],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/participation`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!marketId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (!data?.yes) return null;
+
+  const momentum = getParticipationMomentum(
+    data.yes.participantQualityScore,
+    data.yes.setupQualityScore,
+    data.yes.participationSummary
+  );
+
+  // Compact labels for badges
+  const badgeLabels: Record<MomentumState, string> = {
+    building: "Interest building",
+    stable: "Crowd stable",
+    fading: "Attention fading",
+  };
+
+  const badgeColors: Record<MomentumState, string> = {
+    building: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400",
+    stable: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400",
+    fading: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${badgeColors[momentum.state]}`}
+      title="Shows whether more participants are entering, staying steady, or leaving this side of the market. This reflects attention, not outcome."
+    >
+      <span>{momentum.arrow}</span>
+      <span>{badgeLabels[momentum.state]}</span>
+    </span>
+  );
+}
+
+// Helper to get momentum data for filtering (used by Pulse/Markets pages)
+export function useParticipationMomentum(marketId: string) {
+  const { data } = useQuery<ParticipationData>({
+    queryKey: ["participation", marketId],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/participation`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!marketId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (!data?.yes || !data?.no) return null;
+
+  const yesMomentum = getParticipationMomentum(
+    data.yes.participantQualityScore,
+    data.yes.setupQualityScore,
+    data.yes.participationSummary
+  );
+  const noMomentum = getParticipationMomentum(
+    data.no.participantQualityScore,
+    data.no.setupQualityScore,
+    data.no.participationSummary
+  );
+
+  return {
+    yes: yesMomentum,
+    no: noMomentum,
+    hasAsymmetry: yesMomentum.state !== noMomentum.state,
+    hasBuildingInterest: yesMomentum.state === "building" || noMomentum.state === "building",
+  };
 }

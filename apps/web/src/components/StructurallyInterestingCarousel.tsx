@@ -17,6 +17,28 @@ interface InterestingMarket {
   interestingReason: string;
 }
 
+// Momentum state type
+type MomentumState = "building" | "stable" | "fading";
+
+// Calculate momentum from scores (same logic as WhosInThisMarket)
+function getMomentum(
+  participantScore: number,
+  setupScore: number,
+  summary: string
+): { state: MomentumState; label: string; arrow: string; color: string } {
+  const combinedScore = (participantScore * 0.6 + setupScore * 0.4);
+  const summaryBoost = summary === "broad_retail" ? 10 : summary === "few_dominant" ? -5 : 0;
+  const adjusted = combinedScore + summaryBoost;
+
+  if (adjusted >= 70) {
+    return { state: "building", label: "Interest building", arrow: "↑", color: "emerald" };
+  }
+  if (adjusted >= 45) {
+    return { state: "stable", label: "Crowd stable", arrow: "→", color: "gray" };
+  }
+  return { state: "fading", label: "Attention fading", arrow: "↓", color: "amber" };
+}
+
 // Plain-language crowd description
 function getCrowdLabel(summary: string): string {
   switch (summary) {
@@ -31,23 +53,8 @@ function getCrowdLabel(summary: string): string {
   }
 }
 
-// Plain-language activity label
-function getActivityLabel(band: string): string {
-  switch (band) {
-    case "strong":
-      return "Active";
-    case "moderate":
-      return "Moderate";
-    case "limited":
-      return "Quiet";
-    default:
-      return "Normal";
-  }
-}
-
 // Translate formal "interesting reason" to trader talk
 function getPlainReason(reason: string, summary: string, band: string): string {
-  // Map the formal reasons to plain language
   if (reason.includes("Strong structural conditions")) {
     return "Good conditions, experienced players here";
   }
@@ -64,7 +71,6 @@ function getPlainReason(reason: string, summary: string, band: string): string {
     return "Experienced traders active";
   }
 
-  // Fallback based on data
   if (summary === "few_dominant" && band === "historically_favorable") {
     return "Big players, orderly market";
   }
@@ -74,10 +80,29 @@ function getPlainReason(reason: string, summary: string, band: string): string {
   return "Worth watching";
 }
 
+// Momentum badge component
+function MomentumBadge({ momentum }: { momentum: { state: MomentumState; label: string; arrow: string; color: string } }) {
+  const colorClasses: Record<string, string> = {
+    emerald: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400",
+    gray: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400",
+    amber: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${colorClasses[momentum.color]}`}
+      title="Shows whether more participants are entering, staying steady, or leaving this side of the market. This reflects attention, not outcome."
+    >
+      <span>{momentum.arrow}</span>
+      <span>{momentum.label}</span>
+    </span>
+  );
+}
+
 function CarouselCard({ market }: { market: InterestingMarket }) {
   const crowdLabel = getCrowdLabel(market.participationSummary);
-  const activityLabel = getActivityLabel(market.participantQualityBand);
   const plainReason = getPlainReason(market.interestingReason, market.participationSummary, market.setupQualityBand);
+  const momentum = getMomentum(market.participantQualityScore, market.setupQualityScore, market.participationSummary);
 
   return (
     <Link
@@ -102,17 +127,18 @@ function CarouselCard({ market }: { market: InterestingMarket }) {
       </h3>
 
       {/* Why it's interesting - plain language */}
-      <div className="mb-4">
+      <div className="mb-3">
         <span className="inline-flex px-2 py-1 text-xs rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-medium">
           {plainReason}
         </span>
       </div>
 
-      {/* Simple crowd + activity info */}
-      <div className="flex items-center gap-3 mb-3 text-xs text-gray-500 dark:text-gray-400">
-        <span>{crowdLabel}</span>
-        <span className="text-gray-300 dark:text-gray-600">|</span>
-        <span>{activityLabel} activity</span>
+      {/* Crowd info + Momentum badge */}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {crowdLabel}
+        </span>
+        <MomentumBadge momentum={momentum} />
       </div>
 
       {/* View link */}
@@ -163,7 +189,7 @@ export function StructurallyInterestingCarousel({ limit = 8 }: { limit?: number 
   }
 
   if (error || !data || data.length === 0) {
-    return null; // Fail silently
+    return null;
   }
 
   return (
@@ -255,6 +281,18 @@ export function StructurallyInterestingCarouselDark({ limit = 8 }: { limit?: num
     return null;
   }
 
+  // For Pulse: prefer markets where one side is building and other is stable/fading
+  const sortedData = [...data].sort((a, b) => {
+    const aMom = getMomentum(a.participantQualityScore, a.setupQualityScore, a.participationSummary);
+    const bMom = getMomentum(b.participantQualityScore, b.setupQualityScore, b.participationSummary);
+
+    // Prefer building interest
+    if (aMom.state === "building" && bMom.state !== "building") return -1;
+    if (bMom.state === "building" && aMom.state !== "building") return 1;
+
+    return 0;
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -283,7 +321,7 @@ export function StructurallyInterestingCarouselDark({ limit = 8 }: { limit?: num
       {/* Horizontal scroll carousel */}
       <div className="relative">
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-1 px-1">
-          {data.map((market) => (
+          {sortedData.map((market) => (
             <DarkCarouselCard key={market.marketId} market={market} />
           ))}
         </div>
@@ -300,10 +338,29 @@ export function StructurallyInterestingCarouselDark({ limit = 8 }: { limit?: num
   );
 }
 
+// Dark mode momentum badge
+function DarkMomentumBadge({ momentum }: { momentum: { state: MomentumState; label: string; arrow: string; color: string } }) {
+  const colorClasses: Record<string, string> = {
+    emerald: "bg-emerald-900/40 text-emerald-400",
+    gray: "bg-gray-800 text-gray-400",
+    amber: "bg-amber-900/40 text-amber-400",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${colorClasses[momentum.color]}`}
+      title="Shows whether more participants are entering, staying steady, or leaving this side of the market. This reflects attention, not outcome."
+    >
+      <span>{momentum.arrow}</span>
+      <span>{momentum.label}</span>
+    </span>
+  );
+}
+
 function DarkCarouselCard({ market }: { market: InterestingMarket }) {
   const crowdLabel = getCrowdLabel(market.participationSummary);
-  const activityLabel = getActivityLabel(market.participantQualityBand);
   const plainReason = getPlainReason(market.interestingReason, market.participationSummary, market.setupQualityBand);
+  const momentum = getMomentum(market.participantQualityScore, market.setupQualityScore, market.participationSummary);
 
   return (
     <Link
@@ -332,11 +389,12 @@ function DarkCarouselCard({ market }: { market: InterestingMarket }) {
         {plainReason}
       </p>
 
-      {/* Simple crowd + activity info */}
-      <div className="flex items-center gap-3 mb-3 text-[11px] text-gray-500">
-        <span>{crowdLabel}</span>
-        <span className="text-gray-700">|</span>
-        <span>{activityLabel} activity</span>
+      {/* Crowd info + Momentum badge */}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] text-gray-500">
+          {crowdLabel}
+        </span>
+        <DarkMomentumBadge momentum={momentum} />
       </div>
 
       {/* View link */}

@@ -17,6 +17,7 @@ import { reportsRoutes } from "./routes/reports.js";
 import { signalsRoutes } from "./routes/signals.js";
 import { retailSignalsRoutes } from "./routes/retail-signals.js";
 import { dailyRoutes } from "./routes/daily.js";
+import { statsRoutes } from "./routes/stats.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -70,6 +71,7 @@ async function buildApp() {
   await app.register(signalsRoutes, { prefix: "/api/signals" });
   await app.register(retailSignalsRoutes, { prefix: "/api/retail-signals" });
   await app.register(dailyRoutes, { prefix: "/api/daily" });
+  await app.register(statsRoutes, { prefix: "/api/stats" });
 
   return app;
 }

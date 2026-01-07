@@ -6,6 +6,9 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev:api": "pnpm --filter @polybuddy/api dev",
+    "dev:web": "pnpm --filter @polybuddy/web dev",
+    "dev:ingestion": "pnpm --filter @polybuddy/ingestion dev",
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck",

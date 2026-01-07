@@ -829,3 +829,19 @@ export async function computeHiddenExposure(marketId: string): Promise<ComputeEx
     method: "POST",
   });
 }
+
+// ============================================================================
+// LIVE STATS
+// ============================================================================
+
+export type LiveStatsResponse = {
+  volume24h: number;
+  activeTraders: number;
+  topWinRate: number;
+  lastUpdated: string;
+};
+
+// Get live platform statistics
+export async function getLiveStats(): Promise<LiveStatsResponse> {
+  return fetchApi("/api/stats/live");
+}

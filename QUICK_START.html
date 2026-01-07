@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyBuddy - Quick Start Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #1e40af;
+            margin-top: 30px;
+        }
+        .status-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .download-box {
+            background: #dbeafe;
+            border-left: 4px solid #2563eb;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 10px 10px 0;
+            font-weight: bold;
+        }
+        .download-btn:hover {
+            background: #1e40af;
+        }
+        .step {
+            margin: 20px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+        .step::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #10b981;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .checklist {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .checklist li {
+            margin: 10px 0;
+        }
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .warning {
+            color: #dc2626;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PolyBuddy Quick Start Guide</h1>
+        
+        <div class="status-box">
+            <h3>⚠️ Prerequisites Required</h3>
+            <p>Your system needs <strong>Node.js</strong> and <strong>Docker Desktop</strong> installed before you can run PolyBuddy.</p>
+        </div>
+
+        <h2>📥 Step 1: Download & Install Prerequisites</h2>
+        
+        <div class="download-box">
+            <h3>Node.js (Required)</h3>
+            <p>JavaScript runtime - Version 20.0.0 or higher needed</p>
+            <a href="https://nodejs.org/" target="_blank" class="download-btn">Download Node.js</a>
+            <p><small>Choose the <strong>LTS</strong> version (recommended for most users)</small></p>
+        </div>
+
+        <div class="download-box">
+            <h3>Docker Desktop (Required)</h3>
+            <p>Container platform for running the PostgreSQL database</p>
+            <a href="https://www.docker.com/products/docker-desktop/" target="_blank" class="download-btn">Download Docker Desktop</a>
+            <p><small><strong>Important:</strong> After installing, start Docker Desktop and wait for it to fully initialize</small></p>
+        </div>
+
+        <h2>🔧 Step 2: Run Automated Setup</h2>
+        
+        <div class="step">
+            <h3>After installing Node.js and Docker:</h3>
+            <p>Open PowerShell in the project folder and run:</p>
+            <code>.\setup.ps1</code>
+            <p><small>Or double-click <code>setup.bat</code> if you prefer</small></p>
+        </div>
+
+        <div class="success-box">
+            <p>The setup script will automatically:</p>
+            <ul>
+                <li>✓ Install pnpm package manager</li>
+                <li>✓ Install all Node.js dependencies</li>
+                <li>✓ Create configuration files</li>
+                <li>✓ Start PostgreSQL database</li>
+                <li>✓ Initialize database schema</li>
+            </ul>
+        </div>
+
+        <h2>▶️ Step 3: Start the Application</h2>
+        
+        <div class="step">
+            <h3>Run the start script:</h3>
+            <code>.\start.ps1</code>
+            <p><small>Or double-click <code>start.bat</code></small></p>
+        </div>
+
+        <h2>🌐 Step 4: Access PolyBuddy</h2>
+        
+        <div class="success-box">
+            <p>Once started, open these URLs in your browser:</p>
+            <ul>
+                <li><strong>Web UI:</strong> <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+                <li><strong>API Health:</strong> <a href="http://localhost:3001/health" target="_blank">http://localhost:3001/health</a></li>
+                <li><strong>API Docs:</strong> <a href="http://localhost:3001/docs" target="_blank">http://localhost:3001/docs</a></li>
+            </ul>
+        </div>
+
+        <h2>✅ Verification Checklist</h2>
+        
+        <div class="checklist">
+            <ul>
+                <li>☐ Node.js installed (v20.0.0+)</li>
+                <li>☐ Docker Desktop installed and running</li>
+                <li>☐ Restarted PowerShell/terminal</li>
+                <li>☐ Internet connection available</li>
+                <li>☐ At least 2GB free disk space</li>
+                <li>☐ In project directory: <code>D:\pb\polybuddy\polybuddy</code></li>
+            </ul>
+        </div>
+
+        <h2>🆘 Troubleshooting</h2>
+        
+        <h3>Node.js not found</h3>
+        <ul>
+            <li>Restart PowerShell after installation</li>
+            <li>Open a NEW PowerShell window</li>
+            <li>Verify with: <code>node --version</code></li>
+        </ul>
+
+        <h3>Docker not running</h3>
+        <ul>
+            <li>Check system tray for Docker whale icon</li>
+            <li>Open Docker Desktop from Start Menu</li>
+            <li>Wait for status to show "running"</li>
+        </ul>
+
+        <h3>PowerShell execution policy error</h3>
+        <p>Run this command in PowerShell:</p>
+        <code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</code>
+
+        <h2>📚 More Information</h2>
+        
+        <p>For detailed documentation, see:</p>
+        <ul>
+            <li><strong>START_HERE.md</strong> - Quick start instructions</li>
+            <li><strong>INSTALL_GUIDE.md</strong> - Detailed installation guide</li>
+            <li><strong>README.md</strong> - Complete project documentation</li>
+            <li><strong>SETUP_STATUS.md</strong> - Current setup status</li>
+        </ul>
+
+        <h2>🎯 What is PolyBuddy?</h2>
+        
+        <p>PolyBuddy is a <strong>prediction market analytics platform</strong> that provides retail traders with:</p>
+        <ul>
+            <li>📊 Market analytics and real-time data</li>
+            <li>🎯 5 types of specialized trading signals</li>
+            <li>👥 Market participation analysis</li>
+            <li>📱 Portfolio tracking and alerts</li>
+            <li>🔔 Price and volume notifications</li>
+        </ul>
+
+        <hr style="margin: 40px 0;">
+        
+        <p style="text-align: center; color: #6b7280;">
+            <strong>Ready to begin?</strong><br>
+            Download Node.js and Docker using the buttons above, then run <code>setup.ps1</code>
+        </p>
+    </div>
+</body>
+</html>
+
+

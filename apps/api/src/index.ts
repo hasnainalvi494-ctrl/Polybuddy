@@ -33,7 +33,11 @@ async function buildApp() {
   // Security
   await app.register(helmet);
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000", "http://localhost:3003"],
+    origin: process.env.CORS_ORIGIN?.split(",") || [
+      "http://localhost:3000",
+      "http://localhost:3002",
+      "http://localhost:3003",
+    ],
     credentials: true,
   });
   await app.register(cookie, {

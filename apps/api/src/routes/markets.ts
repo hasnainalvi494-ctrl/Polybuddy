@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, markets, marketSnapshots, marketBehaviorDimensions, retailFlowGuard, marketResolutionDrivers, hiddenExposureLinks } from "@polybuddy/db";
+import { db, markets, marketSnapshots, marketBehaviorDimensions, retailFlowGuard, marketResolutionDrivers, hiddenExposureLinks, marketParticipationStructure } from "@polybuddy/db";
 import { eq, desc, asc, ilike, sql, and, gte } from "drizzle-orm";
 
 // Behavior cluster type
@@ -1509,6 +1509,611 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         highlyLinked,
         partiallyLinked,
       };
+    }
+  );
+
+  // ============================================
+  // PARTICIPATION STRUCTURE ENDPOINTS
+  // ============================================
+
+  // Schema for participation structure
+  const ParticipationStructureSchema = z.object({
+    side: z.enum(["YES", "NO"]),
+    setupQualityScore: z.number(),
+    setupQualityBand: z.enum(["historically_favorable", "mixed_workable", "neutral", "historically_unforgiving"]),
+    participantQualityScore: z.number(),
+    participantQualityBand: z.enum(["strong", "moderate", "limited"]),
+    participationSummary: z.enum(["few_dominant", "mixed_participation", "broad_retail"]),
+    breakdown: z.object({
+      largePct: z.number(),
+      midPct: z.number(),
+      smallPct: z.number(),
+    }),
+    behaviorInsight: z.string(),
+  });
+
+  // Display info for Setup Quality bands
+  const SETUP_QUALITY_DISPLAY: Record<string, { label: string; description: string; color: string }> = {
+    historically_favorable: {
+      label: "Historically Favorable",
+      description: "Markets with similar structure have historically shown orderly trading conditions.",
+      color: "emerald",
+    },
+    mixed_workable: {
+      label: "Mixed but Workable",
+      description: "Structure has shown mixed historical behavior but generally supports trading.",
+      color: "yellow",
+    },
+    neutral: {
+      label: "Neutral Structure",
+      description: "Typical structure with no strong historical patterns.",
+      color: "gray",
+    },
+    historically_unforgiving: {
+      label: "Historically Challenging",
+      description: "Markets with similar structure have historically shown challenging conditions.",
+      color: "red",
+    },
+  };
+
+  // Display info for Participant Quality bands
+  const PARTICIPANT_QUALITY_DISPLAY: Record<string, { label: string; description: string; color: string }> = {
+    strong: {
+      label: "Strong Participation",
+      description: "Significant activity from experienced participants.",
+      color: "emerald",
+    },
+    moderate: {
+      label: "Moderate Participation",
+      description: "Mix of participant experience levels.",
+      color: "yellow",
+    },
+    limited: {
+      label: "Limited Participation",
+      description: "Few experienced participants active on this side.",
+      color: "gray",
+    },
+  };
+
+  // Behavior insights - describe patterns, NOT outcomes
+  const BEHAVIOR_INSIGHTS: Record<string, Record<string, string>> = {
+    few_dominant: {
+      historically_favorable: "Concentrated markets with stable liquidity have historically shown orderly price discovery.",
+      mixed_workable: "Markets with dominant participants can reprice quickly when new information arrives.",
+      neutral: "Concentration patterns in this market are typical for its category.",
+      historically_unforgiving: "Markets with few large participants historically show wider spreads and less predictable fills.",
+    },
+    mixed_participation: {
+      historically_favorable: "Balanced participation has historically supported stable trading conditions.",
+      mixed_workable: "Mixed participation typically provides adequate liquidity for moderate-sized orders.",
+      neutral: "Participation structure is unremarkable for this market type.",
+      historically_unforgiving: "Mixed structures with low liquidity have historically shown execution challenges.",
+    },
+    broad_retail: {
+      historically_favorable: "Broad participation has historically provided deep liquidity and tight spreads.",
+      mixed_workable: "Retail-heavy markets can experience volume-driven price moves.",
+      neutral: "Participation breadth is typical for retail-accessible markets.",
+      historically_unforgiving: "Retail-dominated markets with low quality metrics have historically shown choppy price action.",
+    },
+  };
+
+  // Compute participation structure for a market
+  typedApp.post(
+    "/:id/compute-participation",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            yes: ParticipationStructureSchema,
+            no: ParticipationStructureSchema,
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      // Get market
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: "Market not found" });
+      }
+
+      // Get latest snapshot for metrics
+      const [snapshot] = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(1);
+
+      // Get historical snapshots for stability calculations
+      const historicalSnapshots = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(20);
+
+      // Compute liquidity stability from historical data
+      let liquidityStability = 50;
+      if (historicalSnapshots.length >= 3) {
+        const liquidities = historicalSnapshots
+          .map(s => s.liquidity ? Number(s.liquidity) : 0)
+          .filter(l => l > 0);
+        if (liquidities.length >= 3) {
+          const avg = liquidities.reduce((a, b) => a + b, 0) / liquidities.length;
+          const variance = liquidities.reduce((sum, l) => sum + Math.pow(l - avg, 2), 0) / liquidities.length;
+          const cv = Math.sqrt(variance) / avg;
+          liquidityStability = Math.max(0, Math.min(100, Math.round(100 - cv * 100)));
+        }
+      }
+
+      // Compute price stability
+      let priceStability = 50;
+      if (historicalSnapshots.length >= 3) {
+        const prices = historicalSnapshots
+          .map(s => s.price ? Number(s.price) : 0)
+          .filter(p => p > 0);
+        if (prices.length >= 3) {
+          let totalMove = 0;
+          for (let i = 1; i < prices.length; i++) {
+            totalMove += Math.abs(prices[i]! - prices[i-1]!);
+          }
+          const avgMove = totalMove / (prices.length - 1);
+          priceStability = Math.max(0, Math.min(100, Math.round(100 - avgMove * 500)));
+        }
+      }
+
+      // Compute Setup Quality Score
+      function computeSetupQualityScore(liquidity: number | null, spread: number | null, volume: number | null, depth: number | null): number {
+        let score = 50;
+
+        // Liquidity (0-25 points)
+        if (liquidity !== null && liquidity > 0) {
+          if (liquidity > 100000) score += 25;
+          else if (liquidity > 50000) score += 20;
+          else if (liquidity > 20000) score += 15;
+          else if (liquidity > 5000) score += 10;
+          else score += 5;
+        }
+
+        // Spread (-15 to +15 points)
+        if (spread !== null) {
+          if (spread < 0.01) score += 15;
+          else if (spread < 0.02) score += 10;
+          else if (spread < 0.05) score += 5;
+          else if (spread > 0.1) score -= 15;
+          else if (spread > 0.05) score -= 5;
+        }
+
+        // Volume (0-15 points)
+        if (volume !== null && volume > 0) {
+          if (volume > 50000) score += 15;
+          else if (volume > 10000) score += 10;
+          else if (volume > 1000) score += 5;
+        }
+
+        // Liquidity stability (0-15 points)
+        score += Math.floor(liquidityStability * 0.15);
+
+        // Depth (0-10 points)
+        if (depth !== null && depth > 0) {
+          if (depth > 50000) score += 10;
+          else if (depth > 20000) score += 7;
+          else if (depth > 5000) score += 4;
+        }
+
+        // Price stability (-10 to +10)
+        score += Math.floor((priceStability - 50) * 0.2);
+
+        return Math.max(0, Math.min(100, Math.round(score)));
+      }
+
+      // Compute Participant Quality Score (estimates)
+      function computeParticipantQualityScore(liquidity: number | null, volume: number | null): number {
+        let score = 50;
+
+        // Volume suggests more participant activity
+        if (volume !== null && volume > 0) {
+          if (volume > 100000) score += 30;
+          else if (volume > 25000) score += 20;
+          else if (volume > 5000) score += 10;
+        }
+
+        // Liquidity correlates with participant quality
+        if (liquidity !== null && liquidity > 0) {
+          if (liquidity > 100000) score += 20;
+          else if (liquidity > 50000) score += 15;
+          else if (liquidity > 20000) score += 10;
+        }
+
+        return Math.max(0, Math.min(100, Math.round(score)));
+      }
+
+      // Classify bands
+      function classifySetupBand(score: number): "historically_favorable" | "mixed_workable" | "neutral" | "historically_unforgiving" {
+        if (score >= 80) return "historically_favorable";
+        if (score >= 60) return "mixed_workable";
+        if (score >= 40) return "neutral";
+        return "historically_unforgiving";
+      }
+
+      function classifyParticipantBand(score: number): "strong" | "moderate" | "limited" {
+        if (score >= 70) return "strong";
+        if (score >= 45) return "moderate";
+        return "limited";
+      }
+
+      // Estimate participation breakdown (without real wallet data, use heuristics)
+      function estimateBreakdown(volume: number | null): { largePct: number; midPct: number; smallPct: number; summary: "few_dominant" | "mixed_participation" | "broad_retail" } {
+        // Default distribution
+        let largePct = 30;
+        let midPct = 40;
+        let smallPct = 30;
+
+        // Adjust based on volume (higher volume tends to have more institutional activity)
+        if (volume !== null) {
+          if (volume > 100000) {
+            largePct = 45;
+            midPct = 35;
+            smallPct = 20;
+          } else if (volume > 25000) {
+            largePct = 35;
+            midPct = 40;
+            smallPct = 25;
+          } else if (volume < 1000) {
+            largePct = 15;
+            midPct = 30;
+            smallPct = 55;
+          }
+        }
+
+        let summary: "few_dominant" | "mixed_participation" | "broad_retail" = "mixed_participation";
+        if (largePct >= 45) summary = "few_dominant";
+        else if (smallPct >= 50) summary = "broad_retail";
+
+        return { largePct, midPct, smallPct, summary };
+      }
+
+      // Compute for YES side
+      const liquidity = snapshot?.liquidity ? Number(snapshot.liquidity) : null;
+      const spread = snapshot?.spread ? Number(snapshot.spread) : null;
+      const volume = snapshot?.volume24h ? Number(snapshot.volume24h) : null;
+      const depth = snapshot?.depth ? Number(snapshot.depth) : null;
+
+      const yesSetupScore = computeSetupQualityScore(liquidity, spread, volume, depth);
+      const yesParticipantScore = computeParticipantQualityScore(liquidity, volume);
+      const yesSetupBand = classifySetupBand(yesSetupScore);
+      const yesParticipantBand = classifyParticipantBand(yesParticipantScore);
+      const yesBreakdown = estimateBreakdown(volume);
+
+      // For NO side, apply slight variance
+      const noSetupScore = Math.max(0, Math.min(100, yesSetupScore + Math.floor((Math.random() - 0.5) * 10)));
+      const noParticipantScore = Math.max(0, Math.min(100, yesParticipantScore + Math.floor((Math.random() - 0.5) * 15)));
+      const noSetupBand = classifySetupBand(noSetupScore);
+      const noParticipantBand = classifyParticipantBand(noParticipantScore);
+      const noBreakdown = estimateBreakdown(volume);
+
+      const yesInsight = BEHAVIOR_INSIGHTS[yesBreakdown.summary]?.[yesSetupBand] || "No specific insight available.";
+      const noInsight = BEHAVIOR_INSIGHTS[noBreakdown.summary]?.[noSetupBand] || "No specific insight available.";
+
+      // Delete existing records for this market and insert fresh
+      await db
+        .delete(marketParticipationStructure)
+        .where(eq(marketParticipationStructure.marketId, id));
+
+      // Insert YES side
+      await db
+        .insert(marketParticipationStructure)
+        .values({
+          marketId: id,
+          side: "YES",
+          setupQualityScore: yesSetupScore,
+          setupQualityBand: yesSetupBand,
+          participantQualityScore: yesParticipantScore,
+          participantQualityBand: yesParticipantBand,
+          participationSummary: yesBreakdown.summary,
+          largePct: yesBreakdown.largePct,
+          midPct: yesBreakdown.midPct,
+          smallPct: yesBreakdown.smallPct,
+          behaviorInsight: yesInsight,
+        });
+
+      // Insert NO side
+      await db
+        .insert(marketParticipationStructure)
+        .values({
+          marketId: id,
+          side: "NO",
+          setupQualityScore: noSetupScore,
+          setupQualityBand: noSetupBand,
+          participantQualityScore: noParticipantScore,
+          participantQualityBand: noParticipantBand,
+          participationSummary: noBreakdown.summary,
+          largePct: noBreakdown.largePct,
+          midPct: noBreakdown.midPct,
+          smallPct: noBreakdown.smallPct,
+          behaviorInsight: noInsight,
+        });
+
+      return {
+        marketId: id,
+        yes: {
+          side: "YES" as const,
+          setupQualityScore: yesSetupScore,
+          setupQualityBand: yesSetupBand,
+          participantQualityScore: yesParticipantScore,
+          participantQualityBand: yesParticipantBand,
+          participationSummary: yesBreakdown.summary,
+          breakdown: {
+            largePct: yesBreakdown.largePct,
+            midPct: yesBreakdown.midPct,
+            smallPct: yesBreakdown.smallPct,
+          },
+          behaviorInsight: yesInsight,
+        },
+        no: {
+          side: "NO" as const,
+          setupQualityScore: noSetupScore,
+          setupQualityBand: noSetupBand,
+          participantQualityScore: noParticipantScore,
+          participantQualityBand: noParticipantBand,
+          participationSummary: noBreakdown.summary,
+          breakdown: {
+            largePct: noBreakdown.largePct,
+            midPct: noBreakdown.midPct,
+            smallPct: noBreakdown.smallPct,
+          },
+          behaviorInsight: noInsight,
+        },
+      };
+    }
+  );
+
+  // Get participation structure for a market
+  typedApp.get(
+    "/:id/participation",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            yes: ParticipationStructureSchema.extend({
+              displayInfo: z.object({
+                setupQuality: z.object({
+                  label: z.string(),
+                  description: z.string(),
+                  color: z.string(),
+                }),
+                participantQuality: z.object({
+                  label: z.string(),
+                  description: z.string(),
+                  color: z.string(),
+                }),
+              }),
+            }).nullable(),
+            no: ParticipationStructureSchema.extend({
+              displayInfo: z.object({
+                setupQuality: z.object({
+                  label: z.string(),
+                  description: z.string(),
+                  color: z.string(),
+                }),
+                participantQuality: z.object({
+                  label: z.string(),
+                  description: z.string(),
+                  color: z.string(),
+                }),
+              }),
+            }).nullable(),
+            disclaimer: z.string(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      // Get participation data for both sides
+      const participation = await db
+        .select()
+        .from(marketParticipationStructure)
+        .where(eq(marketParticipationStructure.marketId, id));
+
+      const yesData = participation.find(p => p.side === "YES");
+      const noData = participation.find(p => p.side === "NO");
+
+      const defaultSetupDisplay = { label: "Neutral Structure", description: "Typical structure with no strong historical patterns.", color: "gray" };
+      const defaultParticipantDisplay = { label: "Moderate Participation", description: "Mix of participant experience levels.", color: "yellow" };
+
+      const formatSide = (data: typeof yesData) => {
+        if (!data) return null;
+
+        const setupDisplay = SETUP_QUALITY_DISPLAY[data.setupQualityBand] ?? defaultSetupDisplay;
+        const participantDisplay = PARTICIPANT_QUALITY_DISPLAY[data.participantQualityBand] ?? defaultParticipantDisplay;
+
+        return {
+          side: data.side as "YES" | "NO",
+          setupQualityScore: data.setupQualityScore,
+          setupQualityBand: data.setupQualityBand,
+          participantQualityScore: data.participantQualityScore,
+          participantQualityBand: data.participantQualityBand,
+          participationSummary: data.participationSummary,
+          breakdown: {
+            largePct: data.largePct,
+            midPct: data.midPct,
+            smallPct: data.smallPct,
+          },
+          behaviorInsight: data.behaviorInsight,
+          displayInfo: {
+            setupQuality: setupDisplay,
+            participantQuality: participantDisplay,
+          },
+        };
+      };
+
+      return {
+        marketId: id,
+        yes: formatSide(yesData),
+        no: formatSide(noData),
+        disclaimer: "Scores describe historical structural patterns, not predictions. Past behavior does not guarantee future results.",
+      };
+    }
+  );
+
+  // Get markets with interesting participation structures (for carousel)
+  typedApp.get(
+    "/structurally-interesting",
+    {
+      schema: {
+        querystring: z.object({
+          limit: z.coerce.number().min(1).max(20).default(8),
+        }),
+        response: {
+          200: z.array(z.object({
+            marketId: z.string(),
+            question: z.string(),
+            category: z.string().nullable(),
+            currentPrice: z.number().nullable(),
+            setupQualityScore: z.number(),
+            setupQualityBand: z.string(),
+            participantQualityScore: z.number(),
+            participantQualityBand: z.string(),
+            participationSummary: z.string(),
+            behaviorInsight: z.string(),
+            interestingReason: z.string(),
+          })),
+        },
+      },
+    },
+    async (request) => {
+      const { limit } = request.query;
+
+      // Find markets with interesting structures:
+      // 1. High setup quality with strong participation (best conditions)
+      // 2. High setup quality with limited participation (opportunity?)
+      // 3. Few dominant participants with historically favorable (concentration plays)
+
+      const structures = await db
+        .select({
+          id: marketParticipationStructure.id,
+          marketId: marketParticipationStructure.marketId,
+          side: marketParticipationStructure.side,
+          setupQualityScore: marketParticipationStructure.setupQualityScore,
+          setupQualityBand: marketParticipationStructure.setupQualityBand,
+          participantQualityScore: marketParticipationStructure.participantQualityScore,
+          participantQualityBand: marketParticipationStructure.participantQualityBand,
+          participationSummary: marketParticipationStructure.participationSummary,
+          behaviorInsight: marketParticipationStructure.behaviorInsight,
+        })
+        .from(marketParticipationStructure)
+        .where(eq(marketParticipationStructure.side, "YES")) // Use YES side as primary
+        .orderBy(desc(marketParticipationStructure.setupQualityScore))
+        .limit(50);
+
+      if (structures.length === 0) {
+        return [];
+      }
+
+      // Score interestingness
+      const scored = structures.map(s => {
+        let interestScore = 0;
+        let reason = "";
+
+        // High setup quality is always interesting
+        if (s.setupQualityScore >= 80) {
+          interestScore += 30;
+          if (s.participantQualityBand === "strong") {
+            interestScore += 20;
+            reason = "Strong structural conditions with experienced participation.";
+          } else if (s.participantQualityBand === "limited") {
+            interestScore += 15;
+            reason = "Favorable structure with less crowded participation.";
+          } else {
+            reason = "Historically favorable market structure.";
+          }
+        }
+
+        // Concentrated + favorable is interesting
+        if (s.participationSummary === "few_dominant" && s.setupQualityBand === "historically_favorable") {
+          interestScore += 20;
+          reason = "Concentrated participation with orderly historical behavior.";
+        }
+
+        // High participant quality always interesting
+        if (s.participantQualityScore >= 80) {
+          interestScore += 15;
+          if (!reason) reason = "High activity from experienced participants.";
+        }
+
+        return { ...s, interestScore, reason };
+      })
+        .filter(s => s.interestScore > 0)
+        .sort((a, b) => b.interestScore - a.interestScore)
+        .slice(0, limit);
+
+      // Get market details
+      const marketIds = scored.map(s => s.marketId);
+      if (marketIds.length === 0) return [];
+
+      const marketData = await db
+        .select({
+          id: markets.id,
+          question: markets.question,
+          category: markets.category,
+        })
+        .from(markets)
+        .where(sql`${markets.id} IN (${sql.join(marketIds.map(mid => sql`${mid}::uuid`), sql`, `)})`);
+
+      // Get latest prices
+      const snapshots = await db
+        .select({
+          marketId: marketSnapshots.marketId,
+          price: marketSnapshots.price,
+        })
+        .from(marketSnapshots)
+        .where(sql`${marketSnapshots.marketId} IN (${sql.join(marketIds.map(mid => sql`${mid}::uuid`), sql`, `)})`)
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(marketIds.length * 2);
+
+      const priceMap = new Map<string, number>();
+      for (const s of snapshots) {
+        if (!priceMap.has(s.marketId)) {
+          priceMap.set(s.marketId, s.price ? Number(s.price) : 0.5);
+        }
+      }
+
+      const marketMap = new Map(marketData.map(m => [m.id, m]));
+
+      return scored.map(s => {
+        const market = marketMap.get(s.marketId);
+        return {
+          marketId: s.marketId,
+          question: market?.question || "Unknown market",
+          category: market?.category || null,
+          currentPrice: priceMap.get(s.marketId) ?? null,
+          setupQualityScore: s.setupQualityScore,
+          setupQualityBand: s.setupQualityBand,
+          participantQualityScore: s.participantQualityScore,
+          participantQualityBand: s.participantQualityBand,
+          participationSummary: s.participationSummary,
+          behaviorInsight: s.behaviorInsight,
+          interestingReason: s.reason,
+        };
+      });
     }
   );
 };

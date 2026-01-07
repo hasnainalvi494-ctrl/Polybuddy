@@ -391,8 +391,11 @@ export function SignalSummaryCard({
             </svg>
           </button>
 
-          {isExpanded && (
-            <div className="px-5 pb-4 space-y-3">
+          <div
+            className={`grid transition-all duration-300 ease-out ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+          >
+            <div className="overflow-hidden">
+              <div className="px-5 pb-4 space-y-3">
               {enablesPoints && enablesPoints.length > 0 && (
                 <div>
                   <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -424,8 +427,9 @@ export function SignalSummaryCard({
                   </ul>
                 </div>
               )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

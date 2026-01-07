@@ -64,10 +64,12 @@ function timeAgo(dateStr: string): string {
 
 function LowFrictionCard({
   market,
-  hasContrastTrap
+  hasContrastTrap,
+  index = 0,
 }: {
   market: DailyAttentionResponse["worthAttention"][0];
   hasContrastTrap?: boolean;
+  index?: number;
 }) {
   const volatility: "low" | "medium" | "high" =
     market.confidence > 75 ? "low" : market.confidence > 50 ? "medium" : "high";
@@ -88,7 +90,7 @@ function LowFrictionCard({
         <div className="flex items-center gap-1.5">
           <div className="h-1.5 w-12 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+              className="h-full bg-emerald-500 rounded-full transition-all duration-700 ease-out"
               style={{ width: `${market.confidence}%` }}
             />
           </div>
@@ -397,10 +399,11 @@ export default function DailyPage() {
 
           {data?.worthAttention && data.worthAttention.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {data.worthAttention.map((market) => (
+              {data.worthAttention.map((market, index) => (
                 <LowFrictionCard
                   key={market.id}
                   market={market}
+                  index={index}
                   hasContrastTrap={contrastAssets.has(extractAsset(market.question))}
                 />
               ))}

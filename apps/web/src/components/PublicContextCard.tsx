@@ -100,13 +100,16 @@ export function PublicContextCard({ marketId }: PublicContextCardProps) {
   }
 
   if (error || !data) {
-    return (
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Unable to load market context
-        </p>
-      </div>
-    );
+    return null; // Hide entirely if no data
+  }
+
+  // Hide if all metrics are zero (no meaningful data)
+  const hasActivity = data.participation.totalWallets > 0 ||
+    data.participation.activeWallets24h > 0 ||
+    data.volume.volume24h > 0;
+
+  if (!hasActivity) {
+    return null; // Don't show empty panel
   }
 
   const trendStyle = TREND_STYLES[data.participation.walletTrend];

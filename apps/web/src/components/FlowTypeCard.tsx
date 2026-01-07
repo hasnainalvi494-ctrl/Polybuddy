@@ -137,13 +137,12 @@ export function FlowTypeCard({ marketId }: FlowTypeCardProps) {
   }
 
   if (error || !data) {
-    return (
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Unable to load flow data
-        </p>
-      </div>
-    );
+    return null; // Hide entirely if no data
+  }
+
+  // Hide if unknown flow type with no transactions (no meaningful data)
+  if (data.flowType === "unknown" && data.metrics.totalTransactions === 0) {
+    return null; // Don't show empty panel
   }
 
   const style = FLOW_TYPE_STYLES[data.flowType];

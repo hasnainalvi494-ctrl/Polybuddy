@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getMarkets, getCategories } from "@/lib/api";
+import { StructurallyInterestingCarousel } from "@/components/StructurallyInterestingCarousel";
 
 interface Market {
   id: string;
@@ -109,6 +110,11 @@ export default function MarketsPage() {
           </p>
         </header>
 
+        {/* Structurally Interesting Markets Carousel */}
+        <div className="mb-10">
+          <StructurallyInterestingCarousel limit={6} />
+        </div>
+
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <input
@@ -172,8 +178,13 @@ export default function MarketsPage() {
         )}
 
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
-            Error loading markets: {(error as Error).message}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6 text-center">
+            <p className="text-amber-800 dark:text-amber-300 font-medium mb-2">
+              Markets temporarily unavailable
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              We're refreshing market data. Please try again shortly.
+            </p>
           </div>
         )}
 

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { getDailyAttention, type DailyAttentionResponse } from "@/lib/api";
 import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "@/components/MiniSparkline";
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
-import { PremiumUpgradeModal, usePremiumUpgrade, usePremiumStatus } from "@/components/PremiumUpgradeModal";
+import { ParticipationContextLine } from "@/components/WhosInThisMarket";
+import { StructurallyInterestingCarouselDark } from "@/components/StructurallyInterestingCarousel";
 
 // ============================================================================
 // HERO SECTION
@@ -145,13 +146,9 @@ function getActiveInsight(market: DailyAttentionResponse["worthAttention"][0]): 
 function ActiveSignalCard({
   market,
   index,
-  isPremium,
-  onUpgradeClick,
 }: {
   market: DailyAttentionResponse["worthAttention"][0];
   index: number;
-  isPremium: boolean;
-  onUpgradeClick: () => void;
 }) {
   const confidence = getConfidenceLevel(market.confidence);
   const volatility: "low" | "medium" | "high" =
@@ -231,52 +228,30 @@ function ActiveSignalCard({
         </div>
 
         {/* Signal Label */}
-        <div className="flex items-center gap-2 flex-wrap pb-4">
+        <div className="flex items-center gap-2 flex-wrap pb-3">
           <span className="px-2 py-0.5 bg-emerald-500/8 text-emerald-400/80 text-[11px] rounded-md font-medium border border-emerald-500/15">
             {market.setupLabel || "Favorable Structure"}
           </span>
           <HiddenExposureInlineWarning marketId={market.id} />
         </div>
+
+        {/* Participation Context */}
+        <div className="pb-4">
+          <ParticipationContextLine marketId={market.id} />
+        </div>
       </div>
 
-      {/* Depth-based paywall - Free users */}
-      {!isPremium && (
-        <div className="border-t border-gray-800/40">
-          <button
-            onClick={(e) => { e.preventDefault(); onUpgradeClick(); }}
-            className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-800/20 transition-colors duration-150 group/unlock"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gray-800/50 border border-gray-700/50 flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-[13px] text-gray-300">Unlock full signal context</p>
-                <p className="text-[11px] text-gray-600">Additional analysis available</p>
-              </div>
-            </div>
-            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+      {/* Signal context - visible to all */}
+      <div className="px-5 py-4 border-t border-gray-800/40 space-y-2.5 bg-gray-800/20">
+        <div>
+          <h4 className="text-[11px] text-gray-500 mb-0.5">What this often leads to</h4>
+          <p className="text-[12px] text-gray-400 leading-relaxed">Patient positioning here tends to result in better execution than reactive entries after momentum builds.</p>
         </div>
-      )}
-
-      {/* Premium users see full context */}
-      {isPremium && (
-        <div className="px-5 py-4 border-t border-gray-800/40 space-y-2.5 bg-gray-800/20">
-          <div>
-            <h4 className="text-[11px] text-gray-500 mb-0.5">What this often leads to</h4>
-            <p className="text-[12px] text-gray-400 leading-relaxed">Patient positioning here tends to result in better execution than reactive entries after momentum builds.</p>
-          </div>
-          <div>
-            <h4 className="text-[11px] text-gray-600 mb-0.5">What to watch</h4>
-            <p className="text-[12px] text-gray-500 leading-relaxed">This setup typically degrades when attention spikes or spreads widen suddenly.</p>
-          </div>
+        <div>
+          <h4 className="text-[11px] text-gray-600 mb-0.5">What to watch</h4>
+          <p className="text-[12px] text-gray-500 leading-relaxed">This setup typically degrades when attention spikes or spreads widen suddenly.</p>
         </div>
-      )}
+      </div>
 
       {/* CTA Footer */}
       <Link
@@ -312,12 +287,8 @@ function getFrictionInsight(market: DailyAttentionResponse["retailTraps"][0]): s
 
 function HighFrictionSignalCard({
   market,
-  isPremium,
-  onUpgradeClick,
 }: {
   market: DailyAttentionResponse["retailTraps"][0];
-  isPremium: boolean;
-  onUpgradeClick: () => void;
 }) {
   return (
     <div className="group/card bg-gray-900/40 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-800/40 hover:border-gray-700/60 transition-colors duration-200">
@@ -375,52 +346,30 @@ function HighFrictionSignalCard({
         </div>
 
         {/* Signal Label */}
-        <div className="flex items-center gap-2 flex-wrap pb-4">
+        <div className="flex items-center gap-2 flex-wrap pb-3">
           <span className="px-2 py-0.5 bg-gray-800/40 text-gray-500 text-[11px] rounded-md font-medium border border-gray-700/30">
             {market.warningLabel || "Structural Headwind"}
           </span>
           <HiddenExposureInlineWarning marketId={market.id} />
         </div>
+
+        {/* Participation Context */}
+        <div className="pb-4">
+          <ParticipationContextLine marketId={market.id} />
+        </div>
       </div>
 
-      {/* Depth-based paywall - Free users */}
-      {!isPremium && (
-        <div className="border-t border-gray-800/30">
-          <button
-            onClick={(e) => { e.preventDefault(); onUpgradeClick(); }}
-            className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-800/20 transition-colors duration-150 group/unlock"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gray-800/40 border border-gray-700/40 flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-[13px] text-gray-400">Unlock full signal context</p>
-                <p className="text-[11px] text-gray-600">Additional analysis available</p>
-              </div>
-            </div>
-            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+      {/* Signal context - visible to all */}
+      <div className="px-5 py-4 border-t border-gray-800/30 space-y-2.5 bg-gray-800/15">
+        <div>
+          <h4 className="text-[11px] text-gray-500 mb-0.5">What this often leads to</h4>
+          <p className="text-[12px] text-gray-500 leading-relaxed">Retail entries during high-friction periods tend to face immediate execution drag and elevated exit costs.</p>
         </div>
-      )}
-
-      {/* Premium users see full context */}
-      {isPremium && (
-        <div className="px-5 py-4 border-t border-gray-800/30 space-y-2.5 bg-gray-800/15">
-          <div>
-            <h4 className="text-[11px] text-gray-500 mb-0.5">What this often leads to</h4>
-            <p className="text-[12px] text-gray-500 leading-relaxed">Retail entries during high-friction periods tend to face immediate execution drag and elevated exit costs.</p>
-          </div>
-          <div>
-            <h4 className="text-[11px] text-gray-600 mb-0.5">What to watch</h4>
-            <p className="text-[12px] text-gray-600 leading-relaxed">This friction typically eases when attention fades and spreads normalize.</p>
-          </div>
+        <div>
+          <h4 className="text-[11px] text-gray-600 mb-0.5">What to watch</h4>
+          <p className="text-[12px] text-gray-600 leading-relaxed">This friction typically eases when attention fades and spreads normalize.</p>
         </div>
-      )}
+      </div>
 
       {/* CTA Footer */}
       <Link
@@ -490,9 +439,6 @@ function SignalTimelineRow({ change, index }: { change: DailyAttentionResponse["
 // ============================================================================
 
 export default function PulsePage() {
-  const { isPremium } = usePremiumStatus();
-  const { isOpen, openUpgrade, closeUpgrade } = usePremiumUpgrade();
-
   const { data, isLoading, error } = useQuery({
     queryKey: ["dailyAttention"],
     queryFn: getDailyAttention,
@@ -538,8 +484,6 @@ export default function PulsePage() {
                       key={market.id}
                       market={market}
                       index={index}
-                      isPremium={isPremium}
-                      onUpgradeClick={openUpgrade}
                     />
                   ))}
                 </div>
@@ -549,6 +493,11 @@ export default function PulsePage() {
                   <p className="text-xs text-gray-600 mt-1">Quality signals are rare by design.</p>
                 </div>
               )}
+            </section>
+
+            {/* Section: Structurally Interesting Markets */}
+            <section className="mb-14">
+              <StructurallyInterestingCarouselDark limit={8} />
             </section>
 
             {/* Section B: High Friction Signals */}
@@ -571,8 +520,6 @@ export default function PulsePage() {
                     <HighFrictionSignalCard
                       key={market.id}
                       market={market}
-                      isPremium={isPremium}
-                      onUpgradeClick={openUpgrade}
                     />
                   ))}
                 </div>
@@ -610,39 +557,6 @@ export default function PulsePage() {
               )}
             </section>
 
-            {/* Premium Promotion - Free Users Only */}
-            {!isPremium && (
-              <section className="mb-14">
-                <button
-                  onClick={openUpgrade}
-                  className="w-full bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 text-left hover:border-gray-700/60 transition-colors duration-150 group"
-                >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-start sm:items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-[15px] font-medium text-gray-200 mb-0.5">
-                          Unlock full signal context
-                        </h3>
-                        <p className="text-gray-500 text-[13px] leading-relaxed max-w-md">
-                          See why signals fire and what conditions typically change the setup.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[13px] text-gray-500 hidden sm:block">Learn more</span>
-                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                </button>
-              </section>
-            )}
           </>
         )}
 
@@ -654,9 +568,6 @@ export default function PulsePage() {
           </p>
         </footer>
       </div>
-
-      {/* Premium Upgrade Modal */}
-      <PremiumUpgradeModal isOpen={isOpen} onClose={closeUpgrade} />
     </main>
   );
 }

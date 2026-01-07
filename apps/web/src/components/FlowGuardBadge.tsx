@@ -41,9 +41,9 @@ const SEVERITY_ICONS: Record<FlowGuardSeverity, React.ReactNode> = {
 };
 
 const CONFIDENCE_LABELS: Record<string, string> = {
-  low: "Low Confidence",
-  medium: "Medium Confidence",
-  high: "High Confidence",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
 };
 
 type FlowGuardBadgeProps = {
@@ -113,7 +113,7 @@ export function FlowGuardBadge({ marketId, compact = false }: FlowGuardBadgeProp
                 {data.displayLabel}
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {CONFIDENCE_LABELS[data.confidence]} Flow Analysis
+                Confidence: {CONFIDENCE_LABELS[data.confidence]}
               </p>
             </div>
             <button

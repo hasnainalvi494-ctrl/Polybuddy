@@ -199,16 +199,14 @@ export function ExposureRiskCard({ marketId, limit = 5 }: ExposureRiskCardProps)
   }
 
   if (error || !data) {
-    return (
-      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Related markets analysis unavailable
-        </p>
-      </div>
-    );
+    return null; // Hide entirely if no data
   }
 
-  const hasRelated = data.relatedMarkets.length > 0;
+  // Hide if no related markets found
+  if (data.relatedMarkets.length === 0) {
+    return null;
+  }
+
   const gapCount = data.relatedMarkets.filter(r => r.label !== "looks_consistent").length;
 
   return (
@@ -221,10 +219,7 @@ export function ExposureRiskCard({ marketId, limit = 5 }: ExposureRiskCardProps)
               Exposure & Clustering Risk
             </h3>
             <p className="text-sm text-gray-900 dark:text-gray-100">
-              {hasRelated
-                ? `${data.relatedMarkets.length} related market${data.relatedMarkets.length !== 1 ? "s" : ""} share underlying risk`
-                : "No related markets detected"
-              }
+              {data.relatedMarkets.length} related market{data.relatedMarkets.length !== 1 ? "s" : ""} share underlying risk
             </p>
           </div>
           {gapCount > 0 && (
@@ -236,47 +231,28 @@ export function ExposureRiskCard({ marketId, limit = 5 }: ExposureRiskCardProps)
       </div>
 
       {/* Warning Banner */}
-      {hasRelated && (
-        <div className="px-5 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
-          <p className="text-xs text-blue-700 dark:text-blue-400">
-            <strong>Key insight:</strong> Betting on multiple related markets is not diversification.
-            These markets often resolve together — one wrong call affects all positions.
-          </p>
-        </div>
-      )}
+      <div className="px-5 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+        <p className="text-xs text-blue-700 dark:text-blue-400">
+          <strong>Key insight:</strong> Betting on multiple related markets is not diversification.
+          These markets often resolve together — one wrong call affects all positions.
+        </p>
+      </div>
 
       {/* Related Markets List */}
       <div className="p-5">
-        {hasRelated ? (
-          <div className="space-y-3">
-            {data.relatedMarkets.map((check) => (
-              <RelatedMarketItem
-                key={check.bMarketId}
-                check={check}
-                isExpanded={expandedItem === check.bMarketId}
-                onToggle={() =>
-                  setExpandedItem(expandedItem === check.bMarketId ? null : check.bMarketId)
-                }
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-6">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No related markets found. This market appears to have independent resolution.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom CTA */}
-      {hasRelated && (
-        <div className="px-5 py-3 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-200 dark:border-gray-700">
-          <button className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
-            Compare with longer-horizon markets &rarr;
-          </button>
+        <div className="space-y-3">
+          {data.relatedMarkets.map((check) => (
+            <RelatedMarketItem
+              key={check.bMarketId}
+              check={check}
+              isExpanded={expandedItem === check.bMarketId}
+              onToggle={() =>
+                setExpandedItem(expandedItem === check.bMarketId ? null : check.bMarketId)
+              }
+            />
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

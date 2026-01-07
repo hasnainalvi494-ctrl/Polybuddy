@@ -6,15 +6,21 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: "include", // Include cookies for auth
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: "include", // Include cookies for auth
+    });
+  } catch {
+    // Network error - service unavailable
+    throw new Error("Service temporarily unavailable");
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(error.error || `API error: ${response.status}`);
+    throw new Error(error.error || `Service error`);
   }
 
   return response.json();

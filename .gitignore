@@ -1,26 +1,45 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+package-lock.json
+yarn.lock
 
 # Build outputs
 dist/
 .next/
 .turbo/
 out/
+*.tsbuildinfo
 
-# Environment
+# Environment (NEVER commit real credentials)
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
 
-# IDE
+# IDE & Editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
+
+# Cursor IDE
+.cursor/
+.cursorignore
+
+# Claude Code
+.claude/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Logs
@@ -28,11 +47,23 @@ logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Testing
 coverage/
 .nyc_output/
 
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
 # Misc
-*.tsbuildinfo
 .eslintcache
+*.pid
+*.seed
+*.pid.lock
+
+# Docker volumes (local)
+postgres_data/

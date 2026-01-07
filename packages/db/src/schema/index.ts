@@ -870,3 +870,75 @@ export const portfolioExposureWarningsRelations = relations(portfolioExposureWar
     references: [trackedWallets.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Market Participation Structure
+// ============================================
+
+// Setup Quality Band enum
+export const setupQualityBand = pgEnum("setup_quality_band", [
+  "historically_favorable",    // 80-100: Markets with this structure historically behaved well
+  "mixed_workable",           // 60-79: Mixed but workable structure
+  "neutral",                  // 40-59: Neutral structure
+  "historically_unforgiving", // <40: Historically unforgiving structure
+]);
+
+// Participant Quality Band enum
+export const participantQualityBand = pgEnum("participant_quality_band", [
+  "strong",    // Many experienced participants
+  "moderate",  // Some experienced participants
+  "limited",   // Few experienced participants
+]);
+
+// Participation Summary enum
+export const participationSummary = pgEnum("participation_summary", [
+  "few_dominant",        // Few dominant participants
+  "mixed_participation", // Mixed participation
+  "broad_retail",        // Broad retail participation
+]);
+
+// Market Participation Structure - stores per-side analysis
+export const marketParticipationStructure = pgTable("market_participation_structure", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  side: varchar("side", { length: 3 }).notNull(), // "YES" or "NO"
+  // Note: Unique constraint on (marketId, side) is handled by database index
+
+  // Setup Quality Score (0-100)
+  // Represents how markets with similar structure historically behaved
+  // Based on participation asymmetry, concentration, liquidity stability, repricing timing
+  // NOT a win probability
+  setupQualityScore: integer("setup_quality_score").notNull(),
+  setupQualityBand: setupQualityBand("setup_quality_band").notNull(),
+
+  // Participant Quality Score (0-100)
+  // Represents presence of experienced participants on that side
+  // Experienced = wallets with positive historical performance in similar markets
+  participantQualityScore: integer("participant_quality_score").notNull(),
+  participantQualityBand: participantQualityBand("participant_quality_band").notNull(),
+
+  // Participation Summary
+  participationSummary: participationSummary("participation_summary").notNull(),
+
+  // Participation Breakdown (percentages for stacked bar chart)
+  // These are approximate ranges, not exact values (guardrail compliance)
+  largePct: integer("large_pct").notNull(), // Percentage of few large participants
+  midPct: integer("mid_pct").notNull(),     // Percentage of mid-sized participants
+  smallPct: integer("small_pct").notNull(), // Percentage of many small participants
+
+  // Behavior insights (plain English, no predictions)
+  behaviorInsight: text("behavior_insight").notNull(), // e.g., "Markets with concentrated participation often reprice quickly"
+
+  // Timestamps
+  computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const marketParticipationStructureRelations = relations(marketParticipationStructure, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketParticipationStructure.marketId],
+    references: [markets.id],
+  }),
+}));

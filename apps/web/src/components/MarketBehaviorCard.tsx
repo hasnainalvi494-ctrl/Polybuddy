@@ -108,28 +108,16 @@ const RETAIL_INTERPRETATIONS: Record<
   },
 };
 
-function ConfidenceExplainer({ confidence, explanation }: { confidence: number; explanation: string }) {
-  const getConfidenceLabel = () => {
-    if (confidence >= 80) return "Very confident";
-    if (confidence >= 60) return "Moderately confident";
-    if (confidence >= 40) return "Somewhat confident";
-    return "Low confidence";
-  };
+// Confidence is now shown as a qualitative indicator, not a percentage
+function ConfidenceIndicator({ confidence }: { confidence: number }) {
+  const label = confidence >= 80 ? "Clear pattern" : confidence >= 60 ? "Likely pattern" : "Mixed signals";
+  const color = confidence >= 80 ? "text-emerald-600 dark:text-emerald-400" : confidence >= 60 ? "text-amber-600 dark:text-amber-400" : "text-gray-500 dark:text-gray-400";
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-          {getConfidenceLabel()} ({confidence}%)
-        </span>
-      </div>
-      <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mb-2">
-        <div
-          className="h-full bg-blue-500 rounded-full transition-all"
-          style={{ width: `${confidence}%` }}
-        />
-      </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">{explanation}</p>
+    <div className="flex items-center gap-2">
+      <span className={`text-xs font-medium ${color}`}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -230,13 +218,7 @@ export function MarketBehaviorCard({ marketId }: MarketBehaviorCardProps) {
   }
 
   if (error || !data) {
-    return (
-      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Market behavior analysis unavailable
-        </p>
-      </div>
-    );
+    return null; // Hide entirely if no data
   }
 
   const opportunity = STATE_TO_OPPORTUNITY[data.stateLabel];
@@ -271,12 +253,9 @@ export function MarketBehaviorCard({ marketId }: MarketBehaviorCardProps) {
         </div>
       </div>
 
-      {/* Confidence Section */}
-      <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-        <ConfidenceExplainer
-          confidence={data.confidence}
-          explanation={interpretations.confidenceExplanation}
-        />
+      {/* Pattern Confidence Section */}
+      <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+        <ConfidenceIndicator confidence={data.confidence} />
       </div>
 
       {/* Market Metrics with Comparisons */}

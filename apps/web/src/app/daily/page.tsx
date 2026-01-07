@@ -6,25 +6,24 @@ import { getDailyAttention, type DailyAttentionResponse } from "@/lib/api";
 import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "@/components/MiniSparkline";
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
 
-// Outcome-oriented language mapping
-const OUTCOME_LANGUAGE: Record<string, string> = {
-  // Original structural language → Outcome language
+// Premium signal hook language - creates intrigue
+const SIGNAL_HOOKS: Record<string, string> = {
   "Lower friction means more of your edge translates to profit.":
-    "You keep more of your gains here — execution costs won't eat your edge.",
+    "Structure allows patient entries without execution penalty.",
   "Price divergence from related markets creates opportunity.":
-    "Similar markets are priced differently — patient entry may pay off.",
+    "Odds have not repriced yet — patient positioning may capture the gap.",
   "Defined timeline helps manage position sizing and exit planning.":
-    "You know exactly when this resolves — easier to plan your exit.",
+    "Clear resolution window enables precise position management.",
   "Market structure doesn't systematically disadvantage smaller participants.":
-    "The playing field is more level here — big traders don't have as much advantage.",
+    "Execution costs are contained — edge translates more directly to outcome.",
   "Favorable conditions for retail participation.":
-    "You have a fair shot here — structure favors patient decision-making.",
+    "Structure favors deliberate decision-making over speed.",
   "Rare: Flow signals in this market may benefit patient retail traders.":
-    "Unusual: Fast traders aren't dominating — you have time to think.",
+    "Unusual structural alignment — fast traders aren't dominating flow.",
 };
 
-function getOutcomeLanguage(original: string): string {
-  return OUTCOME_LANGUAGE[original] || original;
+function getSignalHook(original: string): string {
+  return SIGNAL_HOOKS[original] || original;
 }
 
 // Detect if same underlying asset appears in both sections
@@ -42,97 +41,109 @@ function findContrastMarkets(
 }
 
 function extractAsset(question: string): string {
-  // Extract key asset/topic from question for comparison
   const keywords = ["Bitcoin", "Ethereum", "Trump", "Biden", "Fed", "inflation", "election"];
   for (const kw of keywords) {
     if (question.toLowerCase().includes(kw.toLowerCase())) return kw;
   }
-  // Return first few significant words
   return question.split(" ").slice(0, 3).join(" ").toLowerCase();
 }
 
-function AttentionCard({
+// Format time ago
+function timeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${Math.floor(diffHours / 24)}d ago`;
+}
+
+function LowFrictionCard({
   market,
   hasContrastTrap
 }: {
   market: DailyAttentionResponse["worthAttention"][0];
   hasContrastTrap?: boolean;
 }) {
-  // Estimate volatility from confidence (simplified)
   const volatility: "low" | "medium" | "high" =
     market.confidence > 75 ? "low" : market.confidence > 50 ? "medium" : "high";
 
   return (
     <Link
       href={`/markets/${market.id}`}
-      className="group block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all"
+      className="group block bg-white dark:bg-gray-900 rounded-2xl p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-800"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm line-clamp-2">
-          {market.question}
-        </h3>
-        <span className="shrink-0 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full font-medium">
-          {market.confidence}% match
-        </span>
+      {/* Signal Type + Confidence */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            Low Friction
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-1.5 w-12 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${market.confidence}%` }}
+            />
+          </div>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {market.confidence}%
+          </span>
+        </div>
       </div>
 
-      {/* Visual Evidence Preview */}
-      <div className="flex items-center gap-3 mb-3 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+      {/* Market Name */}
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-snug mb-2 line-clamp-2">
+        {market.question}
+      </h3>
+
+      {/* Signal Hook - The intrigue line */}
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+        {getSignalHook(market.whyThisMatters)}
+      </p>
+
+      {/* Evidence Preview */}
+      <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
         <div className="flex-1">
-          <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">24h Price</div>
-          <MiniSparkline marketId={market.id} height={28} color="green" />
+          <MiniSparkline marketId={market.id} height={32} color="green" />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">
           <VolatilityIndicator level={volatility} />
           <LiquidityBar value={market.confidence} label="Depth" />
         </div>
       </div>
 
-      {/* Setup Label + Hidden Exposure Warning */}
+      {/* Signal Labels */}
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-lg font-medium">
           {market.setupLabel}
         </span>
         <HiddenExposureInlineWarning marketId={market.id} />
       </div>
 
-      {/* Why Bullets */}
-      <ul className="space-y-1 mb-3">
-        {market.whyBullets.map((bullet, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <span className="text-green-500 mt-0.5">•</span>
-            <span>
-              {bullet.text}: <span className="font-medium text-gray-900 dark:text-gray-200">{bullet.value}{bullet.unit}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      {/* Why This Matters - Outcome Language */}
-      <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-800 dark:text-green-300 mb-3">
-        <span className="font-medium">What this means for you:</span>{" "}
-        {getOutcomeLanguage(market.whyThisMatters)}
-      </div>
-
-      {/* Contrast Note */}
+      {/* Contrast Signal */}
       {hasContrastTrap && (
-        <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-800 dark:text-amber-300 mb-3">
-          <span className="font-medium">Note:</span> A similar market appears in Retail Traps — this version has better structure for retail.
+        <div className="mb-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-lg">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            <span className="font-medium">Signal:</span> Same asset has high-friction variant — this structure is preferable.
+          </p>
         </div>
       )}
 
-      {/* Explicit CTA */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+      {/* CTA */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+        <span className="text-xs text-gray-400 dark:text-gray-500">
           {market.category || "Market"}
         </span>
-        <span className="text-xs font-medium text-green-600 dark:text-green-400 group-hover:text-green-700 dark:group-hover:text-green-300 flex items-center gap-1">
-          See why this setup works
-          <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:gap-2 transition-all">
+          View signal context
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </span>
@@ -141,7 +152,7 @@ function AttentionCard({
   );
 }
 
-function TrapCard({
+function HighFrictionCard({
   market,
   hasContrastGood
 }: {
@@ -151,62 +162,67 @@ function TrapCard({
   return (
     <Link
       href={`/markets/${market.id}`}
-      className="group block bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:border-red-400 dark:hover:border-red-600 hover:shadow-md transition-all"
+      className="group block bg-white dark:bg-gray-900 rounded-2xl p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-800"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm line-clamp-2">
-          {market.question}
-        </h3>
-        <span className="shrink-0 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded-full font-medium">
-          Caution
+      {/* Signal Type */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-rose-500" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+            High Friction
+          </span>
+        </div>
+        <span className="text-xs text-gray-400 dark:text-gray-500">
+          Structurally unfavorable
         </span>
       </div>
 
-      {/* Visual Evidence Preview */}
-      <div className="flex items-center gap-3 mb-3 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+      {/* Market Name */}
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-snug mb-2 line-clamp-2">
+        {market.question}
+      </h3>
+
+      {/* Signal Hook */}
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+        {market.commonMistake}
+      </p>
+
+      {/* Evidence Preview */}
+      <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
         <div className="flex-1">
-          <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">24h Price</div>
-          <MiniSparkline marketId={market.id} height={28} color="red" />
+          <MiniSparkline marketId={market.id} height={32} color="red" />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">
           <VolatilityIndicator level="high" />
           <LiquidityBar value={30} label="Depth" />
         </div>
       </div>
 
-      {/* Warning Label + Hidden Exposure Warning */}
+      {/* Signal Labels */}
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs rounded font-medium">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+        <span className="px-2.5 py-1 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 text-xs rounded-lg font-medium">
           {market.warningLabel}
         </span>
         <HiddenExposureInlineWarning marketId={market.id} />
       </div>
 
-      {/* Common Mistake - Outcome Language */}
-      <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs mb-3">
-        <span className="font-medium text-red-800 dark:text-red-400">Why retail loses here:</span>
-        <span className="text-red-700 dark:text-red-300 ml-1">{market.commonMistake}</span>
-      </div>
-
-      {/* Contrast Note */}
+      {/* Contrast Signal */}
       {hasContrastGood && (
-        <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-xs text-green-800 dark:text-green-300 mb-3">
-          <span className="font-medium">Same asset, different structure:</span> Check "Worth Attention" for a version with better retail conditions.
+        <div className="mb-3 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-lg">
+          <p className="text-xs text-emerald-700 dark:text-emerald-400">
+            <span className="font-medium">Signal:</span> Low-friction variant exists — check favorable setups.
+          </p>
         </div>
       )}
 
-      {/* Explicit CTA */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+      {/* CTA */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+        <span className="text-xs text-gray-400 dark:text-gray-500">
           {market.category || "Market"}
         </span>
-        <span className="text-xs font-medium text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 flex items-center gap-1">
-          Understand the risks
-          <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1 group-hover:gap-2 transition-all">
+          Understand structure
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </span>
@@ -215,78 +231,63 @@ function TrapCard({
   );
 }
 
-function ChangeCard({ change }: { change: DailyAttentionResponse["whatChanged"][0] }) {
-  const typeConfig: Record<string, { bg: string; text: string; icon: string; cta: string }> = {
-    state_shift: {
-      bg: "bg-purple-100 dark:bg-purple-900/30",
-      text: "text-purple-700 dark:text-purple-400",
-      icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
-      cta: "See what changed"
-    },
-    event_window: {
-      bg: "bg-orange-100 dark:bg-orange-900/30",
-      text: "text-orange-700 dark:text-orange-400",
-      icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-      cta: "View timeline"
-    },
-    mispricing: {
-      bg: "bg-blue-100 dark:bg-blue-900/30",
-      text: "text-blue-700 dark:text-blue-400",
-      icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
-      cta: "Analyze spread"
-    },
-    flow_guard: {
-      bg: "bg-red-100 dark:bg-red-900/30",
-      text: "text-red-700 dark:text-red-400",
-      icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
-      cta: "Review flow"
-    },
+function StateChangeCard({ change }: { change: DailyAttentionResponse["whatChanged"][0] }) {
+  const typeConfig: Record<string, { color: string; label: string }> = {
+    state_shift: { color: "violet", label: "Structure Shift" },
+    event_window: { color: "amber", label: "Timeline Active" },
+    mispricing: { color: "sky", label: "Price Divergence" },
+    flow_guard: { color: "rose", label: "Flow Signal" },
   };
 
   const config = typeConfig[change.changeType] || typeConfig.state_shift;
+  const colorClasses = {
+    violet: { bg: "bg-violet-50 dark:bg-violet-900/20", text: "text-violet-600 dark:text-violet-400", dot: "bg-violet-500" },
+    amber: { bg: "bg-amber-50 dark:bg-amber-900/20", text: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    sky: { bg: "bg-sky-50 dark:bg-sky-900/20", text: "text-sky-600 dark:text-sky-400", dot: "bg-sky-500" },
+    rose: { bg: "bg-rose-50 dark:bg-rose-900/20", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
+  }[config.color];
 
   return (
     <Link
       href={`/markets/${change.marketId}`}
-      className="group block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-md transition-all"
+      className="group block bg-white dark:bg-gray-900 rounded-2xl p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-800"
     >
-      <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className={`shrink-0 p-2 rounded-lg ${config.bg}`}>
-          <svg className={`w-4 h-4 ${config.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={config.icon} />
+      {/* Signal Type */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${colorClasses?.dot}`} />
+          <span className={`text-xs font-semibold uppercase tracking-wider ${colorClasses?.text}`}>
+            {config.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Market Name */}
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-snug mb-2 line-clamp-2">
+        {change.question}
+      </h3>
+
+      {/* Signal Hook */}
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+        {change.description}
+      </p>
+
+      {/* Evidence Preview */}
+      <div className="mb-4">
+        <MiniSparkline marketId={change.marketId} height={32} color="purple" />
+      </div>
+
+      {/* CTA */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+        <span className={`px-2.5 py-1 text-xs rounded-lg font-medium ${colorClasses?.bg} ${colorClasses?.text}`}>
+          {config.label}
+        </span>
+        <span className={`text-xs font-medium ${colorClasses?.text} flex items-center gap-1 group-hover:gap-2 transition-all`}>
+          Analyze change
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Question */}
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 mb-1">
-            {change.question}
-          </p>
-
-          {/* Description */}
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-            {change.description}
-          </p>
-
-          {/* Mini Sparkline */}
-          <div className="mb-3">
-            <MiniSparkline marketId={change.marketId} height={24} color="purple" />
-          </div>
-
-          {/* Type Badge + CTA */}
-          <div className="flex items-center justify-between">
-            <span className={`inline-block px-2 py-0.5 text-xs rounded ${config.bg} ${config.text}`}>
-              {change.changeType.replace(/_/g, " ")}
-            </span>
-            <span className={`text-xs font-medium ${config.text} group-hover:opacity-80 flex items-center gap-1`}>
-              {config.cta}
-              <svg className="w-3 h-3 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </span>
-          </div>
-        </div>
+        </span>
       </div>
     </Link>
   );
@@ -299,18 +300,17 @@ export default function DailyPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Find overlapping assets for contrast
   const contrastAssets = data
     ? findContrastMarkets(data.worthAttention, data.retailTraps)
     : new Set<string>();
 
   if (isLoading) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-950 p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-500"></div>
-            <p className="mt-2 text-gray-500">Loading your morning brief...</p>
+          <div className="text-center py-16">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900 dark:border-gray-700 dark:border-t-gray-100"></div>
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading signals...</p>
           </div>
         </div>
       </main>
@@ -319,87 +319,86 @@ export default function DailyPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-950 p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
-            Error loading daily briefing: {(error as Error).message}
+          <div className="bg-rose-50 dark:bg-rose-900/20 rounded-2xl p-6 text-rose-700 dark:text-rose-400">
+            Unable to load signals. Please refresh.
           </div>
         </div>
       </main>
     );
   }
 
-  const totalMarkets = (data?.worthAttention?.length || 0) + (data?.retailTraps?.length || 0) + (data?.whatChanged?.length || 0);
+  const totalSignals = (data?.worthAttention?.length || 0) + (data?.retailTraps?.length || 0) + (data?.whatChanged?.length || 0);
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-start justify-between">
+        <header className="mb-10">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                Your Daily Brief
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                Signal Console
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                {totalMarkets} markets need your attention today
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
+                {totalSignals} active signals detected
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Updated {data?.generatedAt ? new Date(data.generatedAt).toLocaleTimeString() : "just now"}
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                Updated {data?.generatedAt ? timeAgo(data.generatedAt) : "just now"}
               </p>
             </div>
           </div>
 
-          {/* Quick Summary Bar */}
-          <div className="mt-4 flex gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{data?.worthAttention?.length || 0}</span> favorable
-              </span>
+          {/* Signal Summary */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Low Friction</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{data?.worthAttention?.length || 0}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{data?.retailTraps?.length || 0}</span> to avoid
-              </span>
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full bg-rose-500" />
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">High Friction</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{data?.retailTraps?.length || 0}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{data?.whatChanged?.length || 0}</span> changed
-              </span>
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full bg-violet-500" />
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">State Changes</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{data?.whatChanged?.length || 0}</p>
             </div>
           </div>
         </header>
 
-        {/* Section A: Markets Worth Attention */}
-        <section className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+        {/* Section A: Low Friction Signals */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-6 bg-emerald-500 rounded-full" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Worth Your Attention
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Signals: Low Friction Setups
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Markets where you have a fair shot — structure favors patient decisions
+                Structure enables patient positioning without execution penalty
               </p>
             </div>
           </div>
 
           {data?.worthAttention && data.worthAttention.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {data.worthAttention.map((market) => (
-                <AttentionCard
+                <LowFrictionCard
                   key={market.id}
                   market={market}
                   hasContrastTrap={contrastAssets.has(extractAsset(market.question))}
@@ -407,35 +406,31 @@ export default function DailyPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
-              <p className="mb-2">No favorable setups identified today.</p>
-              <p className="text-xs">This is normal — good setups are rare by design.</p>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 text-center border border-gray-100 dark:border-gray-800">
+              <p className="text-gray-500 dark:text-gray-400">No low-friction setups detected today.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Quality signals are rare by design.</p>
             </div>
           )}
         </section>
 
-        {/* Section B: Retail Traps */}
-        <section className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
+        {/* Section B: High Friction Signals */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-6 bg-rose-500 rounded-full" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Skip These Today
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Signals: High Friction
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Markets where retail typically loses — structure favors faster traders
+                Structure disadvantages patient capital — execution costs dominate
               </p>
             </div>
           </div>
 
           {data?.retailTraps && data.retailTraps.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {data.retailTraps.map((market) => (
-                <TrapCard
+                <HighFrictionCard
                   key={market.id}
                   market={market}
                   hasContrastGood={contrastAssets.has(extractAsset(market.question))}
@@ -443,49 +438,44 @@ export default function DailyPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
-              <p>No obvious traps identified today.</p>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 text-center border border-gray-100 dark:border-gray-800">
+              <p className="text-gray-500 dark:text-gray-400">No high-friction signals detected.</p>
             </div>
           )}
         </section>
 
-        {/* Section C: What Changed */}
-        <section className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
+        {/* Section C: State Changes */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-6 bg-violet-500 rounded-full" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                What Changed Overnight
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Signals: State Changes
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Markets that moved or have new conditions since yesterday
+                Markets where conditions shifted since last session
               </p>
             </div>
           </div>
 
           {data?.whatChanged && data.whatChanged.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {data.whatChanged.map((change, i) => (
-                <ChangeCard key={i} change={change} />
+                <StateChangeCard key={i} change={change} />
               ))}
             </div>
           ) : (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
-              <p>No significant changes since yesterday.</p>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 text-center border border-gray-100 dark:border-gray-800">
+              <p className="text-gray-500 dark:text-gray-400">No state changes detected.</p>
             </div>
           )}
         </section>
 
-        {/* Disclaimer */}
-        <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs text-gray-500 dark:text-gray-400">
-          <p className="font-medium mb-1">Remember</p>
-          <p>
-            This brief identifies structural conditions, not outcomes. Markets can still move against you
-            even in favorable structures. Use this to filter what deserves deeper research, not as a signal to act.
+        {/* Footer Note */}
+        <div className="text-center py-6 border-t border-gray-200 dark:border-gray-800">
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
+            Signals reflect structural conditions, not predictions.
+            Use to filter research, not as execution triggers.
           </p>
         </div>
       </div>

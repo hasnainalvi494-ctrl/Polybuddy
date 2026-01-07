@@ -10,3 +10,4 @@ export * from "./hidden-exposure/index.js";
 export * from "./consistency-check/index.js";
 export * from "./flow-type/index.js";
 export * from "./behavior-cluster/index.js";
+export * from "./participation-structure/index.js";

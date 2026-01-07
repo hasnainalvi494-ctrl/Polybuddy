@@ -1,0 +1,152 @@
+"use client";
+
+import { useState, useCallback } from "react";
+
+type PremiumUpgradeModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+};
+
+export function PremiumUpgradeModal({ isOpen, onClose }: PremiumUpgradeModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Gradient header */}
+        <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            Unlock Signal Intelligence
+          </h2>
+          <p className="text-violet-100 text-sm">
+            Stop guessing. Start reading the structure.
+          </p>
+        </div>
+
+        {/* Benefits */}
+        <div className="px-6 py-6">
+          <ul className="space-y-4">
+            <li className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                  Full signal context
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  "What this enables" and "What to watch for" on every signal
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                  Common pitfalls exposed
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Learn why most traders get it wrong on each signal
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                  Hidden exposure detection
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  See linked positions that amplify your risk
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                  Weekly intelligence reports
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Personalized coaching based on your trading patterns
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        {/* CTA */}
+        <div className="px-6 pb-6 space-y-3">
+          <button
+            className="w-full py-3.5 px-6 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-purple-700 transition-all shadow-lg shadow-violet-500/25"
+          >
+            Upgrade to Premium
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+          >
+            Maybe later
+          </button>
+        </div>
+
+        {/* Trust signal */}
+        <div className="px-6 pb-6 text-center">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Cancel anytime • No trading advice • Analysis only
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Hook for managing the premium upgrade modal
+export function usePremiumUpgrade() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const openUpgrade = useCallback(() => setIsOpen(true), []);
+  const closeUpgrade = useCallback(() => setIsOpen(false), []);
+
+  return {
+    isOpen,
+    openUpgrade,
+    closeUpgrade,
+  };
+}
+
+// Premium status context (simulated for now)
+export function usePremiumStatus() {
+  // TODO: Replace with actual auth/subscription check
+  const isPremium = false; // Simulated: user is not premium
+
+  return {
+    isPremium,
+  };
+}

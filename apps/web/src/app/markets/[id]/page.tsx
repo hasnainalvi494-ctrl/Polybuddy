@@ -15,6 +15,7 @@ import { ProfitSimulator } from "@/components/ProfitSimulator";
 import { FlowGuardSection } from "@/components/FlowGuardBadge";
 import { HiddenExposureWarning } from "@/components/HiddenExposureWarning";
 import { SignalSummaryCard } from "@/components/SignalCard";
+import { PremiumUpgradeModal, usePremiumUpgrade, usePremiumStatus } from "@/components/PremiumUpgradeModal";
 
 interface QualityBreakdown {
   spreadScore: number;
@@ -77,6 +78,9 @@ function getVolumeInterpretation(volume: number | null): { label: string; color:
 export default function MarketDetailPage() {
   const params = useParams();
   const id = params.id as string;
+
+  const { isPremium } = usePremiumStatus();
+  const { isOpen, openUpgrade, closeUpgrade } = usePremiumUpgrade();
 
   const { data: market, isLoading, error } = useQuery<MarketDetail>({
     queryKey: ["market", id],
@@ -184,6 +188,8 @@ export default function MarketDetailPage() {
             watchPoints={[
               timeHorizon.hook,
             ]}
+            isPremium={isPremium}
+            onUpgradeClick={openUpgrade}
           />
         </div>
 
@@ -201,6 +207,8 @@ export default function MarketDetailPage() {
               watchPoints={[
                 "Late entries often lose to execution costs",
               ]}
+              isPremium={isPremium}
+              onUpgradeClick={openUpgrade}
             />
           </div>
         )}
@@ -346,6 +354,9 @@ export default function MarketDetailPage() {
           </p>
         </div>
       </div>
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal isOpen={isOpen} onClose={closeUpgrade} />
     </main>
   );
 }

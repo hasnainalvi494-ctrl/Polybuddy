@@ -90,13 +90,17 @@ export type SignalCardProps = {
   volatility?: "low" | "medium" | "high";
   liquidityScore?: number; // 0-100
 
-  // Expandable content
+  // Expandable content (premium only)
   enablesPoints?: string[];
   watchPoints?: string[];
   commonMistake?: string;
 
   // Variants
   variant?: "default" | "compact" | "summary";
+
+  // Premium gating
+  isPremium?: boolean;
+  onUpgradeClick?: () => void;
 };
 
 // Format time ago
@@ -127,10 +131,14 @@ export function SignalCard({
   watchPoints,
   commonMistake,
   variant = "default",
+  isPremium = false,
+  onUpgradeClick,
 }: SignalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const config = SIGNAL_CONFIGS[signalType];
   const hasExpandableContent = enablesPoints?.length || watchPoints?.length || commonMistake;
+  const showPremiumContent = isPremium && hasExpandableContent;
+  const showPaywall = !isPremium && hasExpandableContent;
 
   if (variant === "compact") {
     return (
@@ -243,8 +251,8 @@ export function SignalCard({
         </div>
       </div>
 
-      {/* 5) EXPANDABLE SECTION */}
-      {hasExpandableContent && (
+      {/* 5) EXPANDABLE SECTION - PREMIUM CONTENT */}
+      {showPremiumContent && (
         <div className="border-t border-gray-100 dark:border-gray-800">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -312,6 +320,35 @@ export function SignalCard({
         </div>
       )}
 
+      {/* 5) PAYWALL - FREE USERS */}
+      {showPaywall && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <button
+            onClick={onUpgradeClick}
+            className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gradient-to-r hover:from-violet-50 hover:to-transparent dark:hover:from-violet-900/10 dark:hover:to-transparent transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Unlock deeper signal context
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  See what this enables and common pitfalls
+                </p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-violet-500 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* 6) CTA */}
       <Link
         href={`/markets/${marketId}`}
@@ -340,10 +377,14 @@ export function SignalSummaryCard({
   hook,
   enablesPoints,
   watchPoints,
+  isPremium = false,
+  onUpgradeClick,
 }: Omit<SignalCardProps, "marketId" | "marketName">) {
   const [isExpanded, setIsExpanded] = useState(false);
   const config = SIGNAL_CONFIGS[signalType];
   const hasExpandableContent = enablesPoints?.length || watchPoints?.length;
+  const showPremiumContent = isPremium && hasExpandableContent;
+  const showPaywall = !isPremium && hasExpandableContent;
 
   return (
     <div className={`rounded-2xl ${config.bgColor} border ${config.borderColor} overflow-hidden`}>
@@ -371,8 +412,8 @@ export function SignalSummaryCard({
         </p>
       </div>
 
-      {/* Expandable Context */}
-      {hasExpandableContent && (
+      {/* Expandable Context - Premium */}
+      {showPremiumContent && (
         <div className="border-t border-inherit">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -430,6 +471,35 @@ export function SignalSummaryCard({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Paywall - Free Users */}
+      {showPaywall && (
+        <div className="border-t border-inherit">
+          <button
+            onClick={onUpgradeClick}
+            className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-white/50 dark:hover:bg-gray-800/30 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Unlock signal context
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  What this enables + what to watch
+                </p>
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-violet-500 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       )}
     </div>

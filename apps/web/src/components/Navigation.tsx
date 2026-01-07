@@ -43,7 +43,7 @@ export function Navigation() {
                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="font-semibold text-lg text-gray-100 tracking-tight hidden sm:block">Pulse</span>
+            <span className="font-semibold text-lg text-gray-100 tracking-tight hidden sm:block">PolyBuddy</span>
           </Link>
 
           {/* Navigation Links */}

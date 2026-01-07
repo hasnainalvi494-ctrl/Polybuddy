@@ -7,7 +7,7 @@ import { Navigation } from "@/components/Navigation";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Pulse - Market Structure Signals",
+  title: "PolyBuddy - Prediction Market Signals",
   description: "Live structural signals across prediction markets. See where retail traders can compete — and where hidden risks quietly punish late or crowded entries.",
 };
 

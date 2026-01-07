@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getDailyAttention, type DailyAttentionResponse } from "@/lib/api";
 import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "@/components/MiniSparkline";
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
+import { PremiumUpgradeModal, usePremiumUpgrade, usePremiumStatus } from "@/components/PremiumUpgradeModal";
 
 // Premium signal hook language - creates intrigue
 const SIGNAL_HOOKS: Record<string, string> = {
@@ -296,6 +297,9 @@ function StateChangeCard({ change }: { change: DailyAttentionResponse["whatChang
 }
 
 export default function DailyPage() {
+  const { isPremium } = usePremiumStatus();
+  const { isOpen, openUpgrade, closeUpgrade } = usePremiumUpgrade();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["dailyAttention"],
     queryFn: getDailyAttention,
@@ -474,6 +478,37 @@ export default function DailyPage() {
           )}
         </section>
 
+        {/* Premium Promotion - Free Users Only */}
+        {!isPremium && (
+          <div className="mb-8">
+            <button
+              onClick={openUpgrade}
+              className="w-full bg-gradient-to-r from-violet-600/10 to-purple-600/10 dark:from-violet-900/20 dark:to-purple-900/20 border border-violet-200 dark:border-violet-800/50 rounded-2xl p-6 text-left hover:from-violet-600/15 hover:to-purple-600/15 dark:hover:from-violet-900/30 dark:hover:to-purple-900/30 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                      Go beyond the signal
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Unlock "What this enables," common pitfalls, and hidden exposure detection
+                    </p>
+                  </div>
+                </div>
+                <svg className="w-5 h-5 text-violet-500 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Footer Note */}
         <div className="text-center py-6 border-t border-gray-200 dark:border-gray-800">
           <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
@@ -482,6 +517,9 @@ export default function DailyPage() {
           </p>
         </div>
       </div>
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal isOpen={isOpen} onClose={closeUpgrade} />
     </main>
   );
 }

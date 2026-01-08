@@ -1029,3 +1029,38 @@ export type SimilarHistoryResponse = {
 export async function getSimilarHistory(marketId: string): Promise<SimilarHistoryResponse> {
   return fetchApi(`/api/markets/${marketId}/similar-history`);
 }
+
+// ============================================================================
+// SLIPPAGE CALCULATOR
+// ============================================================================
+
+export type SlippageResponse = {
+  inputSize: number;
+  side: "buy" | "sell";
+  outcome: "YES" | "NO";
+  midPrice: number;
+  executionPrice: number;
+  slippagePercent: number;
+  slippageDollars: number;
+  priceImpact: "Low" | "Medium" | "High";
+  warning: string;
+  breakdown: Array<{
+    price: number;
+    size: number;
+  }>;
+};
+
+// Get slippage calculation for a trade
+export async function getSlippage(
+  marketId: string,
+  size: number,
+  side: "buy" | "sell",
+  outcome: "YES" | "NO"
+): Promise<SlippageResponse> {
+  const params = new URLSearchParams({
+    size: String(size),
+    side,
+    outcome,
+  });
+  return fetchApi(`/api/markets/${marketId}/slippage?${params.toString()}`);
+}

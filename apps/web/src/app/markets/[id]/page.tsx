@@ -15,6 +15,7 @@ import { FlowGuardSection } from "@/components/FlowGuardBadge";
 import { HiddenExposureWarning } from "@/components/HiddenExposureWarning";
 import { WhosInThisMarket } from "@/components/WhosInThisMarket";
 import { BetCalculator } from "@/components/BetCalculator";
+import { SlippageCalculator } from "@/components/SlippageCalculator";
 
 interface MarketDetail {
   id: string;
@@ -206,6 +207,26 @@ export default function MarketDetailPage() {
               defaultAmount={100}
               size="large"
               showBreakeven={true}
+            />
+          </div>
+        </div>
+
+        {/* 2.5 SLIPPAGE CALCULATOR - Understand execution costs */}
+        <div className="mb-8">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                Slippage Calculator
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                See how order book depth affects your execution price
+              </p>
+            </div>
+            <SlippageCalculator 
+              marketId={market.id}
+              currentPrice={market.currentPrice || 0.5}
+              outcome="YES"
+              defaultSize={500}
             />
           </div>
         </div>

@@ -969,3 +969,36 @@ export async function getTraderProfile(walletAddress: string): Promise<TraderPro
 export async function getLeaderboardCategories(): Promise<{ categories: LeaderboardCategory[] }> {
   return fetchApi("/api/leaderboard/categories");
 }
+
+// ============================================================================
+// WHALE ACTIVITY FEED
+// ============================================================================
+
+export type WhaleTrade = {
+  id: string;
+  walletAddress: string;
+  marketId: string;
+  marketName: string;
+  action: string;
+  outcome: string;
+  amountUsd: number;
+  price: number | null;
+  priceBefore: number | null;
+  priceAfter: number | null;
+  priceImpact: number | null;
+  timestamp: string;
+  isHot: boolean;
+};
+
+export type WhaleFeedResponse = {
+  trades: WhaleTrade[];
+  lastUpdated: string;
+};
+
+// Get whale activity feed
+export async function getWhaleActivity(limit?: number): Promise<WhaleFeedResponse> {
+  const searchParams = new URLSearchParams();
+  if (limit) searchParams.set("limit", String(limit));
+  const query = searchParams.toString();
+  return fetchApi(`/api/whale-activity${query ? `?${query}` : ""}`);
+}

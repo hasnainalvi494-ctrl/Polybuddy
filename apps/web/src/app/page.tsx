@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { getDailyAttention, getLiveStats, getArbitrageOpportunities, type DailyAttentionResponse, type ArbitrageOpportunity } from "@/lib/api";
+import { getDailyAttention, getLiveStats, getArbitrageOpportunities, getWhaleActivity, type DailyAttentionResponse, type ArbitrageOpportunity, type WhaleTrade } from "@/lib/api";
 import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "@/components/MiniSparkline";
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
 import { ParticipationContextLine } from "@/components/WhosInThisMarket";
@@ -485,6 +485,160 @@ function ArbitrageCard({
 }
 
 // ============================================================================
+// WHALE ACTIVITY FEED
+// ============================================================================
+
+function WhaleActivityFeed() {
+  const { data: whaleData, isLoading, error } = useQuery({
+    queryKey: ["whaleActivity"],
+    queryFn: () => getWhaleActivity(15),
+    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 25000,
+  });
+
+  const trades = whaleData?.trades || [];
+
+  function formatWalletAddress(address: string): string {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+
+  function formatTimeAgo(timestamp: string): string {
+    const now = new Date();
+    const tradeTime = new Date(timestamp);
+    const diffMs = now.getTime() - tradeTime.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  }
+
+  function getPriceImpactDisplay(impact: number | null) {
+    if (impact === null) return null;
+    const arrow = impact >= 0 ? "↑" : "↓";
+    const color = impact >= 0 ? "text-emerald-400" : "text-rose-400";
+    return (
+      <span className={`font-bold ${color}`}>
+        {arrow} {Math.abs(impact).toFixed(2)}%
+      </span>
+    );
+  }
+
+  return (
+    <section className="mb-14">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 bg-blue-500 rounded-full" />
+          <div>
+            <h2 className="text-2xl font-bold text-gray-50 tracking-tight">
+              🐋 Whale Activity Feed
+            </h2>
+            <p className="text-sm text-gray-400">
+              Large trades moving the markets ({">"}$10K)
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/leaderboard"
+          className="text-sm text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+        >
+          View Top Traders →
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-12 bg-gray-900/50 rounded-2xl border border-gray-800/50">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-700 border-t-blue-500"></div>
+          <p className="mt-4 text-sm text-gray-500">Loading whale activity...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-6 text-rose-400">
+          Unable to load whale activity. Please refresh.
+        </div>
+      ) : trades.length > 0 ? (
+        <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-800/50 overflow-hidden">
+          {/* Timeline */}
+          <div className="divide-y divide-gray-800/50">
+            {trades.map((trade, index) => (
+              <Link
+                key={trade.id}
+                href={`/markets/${trade.marketId}`}
+                className="block p-4 hover:bg-gray-800/30 transition-colors duration-150"
+                style={{
+                  backgroundColor: index % 2 === 0 ? "transparent" : "rgba(17, 24, 39, 0.3)",
+                }}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Timeline Dot */}
+                  <div className="shrink-0 pt-1">
+                    <div className={`w-3 h-3 rounded-full ${trade.isHot ? "bg-orange-500 animate-pulse" : "bg-blue-500"}`} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <div className="flex-1 min-w-0">
+                        {/* Hot Indicator */}
+                        {trade.isHot && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 text-orange-400 text-[10px] font-bold rounded uppercase mb-2">
+                            🔥 Hot
+                          </span>
+                        )}
+
+                        {/* Main Info */}
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-mono text-sm text-gray-200">
+                            {formatWalletAddress(trade.walletAddress)}
+                          </span>
+                          <span className="text-gray-500 text-sm">•</span>
+                          <span className={`text-sm font-semibold ${trade.action === "buy" ? "text-emerald-400" : "text-rose-400"}`}>
+                            {trade.action.toUpperCase()} {trade.outcome.toUpperCase()}
+                          </span>
+                          <span className="text-gray-500 text-sm">•</span>
+                          <span className="text-lg font-bold text-blue-400">
+                            ${trade.amountUsd.toLocaleString()}
+                          </span>
+                        </div>
+
+                        {/* Market Name */}
+                        <p className="text-sm text-gray-400 truncate">
+                          {trade.marketName}
+                        </p>
+                      </div>
+
+                      {/* Time */}
+                      <span className="text-xs text-gray-600 whitespace-nowrap">
+                        {formatTimeAgo(trade.timestamp)}
+                      </span>
+                    </div>
+
+                    {/* Price Impact */}
+                    {trade.priceImpact !== null && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500">Price impact:</span>
+                        {getPriceImpactDisplay(trade.priceImpact)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-900/50 rounded-2xl p-8 text-center border border-gray-800/50">
+          <p className="text-gray-400">No whale activity detected recently.</p>
+          <p className="text-xs text-gray-600 mt-1">Large trades ({">"} $10K) will appear here.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ============================================================================
 // ARBITRAGE SECTION
 // ============================================================================
 
@@ -675,6 +829,9 @@ export default function PulsePage() {
 
             {/* Section B: Arbitrage Opportunities */}
             <ArbitrageSection />
+
+            {/* Section: Whale Activity Feed */}
+            <WhaleActivityFeed />
 
             {/* Section C: Signal Timeline */}
             <section className="mb-14">

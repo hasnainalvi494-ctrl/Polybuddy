@@ -20,6 +20,7 @@ import { dailyRoutes } from "./routes/daily.js";
 import { statsRoutes } from "./routes/stats.js";
 import { arbitrageRoutes } from "./routes/arbitrage.js";
 import { leaderboardRoutes } from "./routes/leaderboard.js";
+import { whaleFeedRoutes } from "./routes/whale-feed.js";
 import { scheduleWalletSync } from "./jobs/sync-wallets.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -77,6 +78,7 @@ async function buildApp() {
   await app.register(statsRoutes, { prefix: "/api/stats" });
   await app.register(arbitrageRoutes, { prefix: "/api/arbitrage" });
   await app.register(leaderboardRoutes, { prefix: "/api/leaderboard" });
+  await app.register(whaleFeedRoutes, { prefix: "/api/whale-activity" });
 
   return app;
 }

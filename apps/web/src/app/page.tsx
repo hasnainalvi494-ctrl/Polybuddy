@@ -8,6 +8,7 @@ import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning"
 import { ParticipationContextLine } from "@/components/WhosInThisMarket";
 import { StructurallyInterestingCarouselDark } from "@/components/StructurallyInterestingCarousel";
 import { WinRateHistory } from "@/components/WinRateHistory";
+import { BetCalculator } from "@/components/BetCalculator";
 import { useEffect, useState } from "react";
 
 // ============================================================================
@@ -379,6 +380,16 @@ function OpportunityCard({
               {risk.emoji} {risk.level}
             </span>
           </div>
+        </div>
+
+        {/* Bet Calculator */}
+        <div className="px-4 py-4 border-t border-gray-800/50 bg-gray-900/20">
+          <BetCalculator 
+            currentOdds={yesOdds / 100} 
+            outcome="YES" 
+            defaultAmount={100}
+            size="medium"
+          />
         </div>
       </div>
 

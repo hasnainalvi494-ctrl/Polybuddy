@@ -14,6 +14,7 @@ import { ProfitSimulator } from "@/components/ProfitSimulator";
 import { FlowGuardSection } from "@/components/FlowGuardBadge";
 import { HiddenExposureWarning } from "@/components/HiddenExposureWarning";
 import { WhosInThisMarket } from "@/components/WhosInThisMarket";
+import { BetCalculator } from "@/components/BetCalculator";
 
 interface MarketDetail {
   id: string;
@@ -193,17 +194,33 @@ export default function MarketDetailPage() {
           </div>
         </header>
 
-        {/* 2. WHO'S IN THIS MARKET - Primary position */}
+        {/* 2. BET CALCULATOR - Interactive profit/loss calculator */}
+        <div className="mb-8">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              Calculate Your Bet
+            </h2>
+            <BetCalculator 
+              currentOdds={market.currentPrice || 0.5}
+              outcome="YES"
+              defaultAmount={100}
+              size="large"
+              showBreakeven={true}
+            />
+          </div>
+        </div>
+
+        {/* 3. WHO'S IN THIS MARKET - Primary position */}
         <div className="mb-8">
           <WhosInThisMarket marketId={market.id} />
         </div>
 
-        {/* 3. Hidden Exposure Warning (if any) */}
+        {/* 4. Hidden Exposure Warning (if any) */}
         <div className="mb-8">
           <HiddenExposureWarning marketId={market.id} />
         </div>
 
-        {/* 4. SIGNAL ANALYSIS SECTION */}
+        {/* 5. SIGNAL ANALYSIS SECTION */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-1 h-6 bg-gray-900 dark:bg-gray-100 rounded-full" />
@@ -220,7 +237,7 @@ export default function MarketDetailPage() {
           </div>
         </div>
 
-        {/* 5. SUPPORTING ANALYTICS */}
+        {/* 6. SUPPORTING ANALYTICS */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-1 h-6 bg-gray-900 dark:bg-gray-100 rounded-full" />

@@ -845,3 +845,31 @@ export type LiveStatsResponse = {
 export async function getLiveStats(): Promise<LiveStatsResponse> {
   return fetchApi("/api/stats/live");
 }
+
+// ============================================================================
+// ARBITRAGE OPPORTUNITIES
+// ============================================================================
+
+export type ArbitrageOpportunity = {
+  marketId: string;
+  marketName: string;
+  yesPrice: number;
+  noPrice: number;
+  spread: number;
+  profitPerShare: number;
+  profitPer100: number;
+  roiPercent: number;
+  resolvesIn: string;
+  difficulty: "easy" | "medium" | "hard";
+};
+
+export type ArbitrageResponse = {
+  opportunities: ArbitrageOpportunity[];
+  lastUpdated: string;
+  nextUpdate: number;
+};
+
+// Get arbitrage opportunities
+export async function getArbitrageOpportunities(): Promise<ArbitrageResponse> {
+  return fetchApi("/api/arbitrage");
+}

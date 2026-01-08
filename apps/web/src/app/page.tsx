@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { getDailyAttention, getLiveStats, type DailyAttentionResponse } from "@/lib/api";
+import { getDailyAttention, getLiveStats, getArbitrageOpportunities, type DailyAttentionResponse, type ArbitrageOpportunity } from "@/lib/api";
 import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "@/components/MiniSparkline";
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
 import { ParticipationContextLine } from "@/components/WhosInThisMarket";
@@ -394,121 +394,172 @@ function OpportunityCard({
   );
 }
 
-// Generate outcome-oriented friction insight
-function getFrictionInsight(market: DailyAttentionResponse["retailTraps"][0]): string {
-  const insights = [
-    "Late positioning here typically faces widened spreads and poor execution.",
-    "Retail entries at this stage often coincide with peak attention costs.",
-    "Crowded positioning tends to compress returns and amplify exit friction.",
-    "Structure has shifted — early movers already captured favorable conditions.",
-    "High attention periods like this historically punish reactive entries.",
-  ];
-  const idx = market.id.charCodeAt(0) % insights.length;
-  return market.commonMistake || insights[idx];
-}
+// ============================================================================
+// ARBITRAGE CARD
+// ============================================================================
 
-function HighFrictionSignalCard({
-  market,
+function ArbitrageCard({
+  opportunity,
+  index,
 }: {
-  market: DailyAttentionResponse["retailTraps"][0];
+  opportunity: ArbitrageOpportunity;
+  index: number;
 }) {
+  const getDifficultyColor = (difficulty: string) => {
+    if (difficulty === "easy") return "bg-emerald-500/20 text-emerald-400";
+    if (difficulty === "medium") return "bg-amber-500/20 text-amber-400";
+    return "bg-rose-500/20 text-rose-400";
+  };
+
+  const getDifficultyEmoji = (difficulty: string) => {
+    if (difficulty === "easy") return "🟢";
+    if (difficulty === "medium") return "🟡";
+    return "🔴";
+  };
+
   return (
-    <div className="group/card bg-gray-900/40 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-800/40 hover:border-gray-700/60 transition-colors duration-200">
-      {/* Card Header */}
-      <div className="p-5 pb-0">
-        {/* Top row: Badge + Category */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
-            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-              High Friction
-            </span>
-          </div>
-          <span className="text-[11px] text-gray-600 font-normal">
-            {market.category || "Market"}
-          </span>
-        </div>
-
-        {/* Market name - Primary (muted compared to Active) */}
-        <h3 className="font-semibold text-gray-300 text-[15px] leading-snug mb-3 line-clamp-2">
-          {market.question}
+    <div
+      className="group/card bg-emerald-900/10 backdrop-blur-sm rounded-2xl overflow-hidden border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-200 transform hover:scale-[1.02] animate-fade-in-up"
+      style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'backwards' }}
+    >
+      {/* Market Name */}
+      <div className="p-4 pb-2">
+        <h3 className="font-semibold text-gray-100 text-base leading-snug line-clamp-2">
+          {opportunity.marketName}
         </h3>
+      </div>
 
-        {/* Common retail mistake - Always visible, calm styling */}
-        <div className="mb-4 p-2.5 bg-gray-800/30 rounded-lg border border-gray-800/50">
-          <p className="text-[11px] text-gray-500 mb-1 flex items-center gap-1.5">
-            <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Common retail mistake
+      {/* Profit Display */}
+      <div className="px-4 py-4 border-y border-emerald-500/20 bg-emerald-500/5">
+        <div className="text-center">
+          <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wide mb-1">
+            RISK-FREE PROFIT
           </p>
-          <p className="text-[13px] text-gray-400 leading-relaxed">
-            {getFrictionInsight(market)}
+          <p className="text-5xl font-bold text-emerald-400">
+            ${opportunity.profitPer100.toFixed(2)}
           </p>
-        </div>
-
-        {/* Visual Preview - Muted */}
-        <div className="flex items-center gap-3 p-2.5 bg-gray-800/20 rounded-lg mb-4 border border-gray-800/30">
-          <div className="flex-1 opacity-40">
-            <MiniSparkline marketId={market.id} height={24} color="red" />
-          </div>
-          <div className="flex items-center gap-3 pl-3 border-l border-gray-800/30">
-            <div className="flex flex-col items-center">
-              <div className="flex gap-0.5">
-                {[1,2,3,4,5].map((i) => (
-                  <div
-                    key={i}
-                    className={`w-0.5 rounded-full ${i <= 2 ? 'bg-gray-600/60 h-2' : 'bg-gray-700/40 h-1.5'}`}
-                  />
-                ))}
-              </div>
-              <span className="text-[9px] text-gray-600 mt-0.5">Depth</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Signal Label */}
-        <div className="flex items-center gap-2 flex-wrap pb-3">
-          <span className="px-2 py-0.5 bg-gray-800/40 text-gray-500 text-[11px] rounded-md font-medium border border-gray-700/30">
-            {market.warningLabel || "Structural Headwind"}
-          </span>
-          <HiddenExposureInlineWarning marketId={market.id} />
-        </div>
-
-        {/* Participation Context */}
-        <div className="pb-4">
-          <ParticipationContextLine marketId={market.id} />
+          <p className="text-xs text-gray-400 mt-1">per $100 invested</p>
         </div>
       </div>
 
-      {/* Signal context - visible to all */}
-      <div className="px-5 py-4 border-t border-gray-800/30 space-y-2.5 bg-gray-800/15">
+      {/* How It Works */}
+      <div className="px-4 py-3 border-b border-emerald-500/20 bg-gray-900/30">
+        <p className="text-xs text-gray-400 mb-2 font-semibold">How it works:</p>
+        <div className="space-y-1 text-xs text-gray-300">
+          <p>Buy YES at {(opportunity.yesPrice * 100).toFixed(0)}¢ + NO at {(opportunity.noPrice * 100).toFixed(0)}¢ = {(opportunity.spread * 100).toFixed(0)}¢</p>
+          <p className="text-emerald-400 font-semibold">
+            Profit: {(opportunity.profitPerShare * 100).toFixed(1)}¢ per share
+          </p>
+        </div>
+      </div>
+
+      {/* Metrics */}
+      <div className="px-4 py-3 border-b border-emerald-500/20 flex items-center justify-between text-sm">
         <div>
-          <h4 className="text-[11px] text-gray-500 mb-0.5">What this often leads to</h4>
-          <p className="text-[12px] text-gray-500 leading-relaxed">Retail entries during high-friction periods tend to face immediate execution drag and elevated exit costs.</p>
+          <span className="text-gray-400">ROI:</span>
+          <span className="ml-2 font-bold text-emerald-400">{opportunity.roiPercent.toFixed(1)}%</span>
         </div>
         <div>
-          <h4 className="text-[11px] text-gray-600 mb-0.5">What to watch</h4>
-          <p className="text-[12px] text-gray-600 leading-relaxed">This friction typically eases when attention fades and spreads normalize.</p>
+          <span className="text-gray-400">Resolves:</span>
+          <span className="ml-2 font-bold text-gray-200">{opportunity.resolvesIn}</span>
         </div>
+      </div>
+
+      {/* Difficulty Badge */}
+      <div className="px-4 py-3 border-b border-emerald-500/20 flex items-center justify-between">
+        <span className="text-xs text-gray-400">Difficulty:</span>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getDifficultyColor(opportunity.difficulty)}`}>
+          {getDifficultyEmoji(opportunity.difficulty)} {opportunity.difficulty}
+        </span>
       </div>
 
       {/* CTA Footer */}
       <Link
-        href={`/markets/${market.id}`}
-        className="block px-5 py-2.5 border-t border-gray-800/20 hover:bg-gray-800/15 transition-colors duration-150 group/cta"
+        href={`/markets/${opportunity.marketId}`}
+        className="block px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-center rounded-b-2xl transition-colors duration-150 group/cta"
       >
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-gray-600">See full context</span>
-          <span className="text-[11px] font-medium text-gray-500 flex items-center gap-1 group-hover/cta:gap-1.5 transition-all">
-            Understand structure
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        </div>
+        Claim Profit →
       </Link>
     </div>
+  );
+}
+
+// ============================================================================
+// ARBITRAGE SECTION
+// ============================================================================
+
+function ArbitrageSection() {
+  const { data: arbitrageData, isLoading, error } = useQuery({
+    queryKey: ["arbitrage"],
+    queryFn: getArbitrageOpportunities,
+    refetchInterval: 60000, // Refresh every 60 seconds
+    staleTime: 55000,
+  });
+
+  const [nextUpdate, setNextUpdate] = useState(60);
+
+  useEffect(() => {
+    if (!arbitrageData) return;
+    
+    setNextUpdate(arbitrageData.nextUpdate);
+    const interval = setInterval(() => {
+      setNextUpdate((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [arbitrageData]);
+
+  return (
+    <section id="arbitrage" className="mb-14">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 bg-emerald-500 rounded-full" />
+          <div>
+            <h2 className="text-2xl font-bold text-gray-50 tracking-tight">
+              🎯 Risk-Free Arbitrage
+            </h2>
+            <p className="text-sm text-gray-400">
+              Guaranteed profit opportunities
+            </p>
+          </div>
+        </div>
+        {arbitrageData && (
+          <div className="text-xs text-gray-500">
+            Next update in {nextUpdate}s
+          </div>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-700 border-t-emerald-500"></div>
+          <p className="mt-4 text-sm text-gray-500">Scanning for arbitrage...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-6 text-rose-400">
+          Unable to load arbitrage opportunities. Please refresh.
+        </div>
+      ) : arbitrageData && arbitrageData.opportunities.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {arbitrageData.opportunities.map((opportunity, index) => (
+            <ArbitrageCard
+              key={opportunity.marketId}
+              opportunity={opportunity}
+              index={index}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-gray-900/50 rounded-2xl p-8 text-center border border-gray-800/50">
+          <p className="text-gray-400 text-lg font-semibold mb-2">
+            No risk-free opportunities right now.
+          </p>
+          <p className="text-sm text-gray-500">
+            Check back in 15 minutes. Arbitrage windows close quickly!
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -622,35 +673,8 @@ export default function PulsePage() {
               <StructurallyInterestingCarouselDark limit={8} />
             </section>
 
-            {/* Section B: High Friction Signals */}
-            <section className="mb-14">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1 h-8 bg-gray-600 rounded-full" />
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-100 tracking-tight">
-                    High Friction Signals
-                  </h2>
-                  <p className="text-[13px] text-gray-500">
-                    Structural headwinds detected
-                  </p>
-                </div>
-              </div>
-
-              {data?.retailTraps && data.retailTraps.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {data.retailTraps.slice(0, 6).map((market) => (
-                    <HighFrictionSignalCard
-                      key={market.id}
-                      market={market}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gray-900/50 rounded-2xl p-8 text-center border border-gray-800/50">
-                  <p className="text-gray-400">No high-friction signals detected.</p>
-                </div>
-              )}
-            </section>
+            {/* Section B: Arbitrage Opportunities */}
+            <ArbitrageSection />
 
             {/* Section C: Signal Timeline */}
             <section className="mb-14">

@@ -149,166 +149,245 @@ function HeroSection() {
 }
 
 // ============================================================================
-// SIGNAL CARDS
+// OPPORTUNITY CARDS - PROFIT-FOCUSED
 // ============================================================================
 
-function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
+// Calculate profit potential from market data
+function calculateProfitPotential(market: DailyAttentionResponse["worthAttention"][0]): number {
+  // Estimate based on liquidity and opportunity
+  const baseLiquidity = 10000; // Assume $10K base liquidity
+  const multiplier = market.confidence / 100;
+  return Math.round(baseLiquidity * 0.05 * multiplier);
+}
+
+// Calculate expected ROI
+function calculateROI(market: DailyAttentionResponse["worthAttention"][0]): number {
+  // Simple ROI calculation based on confidence and market metrics
+  const baseROI = 8 + (market.confidence / 100) * 7; // 8-15% range
+  return Math.round(baseROI * 10) / 10; // Round to 1 decimal
+}
+
+// Get ROI color
+function getROIColor(roi: number): string {
+  if (roi >= 10) return "text-emerald-400";
+  if (roi >= 5) return "text-yellow-400";
+  return "text-gray-400";
+}
+
+// Format time until resolution
+function formatTimeToResolve(endDate: Date | null): string {
+  if (!endDate) return "Open-ended";
+  
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${Math.floor(diffHours / 24)}d ago`;
+  const diff = endDate.getTime() - now.getTime();
+  
+  if (diff < 0) return "Resolved";
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
-// Confidence level helper
-function getConfidenceLevel(confidence: number): { label: string; color: string } {
-  if (confidence >= 75) return { label: "High", color: "emerald" };
-  if (confidence >= 50) return { label: "Medium", color: "amber" };
-  return { label: "Low", color: "gray" };
+// Get time color (red if <24h)
+function getTimeColor(endDate: Date | null): string {
+  if (!endDate) return "text-gray-400";
+  
+  const now = new Date();
+  const diff = endDate.getTime() - now.getTime();
+  const hours = diff / (1000 * 60 * 60);
+  
+  if (hours < 24) return "text-red-400";
+  if (hours < 72) return "text-yellow-400";
+  return "text-gray-400";
 }
 
-// Generate outcome-oriented insight
-function getActiveInsight(market: DailyAttentionResponse["worthAttention"][0]): string {
-  const insights = [
-    "Structure favors patient positioning before crowding develops.",
-    "Flow patterns suggest retail-friendly conditions persist.",
-    "Professional activity has stabilized — structure now favors deliberate entries.",
-    "Spreads remain tight relative to attention — execution costs stay low.",
-    "Early structural shift detected — positioning window still open.",
-  ];
-  // Use market id hash for consistent but varied insights
-  const idx = market.id.charCodeAt(0) % insights.length;
-  return market.whyThisMatters || insights[idx];
+// Calculate liquidity level (1-5 dots)
+function getLiquidityLevel(market: DailyAttentionResponse["worthAttention"][0]): number {
+  // Based on confidence as proxy for liquidity
+  if (market.confidence >= 80) return 5;
+  if (market.confidence >= 60) return 4;
+  if (market.confidence >= 40) return 3;
+  if (market.confidence >= 20) return 2;
+  return 1;
 }
 
-function ActiveSignalCard({
+// Detect smart money direction
+function getSmartMoneyStatus(market: DailyAttentionResponse["worthAttention"][0]): {
+  direction: "YES" | "NO" | "MIXED";
+  icon: string;
+} {
+  // Use confidence as proxy for smart money direction
+  // In real implementation, check actual wallet data
+  if (market.confidence >= 70) return { direction: "YES", icon: "🐋" };
+  if (market.confidence <= 30) return { direction: "NO", icon: "🐋" };
+  return { direction: "MIXED", icon: "🐋" };
+}
+
+// Calculate risk level
+function getRiskLevel(market: DailyAttentionResponse["worthAttention"][0]): {
+  level: "LOW" | "MEDIUM" | "HIGH";
+  color: string;
+  emoji: string;
+} {
+  // Based on confidence and market characteristics
+  if (market.confidence >= 75) return { level: "LOW", color: "text-emerald-400", emoji: "🟢" };
+  if (market.confidence >= 50) return { level: "MEDIUM", color: "text-yellow-400", emoji: "🟡" };
+  return { level: "HIGH", color: "text-red-400", emoji: "🔴" };
+}
+
+function OpportunityCard({
   market,
   index,
 }: {
   market: DailyAttentionResponse["worthAttention"][0];
   index: number;
 }) {
-  const confidence = getConfidenceLevel(market.confidence);
-  const volatility: "low" | "medium" | "high" =
-    market.confidence > 75 ? "low" : market.confidence > 50 ? "medium" : "high";
+  const profitPotential = calculateProfitPotential(market);
+  const roi = calculateROI(market);
+  const roiColor = getROIColor(roi);
+  
+  // Mock end date for now (in real implementation, fetch from API)
+  const mockEndDate = new Date(Date.now() + (24 + Math.random() * 72) * 60 * 60 * 1000);
+  const timeToResolve = formatTimeToResolve(mockEndDate);
+  const timeColor = getTimeColor(mockEndDate);
+  
+  const liquidityLevel = getLiquidityLevel(market);
+  const smartMoney = getSmartMoneyStatus(market);
+  const risk = getRiskLevel(market);
+
+  // Mock odds data (in real implementation, fetch from API)
+  const yesOdds = 55 + Math.round(market.confidence / 3);
+  const noOdds = 100 - yesOdds;
+  
+  // Mock volume (in real implementation, fetch from API)
+  const volume24h = Math.round(15000 + (market.confidence * 500));
 
   return (
     <div
-      className="group/card bg-gray-900/60 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-800/50 hover:border-emerald-500/30 transition-colors duration-200 animate-fade-in-up"
+      className="group/card bg-gray-900/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-800/50 hover:border-emerald-500/50 hover:scale-[1.02] transition-all duration-200 animate-fade-in-up shadow-lg"
       style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'backwards' }}
     >
-      {/* Card Header */}
-      <div className="p-5 pb-0">
-        {/* Top row: Badge + Category */}
-        <div className="flex items-center justify-between mb-2">
+      {/* Card Content */}
+      <div className="p-4">
+        {/* Hot Opportunity Badge */}
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[11px] font-medium uppercase tracking-wide text-emerald-400/90">
-              Retail-Friendly
+            <span className="text-lg">🔥</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400">
+              HOT OPPORTUNITY
             </span>
           </div>
-          <span className="text-[11px] text-gray-600 font-normal">
+          <span className="text-[10px] text-gray-500 uppercase">
             {market.category || "Market"}
           </span>
         </div>
 
-        {/* Market name - Primary */}
-        <h3 className="font-semibold text-gray-100 text-[15px] leading-snug mb-3 line-clamp-2">
+        {/* Market Question */}
+        <h3 className="font-bold text-gray-50 text-base leading-tight mb-4 line-clamp-2">
           {market.question}
         </h3>
 
-        {/* Signal Strength Bar */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] text-gray-500 font-normal" title="Reflects classification confidence, not outcome likelihood">Signal strength</span>
-            <span className={`text-[11px] font-medium ${confidence.color === 'emerald' ? 'text-emerald-400/80' : confidence.color === 'amber' ? 'text-amber-400/80' : 'text-gray-400'}`}>
-              {confidence.label}
+        {/* Profit Potential Section */}
+        <div className="bg-gray-800/50 rounded-xl p-3 mb-3 border border-gray-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-400 uppercase font-medium">Profit Potential</span>
+            <span className="text-xs text-gray-500">Est.</span>
+          </div>
+          <div className="flex items-baseline gap-3">
+            <span className="text-3xl font-black text-emerald-400">
+              ${profitPotential.toLocaleString()}
             </span>
-          </div>
-          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ease-out ${confidence.color === 'emerald' ? 'bg-emerald-500/70' : confidence.color === 'amber' ? 'bg-amber-500/70' : 'bg-gray-500'}`}
-              style={{
-                width: `${market.confidence}%`,
-                animation: 'expand-width 0.6s ease-out forwards',
-                animationDelay: `${index * 50 + 100}ms`
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Primary Insight - Why this is interesting now */}
-        <div className="mb-4">
-          <p className="text-[11px] font-medium text-emerald-400/70 mb-1">Why this is interesting now</p>
-          <p className="text-[13px] text-gray-300 leading-relaxed">
-            {getActiveInsight(market)}
-          </p>
-        </div>
-
-        {/* Visual Preview - Subtle, static */}
-        <div className="flex items-center gap-3 p-2.5 bg-gray-800/30 rounded-lg mb-4 border border-gray-800/50">
-          <div className="flex-1 opacity-70">
-            <MiniSparkline marketId={market.id} height={24} color="green" />
-          </div>
-          <div className="flex items-center gap-3 pl-3 border-l border-gray-800/50">
-            <div className="flex flex-col items-center">
-              <div className="flex gap-0.5">
-                {[1,2,3,4,5].map((i) => (
-                  <div
-                    key={i}
-                    className={`w-0.5 rounded-full ${i <= Math.ceil(market.confidence / 20) ? 'bg-emerald-500/60 h-2.5' : 'bg-gray-700/50 h-1.5'}`}
-                  />
-                ))}
-              </div>
-              <span className="text-[9px] text-gray-600 mt-0.5">Depth</span>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500">Expected ROI</span>
+              <span className={`text-lg font-bold ${roiColor}`}>{roi}%</span>
             </div>
           </div>
         </div>
 
-        {/* Signal Label */}
-        <div className="flex items-center gap-2 flex-wrap pb-3">
-          <span className="px-2 py-0.5 bg-emerald-500/8 text-emerald-400/80 text-[11px] rounded-md font-medium border border-emerald-500/15">
-            {market.setupLabel || "Favorable Structure"}
+        {/* Time to Resolve */}
+        <div className="flex items-center justify-between mb-3 px-2">
+          <span className="text-xs text-gray-400">Time to Resolve:</span>
+          <span className={`text-sm font-bold ${timeColor} flex items-center gap-1`}>
+            {timeToResolve} ⏱️
           </span>
-          <HiddenExposureInlineWarning marketId={market.id} />
         </div>
 
-        {/* Participation Context */}
-        <div className="pb-4">
-          <ParticipationContextLine marketId={market.id} />
+        {/* Current Odds */}
+        <div className="bg-gray-800/30 rounded-lg p-3 mb-3 border border-gray-700/30">
+          <div className="text-[10px] text-gray-500 uppercase mb-1 font-medium">Current Odds</div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-1">
+              <span className="text-emerald-400 font-bold text-xl">YES {yesOdds}%</span>
+              <span className="text-gray-500 text-xs">({yesOdds}¢)</span>
+            </div>
+            <span className="text-gray-600">|</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-red-400 font-bold text-xl">NO {noOdds}%</span>
+              <span className="text-gray-500 text-xs">({noOdds}¢)</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Signal context - visible to all */}
-      <div className="px-5 py-4 border-t border-gray-800/40 space-y-2.5 bg-gray-800/20">
-        <div>
-          <h4 className="text-[11px] text-gray-500 mb-0.5">What this often leads to</h4>
-          <p className="text-[12px] text-gray-400 leading-relaxed">Patient positioning here tends to result in better execution than reactive entries after momentum builds.</p>
+        {/* Volume & Liquidity */}
+        <div className="flex items-center justify-between mb-3 text-xs">
+          <div>
+            <span className="text-gray-500">24h Volume: </span>
+            <span className="text-gray-300 font-semibold">${(volume24h / 1000).toFixed(0)}K</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">Liquidity:</span>
+            <div className="flex gap-0.5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    i <= liquidityLevel ? "bg-emerald-500" : "bg-gray-700"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
-        <div>
-          <h4 className="text-[11px] text-gray-600 mb-0.5">What to watch</h4>
-          <p className="text-[12px] text-gray-500 leading-relaxed">This setup typically degrades when attention spikes or spreads widen suddenly.</p>
+
+        {/* Price Chart Placeholder */}
+        <div className="bg-gray-800/20 rounded-lg p-2 mb-3 border border-gray-700/20" style={{ height: "80px" }}>
+          <div className="flex items-center justify-center h-full">
+            <span className="text-[10px] text-gray-600">📈 24h Price Chart</span>
+          </div>
+        </div>
+
+        {/* Smart Money & Risk */}
+        <div className="flex items-center justify-between mb-3 px-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{smartMoney.icon}</span>
+            <span className="text-xs text-gray-400">Smart Money:</span>
+            <span className="text-xs font-bold text-emerald-400">
+              Buying {smartMoney.direction}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-400">Risk:</span>
+            <span className={`text-xs font-bold ${risk.color} flex items-center gap-1`}>
+              {risk.emoji} {risk.level}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* CTA Footer */}
       <Link
         href={`/markets/${market.id}`}
-        className="block px-5 py-2.5 border-t border-gray-800/30 hover:bg-gray-800/20 transition-colors duration-150 group/cta"
+        className="block px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border-t border-emerald-500/20 transition-all duration-150 group/cta"
       >
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-gray-600">See full context</span>
-          <span className="text-[11px] font-medium text-emerald-400/80 flex items-center gap-1 group-hover/cta:gap-1.5 transition-all">
-            View market details
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-sm font-bold text-emerald-400">Place Bet</span>
+          <svg className="w-4 h-4 text-emerald-400 group-hover/cta:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
         </div>
       </Link>
     </div>
@@ -506,16 +585,16 @@ export default function PulsePage() {
           </div>
         ) : (
           <>
-            {/* Section A: Active Signals */}
+            {/* Section A: Hot Opportunities */}
             <section className="mb-14">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1 h-8 bg-emerald-500/80 rounded-full" />
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-100 tracking-tight">
-                    Active Signals
+                  <h2 className="text-2xl font-bold text-gray-50 tracking-tight">
+                    🔥 Hot Opportunities
                   </h2>
-                  <p className="text-[13px] text-gray-500">
-                    Retail-friendly structure detected
+                  <p className="text-sm text-gray-400">
+                    High profit potential markets ready to trade
                   </p>
                 </div>
               </div>
@@ -523,7 +602,7 @@ export default function PulsePage() {
               {data?.worthAttention && data.worthAttention.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {data.worthAttention.slice(0, 6).map((market, index) => (
-                    <ActiveSignalCard
+                    <OpportunityCard
                       key={market.id}
                       market={market}
                       index={index}

@@ -16,6 +16,7 @@ import { HiddenExposureWarning } from "@/components/HiddenExposureWarning";
 import { WhosInThisMarket } from "@/components/WhosInThisMarket";
 import { BetCalculator } from "@/components/BetCalculator";
 import { SlippageCalculator } from "@/components/SlippageCalculator";
+import { DisputeWarningBanner } from "@/components/DisputeWarningBanner";
 
 interface MarketDetail {
   id: string;
@@ -194,6 +195,11 @@ export default function MarketDetailPage() {
             </div>
           </div>
         </header>
+
+        {/* 1.5 DISPUTE WARNING - Show if market is disputed */}
+        <div className="mb-8">
+          <DisputeWarningBanner marketId={market.id} />
+        </div>
 
         {/* 2. BET CALCULATOR - Interactive profit/loss calculator */}
         <div className="mb-8">

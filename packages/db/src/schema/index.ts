@@ -1009,3 +1009,51 @@ export const whaleActivityRelations = relations(whaleActivity, ({ one }) => ({
     references: [walletPerformance.walletAddress],
   }),
 }));
+
+// ============================================
+// FEATURE: UMA Dispute Tracking
+// ============================================
+
+// UMA Dispute Status enum
+export const umaDisputeStatus = pgEnum("uma_dispute_status", [
+  "commit_stage",
+  "reveal_stage",
+  "resolved",
+]);
+
+// Active UMA disputes
+export const umaDisputes = pgTable("uma_disputes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  disputeStatus: umaDisputeStatus("dispute_status").notNull(),
+  proposedOutcome: text("proposed_outcome"),
+  disputedOutcome: text("disputed_outcome"),
+  totalVotes: integer("total_votes").default(0),
+  yesVotes: integer("yes_votes").default(0),
+  noVotes: integer("no_votes").default(0),
+  votingEndsAt: timestamp("voting_ends_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Historical record of dispute resolutions
+export const umaDisputeHistory = pgTable("uma_dispute_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  resolutionFlipped: boolean("resolution_flipped").notNull(),
+  originalOutcome: text("original_outcome"),
+  finalOutcome: text("final_outcome"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }).defaultNow(),
+});
+
+// Relations for UMA disputes
+export const umaDisputesRelations = relations(umaDisputes, ({ one }) => ({
+  market: one(markets, {
+    fields: [umaDisputes.marketId],
+    references: [markets.id],
+  }),
+}));

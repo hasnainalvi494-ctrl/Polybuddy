@@ -24,7 +24,9 @@ import { whaleFeedRoutes } from "./routes/whale-feed.js";
 import { priceHistoryRoutes } from "./routes/price-history.js";
 import { similarHistoryRoutes } from "./routes/similar-history.js";
 import { slippageRoutes } from "./routes/slippage.js";
+import { disputesRoutes } from "./routes/disputes.js";
 import { scheduleWalletSync } from "./jobs/sync-wallets.js";
+import { scheduleUMADisputeSync } from "./services/uma-disputes.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -85,6 +87,7 @@ async function buildApp() {
   await app.register(priceHistoryRoutes, { prefix: "/api/markets" });
   await app.register(similarHistoryRoutes, { prefix: "/api/markets" });
   await app.register(slippageRoutes, { prefix: "/api/markets" });
+  await app.register(disputesRoutes, { prefix: "/api/disputes" });
 
   return app;
 }
@@ -100,6 +103,10 @@ async function main() {
     // Start wallet sync job (runs every hour)
     app.log.info("Starting wallet sync job...");
     scheduleWalletSync(60 * 60 * 1000); // 1 hour
+
+    // Start UMA dispute sync job (runs every 5 minutes)
+    app.log.info("Starting UMA dispute sync job...");
+    scheduleUMADisputeSync(5 * 60 * 1000); // 5 minutes
   } catch (err) {
     app.log.error(err);
     process.exit(1);

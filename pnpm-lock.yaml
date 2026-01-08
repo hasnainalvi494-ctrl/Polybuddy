@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^20.17.0
         version: 20.19.27
+      postgres:
+        specifier: ^3.4.0
+        version: 3.4.7
       turbo:
         specifier: ^2.3.0
         version: 2.7.2

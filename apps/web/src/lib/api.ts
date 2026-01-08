@@ -1064,3 +1064,69 @@ export async function getSlippage(
   });
   return fetchApi(`/api/markets/${marketId}/slippage?${params.toString()}`);
 }
+
+// ============================================================================
+// UMA DISPUTES
+// ============================================================================
+
+export type DisputeStatus = "commit_stage" | "reveal_stage" | "resolved";
+
+export type Dispute = {
+  id: string;
+  marketId: string;
+  disputeStatus: DisputeStatus;
+  proposedOutcome: string | null;
+  disputedOutcome: string | null;
+  totalVotes: number;
+  yesVotes: number;
+  noVotes: number;
+  votingEndsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  market?: {
+    id: string;
+    polymarketId: string;
+    question: string;
+    category: string | null;
+    endDate: string | null;
+  };
+};
+
+export type DisputeHistory = {
+  id: string;
+  marketId: string;
+  resolutionFlipped: boolean;
+  originalOutcome: string | null;
+  finalOutcome: string | null;
+  resolvedAt: string;
+};
+
+export type DisputesResponse = {
+  disputes: Dispute[];
+  count: number;
+};
+
+export type DisputeHistoryResponse = {
+  history: DisputeHistory[];
+  count: number;
+};
+
+// Get all active disputes
+export async function getDisputes(): Promise<DisputesResponse> {
+  return fetchApi("/api/disputes");
+}
+
+// Get dispute for a specific market
+export async function getDisputeForMarket(marketId: string): Promise<{ dispute: Dispute | null }> {
+  try {
+    return await fetchApi(`/api/disputes/${marketId}`);
+  } catch (error) {
+    // Return null if no dispute found (404)
+    return { dispute: null };
+  }
+}
+
+// Get historical disputes
+export async function getDisputeHistory(limit: number = 50): Promise<DisputeHistoryResponse> {
+  return fetchApi(`/api/disputes/history?limit=${limit}`);
+}

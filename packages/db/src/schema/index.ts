@@ -1057,3 +1057,47 @@ export const umaDisputesRelations = relations(umaDisputes, ({ one }) => ({
     references: [markets.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Telegram Alert Bot
+// ============================================
+
+// Telegram connections for users
+export const telegramConnections = pgTable("telegram_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  telegramChatId: text("telegram_chat_id").notNull().unique(),
+  telegramUsername: text("telegram_username"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+// Alert subscriptions via Telegram
+export const telegramAlertSubscriptions = pgTable("telegram_alert_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  telegramConnectionId: uuid("telegram_connection_id")
+    .notNull()
+    .references(() => telegramConnections.id, { onDelete: "cascade" }),
+  alertType: text("alert_type").notNull(),
+  marketId: text("market_id"),
+  threshold: decimal("threshold", { precision: 10, scale: 4 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// Relations for Telegram
+export const telegramConnectionsRelations = relations(telegramConnections, ({ one, many }) => ({
+  user: one(users, {
+    fields: [telegramConnections.userId],
+    references: [users.id],
+  }),
+  subscriptions: many(telegramAlertSubscriptions),
+}));
+
+export const telegramAlertSubscriptionsRelations = relations(telegramAlertSubscriptions, ({ one }) => ({
+  connection: one(telegramConnections, {
+    fields: [telegramAlertSubscriptions.telegramConnectionId],
+    references: [telegramConnections.id],
+  }),
+}));

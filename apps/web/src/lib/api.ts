@@ -1130,3 +1130,54 @@ export async function getDisputeForMarket(marketId: string): Promise<{ dispute: 
 export async function getDisputeHistory(limit: number = 50): Promise<DisputeHistoryResponse> {
   return fetchApi(`/api/disputes/history?limit=${limit}`);
 }
+
+// ============================================================================
+// TELEGRAM INTEGRATION
+// ============================================================================
+
+export type TelegramConnection = {
+  id: string;
+  userId: string;
+  telegramChatId: string;
+  telegramUsername: string | null;
+  connectedAt: string;
+  isActive: boolean;
+};
+
+export type TelegramSubscription = {
+  id: string;
+  telegramConnectionId: string;
+  alertType: string;
+  marketId: string | null;
+  threshold: string | null;
+  createdAt: string;
+};
+
+export type TelegramBotInfo = {
+  botUsername: string;
+  botUrl: string;
+  instructions: string[];
+};
+
+// Get Telegram connection status
+export async function getTelegramConnection(): Promise<{ connection: TelegramConnection | null }> {
+  return fetchApi("/api/telegram/connection");
+}
+
+// Get Telegram alert subscriptions
+export async function getTelegramSubscriptions(): Promise<{
+  subscriptions: TelegramSubscription[];
+  count: number;
+}> {
+  return fetchApi("/api/telegram/subscriptions");
+}
+
+// Disconnect Telegram
+export async function disconnectTelegram(): Promise<{ success: boolean; message: string }> {
+  return fetchApi("/api/telegram/connection", { method: "DELETE" });
+}
+
+// Get bot information
+export async function getTelegramBotInfo(): Promise<TelegramBotInfo> {
+  return fetchApi("/api/telegram/bot-info");
+}

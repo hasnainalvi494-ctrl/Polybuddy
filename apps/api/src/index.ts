@@ -25,6 +25,7 @@ import { priceHistoryRoutes } from "./routes/price-history.js";
 import { similarHistoryRoutes } from "./routes/similar-history.js";
 import { slippageRoutes } from "./routes/slippage.js";
 import { disputesRoutes } from "./routes/disputes.js";
+import { telegramRoutes } from "./routes/telegram.js";
 import { scheduleWalletSync } from "./jobs/sync-wallets.js";
 import { scheduleUMADisputeSync } from "./services/uma-disputes.js";
 
@@ -88,6 +89,7 @@ async function buildApp() {
   await app.register(similarHistoryRoutes, { prefix: "/api/markets" });
   await app.register(slippageRoutes, { prefix: "/api/markets" });
   await app.register(disputesRoutes, { prefix: "/api/disputes" });
+  await app.register(telegramRoutes, { prefix: "/api/telegram" });
 
   return app;
 }

@@ -17,6 +17,7 @@ import { WhosInThisMarket } from "@/components/WhosInThisMarket";
 import { BetCalculator } from "@/components/BetCalculator";
 import { SlippageCalculator } from "@/components/SlippageCalculator";
 import { DisputeWarningBanner } from "@/components/DisputeWarningBanner";
+import { OrderBook } from "@/components/OrderBook";
 
 interface MarketDetail {
   id: string;
@@ -264,7 +265,18 @@ export default function MarketDetailPage() {
           </div>
         </div>
 
-        {/* 6. SUPPORTING ANALYTICS */}
+        {/* 6. ORDER BOOK */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-6 bg-gray-900 dark:bg-gray-100 rounded-full" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              Order Book
+            </h2>
+          </div>
+          <OrderBook marketId={market.id} />
+        </div>
+
+        {/* 7. SUPPORTING ANALYTICS */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-1 h-6 bg-gray-900 dark:bg-gray-100 rounded-full" />

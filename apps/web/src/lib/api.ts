@@ -1181,3 +1181,44 @@ export async function disconnectTelegram(): Promise<{ success: boolean; message:
 export async function getTelegramBotInfo(): Promise<TelegramBotInfo> {
   return fetchApi("/api/telegram/bot-info");
 }
+
+// ============================================================================
+// ORDER BOOK
+// ============================================================================
+
+export type OrderBookLevel = {
+  price: number;
+  size: number;
+  total: number;
+};
+
+export type OrderBookInterpretation = {
+  bookBalance: "balanced" | "heavy_bid" | "heavy_ask";
+  largeWalls: Array<{
+    side: "bid" | "ask";
+    price: number;
+    size: number;
+    percentage: number;
+  }>;
+  thinZones: Array<{
+    startPrice: number;
+    endPrice: number;
+    gap: number;
+  }>;
+  summary: string;
+};
+
+export type OrderBookResponse = {
+  marketId: string;
+  midPrice: number;
+  spread: number;
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  timestamp: string;
+  interpretation: OrderBookInterpretation;
+};
+
+// Get order book for a market
+export async function getOrderBook(marketId: string): Promise<OrderBookResponse> {
+  return fetchApi(`/api/markets/${marketId}/orderbook`);
+}

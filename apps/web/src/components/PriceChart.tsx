@@ -275,3 +275,5 @@ export function PriceChart({
 // Export other components for backward compatibility
 export { LiquidityBar, VolatilityIndicator } from "./MiniSparkline";
 
+
+

@@ -1002,3 +1002,30 @@ export async function getWhaleActivity(limit?: number): Promise<WhaleFeedRespons
   const query = searchParams.toString();
   return fetchApi(`/api/whale-activity${query ? `?${query}` : ""}`);
 }
+
+// ============================================================================
+// SIMILAR HISTORY (WIN RATE VISUALIZATION)
+// ============================================================================
+
+export type HistoryResult = {
+  outcome: "win" | "loss" | "pending";
+  marketId: string;
+  marketQuestion: string;
+  roi: number | null;
+};
+
+export type SimilarHistoryResponse = {
+  marketId: string;
+  clusterType: string;
+  history: HistoryResult[];
+  totalWins: number;
+  totalLosses: number;
+  totalPending: number;
+  winRate: number;
+  averageROI: number;
+};
+
+// Get similar market history for win rate visualization
+export async function getSimilarHistory(marketId: string): Promise<SimilarHistoryResponse> {
+  return fetchApi(`/api/markets/${marketId}/similar-history`);
+}

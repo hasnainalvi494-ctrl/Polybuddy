@@ -7,6 +7,7 @@ import { PriceChart, LiquidityBar, VolatilityIndicator } from "@/components/Pric
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
 import { ParticipationContextLine } from "@/components/WhosInThisMarket";
 import { StructurallyInterestingCarouselDark } from "@/components/StructurallyInterestingCarousel";
+import { WinRateHistory } from "@/components/WinRateHistory";
 import { useEffect, useState } from "react";
 
 // ============================================================================
@@ -353,15 +354,18 @@ function OpportunityCard({
           </div>
         </div>
 
-        {/* Price Chart Placeholder */}
-        <div className="bg-gray-800/20 rounded-lg p-2 mb-3 border border-gray-700/20" style={{ height: "80px" }}>
-          <div className="flex items-center justify-center h-full">
-            <span className="text-[10px] text-gray-600">📈 24h Price Chart</span>
-          </div>
+        {/* Candlestick Chart */}
+        <div className="px-4 py-3 border-b border-gray-800/50">
+          <PriceChart marketId={market.id} size="medium" />
+        </div>
+
+        {/* Win Rate History */}
+        <div className="px-4 py-3 border-b border-gray-800/50 bg-gray-900/30">
+          <WinRateHistory marketId={market.id} size="medium" />
         </div>
 
         {/* Smart Money & Risk */}
-        <div className="flex items-center justify-between mb-3 px-2">
+        <div className="flex items-center justify-between mb-3 px-2 mt-3">
           <div className="flex items-center gap-2">
             <span className="text-sm">{smartMoney.icon}</span>
             <span className="text-xs text-gray-400">Smart Money:</span>

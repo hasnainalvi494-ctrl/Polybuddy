@@ -194,3 +194,5 @@ CREATE INDEX idx_whale_activity_timestamp ON whale_activity(timestamp DESC);
 
 Ready to build the API endpoints and leaderboard UI! 🚀
 
+
+

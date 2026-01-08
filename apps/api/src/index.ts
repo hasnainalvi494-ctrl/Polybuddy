@@ -22,6 +22,7 @@ import { arbitrageRoutes } from "./routes/arbitrage.js";
 import { leaderboardRoutes } from "./routes/leaderboard.js";
 import { whaleFeedRoutes } from "./routes/whale-feed.js";
 import { priceHistoryRoutes } from "./routes/price-history.js";
+import { similarHistoryRoutes } from "./routes/similar-history.js";
 import { scheduleWalletSync } from "./jobs/sync-wallets.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -81,6 +82,7 @@ async function buildApp() {
   await app.register(leaderboardRoutes, { prefix: "/api/leaderboard" });
   await app.register(whaleFeedRoutes, { prefix: "/api/whale-activity" });
   await app.register(priceHistoryRoutes, { prefix: "/api/markets" });
+  await app.register(similarHistoryRoutes, { prefix: "/api/markets" });
 
   return app;
 }

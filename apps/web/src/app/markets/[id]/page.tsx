@@ -20,6 +20,7 @@ import { DisputeWarningBanner } from "@/components/DisputeWarningBanner";
 import { OrderBook } from "@/components/OrderBook";
 import { AIAnalysis } from "@/components/AIAnalysis";
 import { OutcomePathAnalysis } from "@/components/OutcomePathAnalysis";
+import { TimingWindowBadge } from "@/components/TimingWindowBadge";
 
 interface MarketDetail {
   id: string;
@@ -202,6 +203,11 @@ export default function MarketDetailPage() {
         {/* 1.5 DISPUTE WARNING - Show if market is disputed */}
         <div className="mb-8">
           <DisputeWarningBanner marketId={market.id} />
+        </div>
+
+        {/* 1.6 TIMING WINDOW - Critical timing guidance */}
+        <div className="mb-8">
+          <TimingWindowBadge marketId={market.id} />
         </div>
 
         {/* 2. BET CALCULATOR - Interactive profit/loss calculator */}

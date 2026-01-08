@@ -1271,3 +1271,35 @@ export type OutcomePathAnalysis = {
 export async function getOutcomePaths(marketId: string): Promise<OutcomePathAnalysis> {
   return fetchApi(`/api/markets/${marketId}/outcome-paths`);
 }
+
+// ============================================================================
+// TIMING WINDOWS
+// ============================================================================
+
+export type WindowType = "dead_zone" | "danger_window" | "final_positioning" | "opportunity_window";
+
+export type TimingWindow = {
+  windowType: WindowType;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+  retailGuidance: string;
+};
+
+export type CurrentTimingWindow = {
+  marketId: string;
+  currentWindow: TimingWindow | null;
+  upcomingWindows: TimingWindow[];
+  timeUntilResolution: number | null;
+  guidance: {
+    shouldEnter: boolean;
+    shouldExit: boolean;
+    waitFor: string | null;
+    reasoning: string;
+  };
+};
+
+// Get timing window analysis for a market
+export async function getTimingWindows(marketId: string): Promise<CurrentTimingWindow> {
+  return fetchApi(`/api/markets/${marketId}/timing`);
+}

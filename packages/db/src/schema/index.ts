@@ -1116,3 +1116,27 @@ export const outcomePatterns = pgTable("outcome_patterns", {
   retailImplication: text("retail_implication").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// ============================================
+// FEATURE: Timing Windows
+// ============================================
+
+// Window type enum
+export const timingWindowType = pgEnum("timing_window_type", [
+  "dead_zone",
+  "danger_window",
+  "final_positioning",
+  "opportunity_window",
+]);
+
+// Timing windows for market entry/exit guidance
+export const timingWindows = pgTable("timing_windows", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  marketId: text("market_id").notNull(),
+  windowType: text("window_type").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  reason: text("reason").notNull(),
+  retailGuidance: text("retail_guidance").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

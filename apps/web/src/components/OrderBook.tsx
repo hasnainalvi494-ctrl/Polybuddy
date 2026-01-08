@@ -1,7 +1,6 @@
 "use client";
 
-import { useQuery } from "@tantml:invoke>
-<parameter name="query">react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getOrderBook, type OrderBookResponse } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 

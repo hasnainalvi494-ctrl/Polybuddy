@@ -942,3 +942,70 @@ export const marketParticipationStructureRelations = relations(marketParticipati
     references: [markets.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Trader Tracking & Leaderboard
+// ============================================
+
+// Wallet performance tracking for leaderboard
+export const walletPerformance = pgTable("wallet_performance", {
+  walletAddress: text("wallet_address").primaryKey(),
+  totalProfit: decimal("total_profit", { precision: 18, scale: 2 }),
+  totalVolume: decimal("total_volume", { precision: 18, scale: 2 }),
+  winRate: decimal("win_rate", { precision: 5, scale: 2 }),
+  tradeCount: integer("trade_count").default(0),
+  roiPercent: decimal("roi_percent", { precision: 10, scale: 2 }),
+  primaryCategory: text("primary_category"),
+  lastTradeAt: timestamp("last_trade_at", { withTimezone: true }),
+  rank: integer("rank"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Individual trades for wallet tracking
+export const walletTrades = pgTable("wallet_trades", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletAddress: text("wallet_address").notNull(),
+  marketId: text("market_id").notNull(),
+  side: text("side").notNull(), // 'buy' or 'sell'
+  outcome: text("outcome").notNull(), // 'yes' or 'no'
+  entryPrice: decimal("entry_price", { precision: 10, scale: 4 }),
+  exitPrice: decimal("exit_price", { precision: 10, scale: 4 }),
+  size: decimal("size", { precision: 18, scale: 8 }),
+  profit: decimal("profit", { precision: 18, scale: 2 }),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+  txHash: text("tx_hash"),
+});
+
+// Whale activity feed
+export const whaleActivity = pgTable("whale_activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletAddress: text("wallet_address").notNull(),
+  marketId: text("market_id").notNull(),
+  action: text("action").notNull(), // 'buy' or 'sell'
+  outcome: text("outcome").notNull(), // 'yes' or 'no'
+  amountUsd: decimal("amount_usd", { precision: 18, scale: 2 }).notNull(),
+  price: decimal("price", { precision: 10, scale: 4 }),
+  priceBefore: decimal("price_before", { precision: 10, scale: 4 }),
+  priceAfter: decimal("price_after", { precision: 10, scale: 4 }),
+  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
+});
+
+// Relations for trader tracking
+export const walletPerformanceRelations = relations(walletPerformance, ({ many }) => ({
+  trades: many(walletTrades),
+  whaleActivities: many(whaleActivity),
+}));
+
+export const walletTradesRelations = relations(walletTrades, ({ one }) => ({
+  performance: one(walletPerformance, {
+    fields: [walletTrades.walletAddress],
+    references: [walletPerformance.walletAddress],
+  }),
+}));
+
+export const whaleActivityRelations = relations(whaleActivity, ({ one }) => ({
+  performance: one(walletPerformance, {
+    fields: [whaleActivity.walletAddress],
+    references: [walletPerformance.walletAddress],
+  }),
+}));

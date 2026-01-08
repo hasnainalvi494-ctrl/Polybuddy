@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "./MiniSparkline";
+import { PriceChart, LiquidityBar, VolatilityIndicator } from "./PriceChart";
 
 // Signal types and their visual configurations
 export type SignalType =
@@ -230,10 +230,9 @@ export function SignalCard({
       <div className="px-5 pb-4">
         <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
           <div className="flex-1">
-            <MiniSparkline
+            <PriceChart
               marketId={marketId}
-              height={36}
-              color={signalType === "low_friction" ? "green" : signalType === "high_friction" ? "red" : "blue"}
+              size="small"
             />
           </div>
           <div className="flex flex-col gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getDailyAttention, getLiveStats, getArbitrageOpportunities, getWhaleActivity, type DailyAttentionResponse, type ArbitrageOpportunity, type WhaleTrade } from "@/lib/api";
-import { MiniSparkline, LiquidityBar, VolatilityIndicator } from "@/components/MiniSparkline";
+import { PriceChart, LiquidityBar, VolatilityIndicator } from "@/components/PriceChart";
 import { HiddenExposureInlineWarning } from "@/components/HiddenExposureWarning";
 import { ParticipationContextLine } from "@/components/WhosInThisMarket";
 import { StructurallyInterestingCarouselDark } from "@/components/StructurallyInterestingCarousel";

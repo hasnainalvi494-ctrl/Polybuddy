@@ -18,6 +18,7 @@ import { BetCalculator } from "@/components/BetCalculator";
 import { SlippageCalculator } from "@/components/SlippageCalculator";
 import { DisputeWarningBanner } from "@/components/DisputeWarningBanner";
 import { OrderBook } from "@/components/OrderBook";
+import { AIAnalysis } from "@/components/AIAnalysis";
 
 interface MarketDetail {
   id: string;
@@ -274,6 +275,17 @@ export default function MarketDetailPage() {
             </h2>
           </div>
           <OrderBook marketId={market.id} />
+        </div>
+
+        {/* 6.5 AI MARKET ANALYSIS */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-6 bg-purple-500 rounded-full" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              AI Market Analysis
+            </h2>
+          </div>
+          <AIAnalysis marketId={market.id} />
         </div>
 
         {/* 7. SUPPORTING ANALYTICS */}

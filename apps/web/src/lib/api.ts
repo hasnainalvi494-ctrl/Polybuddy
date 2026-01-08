@@ -1222,3 +1222,24 @@ export type OrderBookResponse = {
 export async function getOrderBook(marketId: string): Promise<OrderBookResponse> {
   return fetchApi(`/api/markets/${marketId}/orderbook`);
 }
+
+// ============================================================================
+// AI ANALYSIS
+// ============================================================================
+
+export type AIAnalysisResponse = {
+  marketId: string;
+  generatedAt: string;
+  probability_estimate: number;
+  confidence: "Low" | "Medium" | "High";
+  thesis: string;
+  counter_thesis: string;
+  key_factors: string[];
+  what_could_go_wrong: string[];
+  news_summary?: string;
+};
+
+// Get AI analysis for a market
+export async function getAIAnalysis(marketId: string): Promise<AIAnalysisResponse> {
+  return fetchApi(`/api/markets/${marketId}/analysis`);
+}

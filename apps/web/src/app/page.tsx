@@ -9,6 +9,10 @@ import { ParticipationContextLine } from "@/components/WhosInThisMarket";
 import { StructurallyInterestingCarouselDark } from "@/components/StructurallyInterestingCarousel";
 import { WinRateHistory } from "@/components/WinRateHistory";
 import { BetCalculator } from "@/components/BetCalculator";
+import { LiveBadge } from "@/components/LiveBadge";
+import { LastUpdated } from "@/components/LastUpdated";
+import { PulseNotificationBadge } from "@/components/NotificationBadge";
+import { SoundToggle } from "@/components/SoundToggle";
 import { useEffect, useState } from "react";
 
 // ============================================================================
@@ -50,12 +54,9 @@ function HeroSection() {
 
       <div className="relative max-w-6xl mx-auto px-6 pt-12 pb-24">
         {/* Live Stats Ticker - Above headline */}
-        <div className="mb-8 flex items-center justify-center">
+        <div className="mb-8 flex items-center justify-center gap-4 flex-wrap">
+          <LiveBadge size="md" />
           <div className="inline-flex items-center gap-6 px-6 py-3 bg-gray-900/80 backdrop-blur-sm border border-emerald-500/20 rounded-full">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs text-gray-400 font-medium">LIVE</span>
-            </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">24h Volume:</span>
               <span className="text-sm font-bold text-emerald-400">
@@ -542,9 +543,16 @@ function WhaleActivityFeed() {
     );
   }
 
+  const whaleTrades = whaleData?.trades || [];
+  const newTradesCount = whaleTrades.filter((trade: WhaleTrade) => {
+    const tradeTime = new Date(trade.timestamp).getTime();
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    return tradeTime > fiveMinutesAgo;
+  }).length || 0;
+
   return (
     <section className="mb-14">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 bg-blue-500 rounded-full" />
           <div>
@@ -555,6 +563,14 @@ function WhaleActivityFeed() {
               Large trades moving the markets ({">"}$10K)
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {newTradesCount > 0 && (
+            <PulseNotificationBadge count={newTradesCount} label="new whale bets" />
+          )}
+          {whaleTrades.length > 0 && (
+            <LastUpdated timestamp={whaleTrades[0].timestamp} prefix="Updated" />
+          )}
         </div>
         <Link
           href="/leaderboard"

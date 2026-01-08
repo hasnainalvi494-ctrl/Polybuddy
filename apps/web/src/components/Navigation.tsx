@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
+import { SoundToggle } from "./SoundToggle";
 
 const navItems = [
   { href: "/", label: "Pulse", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
@@ -85,6 +86,9 @@ export function Navigation() {
 
           {/* Theme Toggle & Auth Section */}
           <div className="flex items-center gap-2">
+            {/* Sound Toggle */}
+            <SoundToggle />
+            
             {/* Dark Mode Toggle - Hidden since we're always dark now */}
             <button
               onClick={toggleTheme}

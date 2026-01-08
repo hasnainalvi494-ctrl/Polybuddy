@@ -873,3 +873,99 @@ export type ArbitrageResponse = {
 export async function getArbitrageOpportunities(): Promise<ArbitrageResponse> {
   return fetchApi("/api/arbitrage");
 }
+
+// ============================================================================
+// TOP TRADERS LEADERBOARD
+// ============================================================================
+
+export type Trader = {
+  rank: number;
+  walletAddress: string;
+  totalProfit: number;
+  winRate: number;
+  tradeCount: number;
+  roiPercent: number;
+  primaryCategory: string | null;
+  lastTradeAt: string | null;
+  activePositions: number;
+};
+
+export type LeaderboardResponse = {
+  traders: Trader[];
+  totalTraders: number;
+};
+
+export type Trade = {
+  id: string;
+  marketId: string;
+  side: string;
+  outcome: string;
+  entryPrice: number | null;
+  exitPrice: number | null;
+  size: number | null;
+  profit: number | null;
+  timestamp: string;
+  txHash: string | null;
+};
+
+export type CategoryBreakdown = {
+  category: string;
+  tradeCount: number;
+  profit: number;
+  winRate: number;
+};
+
+export type TraderProfile = {
+  walletAddress: string;
+  rank: number | null;
+  totalProfit: number | null;
+  totalVolume: number | null;
+  winRate: number | null;
+  tradeCount: number;
+  roiPercent: number | null;
+  primaryCategory: string | null;
+  lastTradeAt: string | null;
+  recentTrades: Trade[];
+  categoryBreakdown: CategoryBreakdown[];
+  performanceOverTime: Array<{
+    date: string;
+    profit: number;
+    trades: number;
+  }>;
+  winLossDistribution: {
+    wins: number;
+    losses: number;
+    breakeven: number;
+  };
+};
+
+export type LeaderboardCategory = {
+  category: string;
+  traderCount: number;
+};
+
+// Get top traders leaderboard
+export async function getLeaderboard(params?: {
+  category?: string;
+  sort?: "profit" | "winRate" | "roi" | "volume";
+  limit?: number;
+  offset?: number;
+}): Promise<LeaderboardResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.category) searchParams.set("category", params.category);
+  if (params?.sort) searchParams.set("sort", params.sort);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const query = searchParams.toString();
+  return fetchApi(`/api/leaderboard${query ? `?${query}` : ""}`);
+}
+
+// Get trader profile by wallet address
+export async function getTraderProfile(walletAddress: string): Promise<TraderProfile> {
+  return fetchApi(`/api/leaderboard/${walletAddress}`);
+}
+
+// Get available categories
+export async function getLeaderboardCategories(): Promise<{ categories: LeaderboardCategory[] }> {
+  return fetchApi("/api/leaderboard/categories");
+}

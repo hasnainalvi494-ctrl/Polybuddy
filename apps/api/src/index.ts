@@ -19,6 +19,8 @@ import { retailSignalsRoutes } from "./routes/retail-signals.js";
 import { dailyRoutes } from "./routes/daily.js";
 import { statsRoutes } from "./routes/stats.js";
 import { arbitrageRoutes } from "./routes/arbitrage.js";
+import { leaderboardRoutes } from "./routes/leaderboard.js";
+import { scheduleWalletSync } from "./jobs/sync-wallets.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -74,6 +76,7 @@ async function buildApp() {
   await app.register(dailyRoutes, { prefix: "/api/daily" });
   await app.register(statsRoutes, { prefix: "/api/stats" });
   await app.register(arbitrageRoutes, { prefix: "/api/arbitrage" });
+  await app.register(leaderboardRoutes, { prefix: "/api/leaderboard" });
 
   return app;
 }
@@ -85,6 +88,10 @@ async function main() {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Server running at http://${HOST}:${PORT}`);
     app.log.info(`API docs at http://${HOST}:${PORT}/docs`);
+
+    // Start wallet sync job (runs every hour)
+    app.log.info("Starting wallet sync job...");
+    scheduleWalletSync(60 * 60 * 1000); // 1 hour
   } catch (err) {
     app.log.error(err);
     process.exit(1);

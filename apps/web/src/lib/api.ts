@@ -1243,3 +1243,31 @@ export type AIAnalysisResponse = {
 export async function getAIAnalysis(marketId: string): Promise<AIAnalysisResponse> {
   return fetchApi(`/api/markets/${marketId}/analysis`);
 }
+
+// ============================================================================
+// OUTCOME PATH ANALYSIS
+// ============================================================================
+
+export type OutcomePattern = {
+  patternName: string;
+  frequencyPercent: number;
+  description: string;
+  retailImplication: string;
+};
+
+export type OutcomePathAnalysis = {
+  marketId: string;
+  clusterType: string;
+  patterns: OutcomePattern[];
+  summary: {
+    mostCommonPath: string;
+    retailTrapFrequency: number;
+    keyTiming: string;
+  };
+  recommendations: string[];
+};
+
+// Get outcome path analysis for a market
+export async function getOutcomePaths(marketId: string): Promise<OutcomePathAnalysis> {
+  return fetchApi(`/api/markets/${marketId}/outcome-paths`);
+}

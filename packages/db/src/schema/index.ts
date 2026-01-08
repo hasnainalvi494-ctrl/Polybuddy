@@ -1101,3 +1101,18 @@ export const telegramAlertSubscriptionsRelations = relations(telegramAlertSubscr
     references: [telegramConnections.id],
   }),
 }));
+
+// ============================================
+// FEATURE: Outcome Path Analysis
+// ============================================
+
+// Historical outcome patterns for different market types
+export const outcomePatterns = pgTable("outcome_patterns", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  clusterType: text("cluster_type").notNull(),
+  patternName: text("pattern_name").notNull(),
+  frequencyPercent: decimal("frequency_percent", { precision: 5, scale: 2 }).notNull(),
+  description: text("description").notNull(),
+  retailImplication: text("retail_implication").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

@@ -123,9 +123,11 @@ export const watchlistsRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { id } = request.params;
 
-      const watchlist = await db.query.watchlists.findFirst({
-        where: eq(watchlists.id, id),
-      });
+      const [watchlist] = await db
+        .select()
+        .from(watchlists)
+        .where(eq(watchlists.id, id))
+        .limit(1);
 
       if (!watchlist) {
         return reply.status(404).send({ error: `Watchlist ${id} not found` });
@@ -198,30 +200,38 @@ export const watchlistsRoutes: FastifyPluginAsync = async (app) => {
       const { marketId } = request.body;
 
       // Check watchlist exists
-      const watchlist = await db.query.watchlists.findFirst({
-        where: eq(watchlists.id, id),
-      });
+      const [watchlist] = await db
+        .select()
+        .from(watchlists)
+        .where(eq(watchlists.id, id))
+        .limit(1);
 
       if (!watchlist) {
         return reply.status(404).send({ error: `Watchlist ${id} not found` });
       }
 
       // Check market exists
-      const market = await db.query.markets.findFirst({
-        where: eq(markets.id, marketId),
-      });
+      const [market] = await db
+        .select()
+        .from(markets)
+        .where(eq(markets.id, marketId))
+        .limit(1);
 
       if (!market) {
         return reply.status(404).send({ error: `Market ${marketId} not found` });
       }
 
       // Check if already in watchlist
-      const existing = await db.query.watchlistMarkets.findFirst({
-        where: and(
-          eq(watchlistMarkets.watchlistId, id),
-          eq(watchlistMarkets.marketId, marketId)
-        ),
-      });
+      const [existing] = await db
+        .select()
+        .from(watchlistMarkets)
+        .where(
+          and(
+            eq(watchlistMarkets.watchlistId, id),
+            eq(watchlistMarkets.marketId, marketId)
+          )
+        )
+        .limit(1);
 
       if (existing) {
         return reply.status(409).send({ error: "Market already in watchlist" });
@@ -261,21 +271,27 @@ export const watchlistsRoutes: FastifyPluginAsync = async (app) => {
       const { id, marketId } = request.params;
 
       // Check watchlist exists
-      const watchlist = await db.query.watchlists.findFirst({
-        where: eq(watchlists.id, id),
-      });
+      const [watchlist] = await db
+        .select()
+        .from(watchlists)
+        .where(eq(watchlists.id, id))
+        .limit(1);
 
       if (!watchlist) {
         return reply.status(404).send({ error: `Watchlist ${id} not found` });
       }
 
       // Check if market is in watchlist
-      const existing = await db.query.watchlistMarkets.findFirst({
-        where: and(
-          eq(watchlistMarkets.watchlistId, id),
-          eq(watchlistMarkets.marketId, marketId)
-        ),
-      });
+      const [existing] = await db
+        .select()
+        .from(watchlistMarkets)
+        .where(
+          and(
+            eq(watchlistMarkets.watchlistId, id),
+            eq(watchlistMarkets.marketId, marketId)
+          )
+        )
+        .limit(1);
 
       if (!existing) {
         return reply.status(404).send({ error: "Market not in watchlist" });
@@ -315,9 +331,11 @@ export const watchlistsRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { id } = request.params;
 
-      const watchlist = await db.query.watchlists.findFirst({
-        where: eq(watchlists.id, id),
-      });
+      const [watchlist] = await db
+        .select()
+        .from(watchlists)
+        .where(eq(watchlists.id, id))
+        .limit(1);
 
       if (!watchlist) {
         return reply.status(404).send({ error: `Watchlist ${id} not found` });

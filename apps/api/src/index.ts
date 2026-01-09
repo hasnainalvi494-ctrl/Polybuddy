@@ -10,24 +10,24 @@ import { authRoutes } from "./routes/auth.js";
 import { marketsRoutes } from "./routes/markets.js";
 import { signalsRoutes } from "./routes/signals.js";
 import { retailSignalsRoutes } from "./routes/retail-signals.js";
-import { whaleFeedRoutes } from "./routes/whale-feed.js";
+// import { whaleFeedRoutes } from "./routes/whale-feed.js"; // Empty file
 import { watchlistsRoutes } from "./routes/watchlists.js";
 import { alertsRoutes } from "./routes/alerts.js";
 import { portfolioRoutes } from "./routes/portfolio.js";
-// import { analyticsRoutes } from "./routes/analytics.js"; // Temporarily disabled
-import { leaderboardRoutes } from "./routes/leaderboard.js";
-import { telegramRoutes } from "./routes/telegram.js";
-import { aiAnalysisRoutes } from "./routes/ai-analysis.js";
-import { outcomePathsRoutes } from "./routes/outcome-paths.js";
-import { timingWindowsRoutes } from "./routes/timing-windows.js";
-import { crossPlatformRoutes } from "./routes/cross-platform.js";
-import { umaDisputesRoutes } from "./routes/disputes.js";
-import { orderbookRoutes } from "./routes/orderbook.js";
-import { slippageRoutes } from "./routes/slippage.js";
-import { arbitrageRoutes } from "./routes/arbitrage.js";
-import { priceHistoryRoutes } from "./routes/price-history.js";
-import { similarHistoryRoutes } from "./routes/similar-history.js";
-import { statsRoutes } from "./routes/stats.js";
+// import { analyticsRoutes } from "./routes/analytics.js"; // Temporarily disabled - missing schema exports
+// import { leaderboardRoutes } from "./routes/leaderboard.js"; // Empty file
+// import { telegramRoutes } from "./routes/telegram.js"; // Empty file
+// import { aiAnalysisRoutes } from "./routes/ai-analysis.js"; // Empty file
+// import { outcomePathsRoutes } from "./routes/outcome-paths.js"; // Empty file
+// import { timingWindowsRoutes } from "./routes/timing-windows.js"; // Empty file
+// import { crossPlatformRoutes } from "./routes/cross-platform.js"; // Empty file
+// import { umaDisputesRoutes } from "./routes/disputes.js"; // Empty file
+// import { orderbookRoutes } from "./routes/orderbook.js"; // Empty file
+// import { slippageRoutes } from "./routes/slippage.js"; // Empty file
+// import { arbitrageRoutes } from "./routes/arbitrage.js"; // Empty file
+// import { priceHistoryRoutes } from "./routes/price-history.js"; // Empty file
+// import { similarHistoryRoutes } from "./routes/similar-history.js"; // Empty file
+// import { statsRoutes } from "./routes/stats.js"; // Empty file
 import { dailyRoutes } from "./routes/daily.js";
 import { reportsRoutes } from "./routes/reports.js";
 
@@ -70,24 +70,24 @@ await app.register(authRoutes, { prefix: "/api/auth" });
 await app.register(marketsRoutes, { prefix: "/api/markets" });
 await app.register(signalsRoutes, { prefix: "/api/signals" });
 await app.register(retailSignalsRoutes, { prefix: "/api/retail-signals" });
-await app.register(whaleFeedRoutes, { prefix: "/api/whale-feed" });
+// await app.register(whaleFeedRoutes, { prefix: "/api/whale-feed" }); // Empty file
 await app.register(watchlistsRoutes, { prefix: "/api/watchlists" });
 await app.register(alertsRoutes, { prefix: "/api/alerts" });
 await app.register(portfolioRoutes, { prefix: "/api/portfolio" });
 // await app.register(analyticsRoutes, { prefix: "/api/analytics" }); // Temporarily disabled - missing schema
-await app.register(leaderboardRoutes, { prefix: "/api/leaderboard" });
-await app.register(telegramRoutes, { prefix: "/api/telegram" });
-await app.register(aiAnalysisRoutes, { prefix: "/api/ai-analysis" });
-await app.register(outcomePathsRoutes, { prefix: "/api/outcome-paths" });
-await app.register(timingWindowsRoutes, { prefix: "/api/timing-windows" });
-await app.register(crossPlatformRoutes, { prefix: "/api/cross-platform" });
-await app.register(umaDisputesRoutes, { prefix: "/api/disputes" });
-await app.register(orderbookRoutes, { prefix: "/api/orderbook" });
-await app.register(slippageRoutes, { prefix: "/api/slippage" });
-await app.register(arbitrageRoutes, { prefix: "/api/arbitrage" });
-await app.register(priceHistoryRoutes, { prefix: "/api/price-history" });
-await app.register(similarHistoryRoutes, { prefix: "/api/similar-history" });
-await app.register(statsRoutes, { prefix: "/api/stats" });
+// await app.register(leaderboardRoutes, { prefix: "/api/leaderboard" }); // Empty file
+// await app.register(telegramRoutes, { prefix: "/api/telegram" }); // Empty file
+// await app.register(aiAnalysisRoutes, { prefix: "/api/ai-analysis" }); // Empty file
+// await app.register(outcomePathsRoutes, { prefix: "/api/outcome-paths" }); // Empty file
+// await app.register(timingWindowsRoutes, { prefix: "/api/timing-windows" }); // Empty file
+// await app.register(crossPlatformRoutes, { prefix: "/api/cross-platform" }); // Empty file
+// await app.register(umaDisputesRoutes, { prefix: "/api/disputes" }); // Empty file
+// await app.register(orderbookRoutes, { prefix: "/api/orderbook" }); // Empty file
+// await app.register(slippageRoutes, { prefix: "/api/slippage" }); // Empty file
+// await app.register(arbitrageRoutes, { prefix: "/api/arbitrage" }); // Empty file
+// await app.register(priceHistoryRoutes, { prefix: "/api/price-history" }); // Empty file
+// await app.register(similarHistoryRoutes, { prefix: "/api/similar-history" }); // Empty file
+// await app.register(statsRoutes, { prefix: "/api/stats" }); // Empty file
 await app.register(dailyRoutes, { prefix: "/api/daily" });
 await app.register(reportsRoutes, { prefix: "/api/reports" });
 

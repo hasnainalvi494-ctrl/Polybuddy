@@ -47,6 +47,8 @@ export const markets = pgTable("markets", {
   liquidity: decimal("liquidity"),
   yesPrice: decimal("yes_price"),
   noPrice: decimal("no_price"),
+  qualityScore: decimal("quality_score"), // Overall quality score
+  qualityGrade: text("quality_grade"), // Letter grade (A, B, C, D, F)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -164,6 +166,9 @@ export const retailSignals = pgTable("retail_signals", {
   message: text("message").notNull(),
   actionable: boolean("actionable").default(false).notNull(),
   metadata: jsonb("metadata"),
+  whyBullets: jsonb("why_bullets"), // Array of bullet points explaining the signal
+  metrics: jsonb("metrics"), // Additional metrics data
+  computedAt: timestamp("computed_at").defaultNow(), // When the signal was computed
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   marketIdIdx: index("retail_signals_market_id_idx").on(table.marketId),

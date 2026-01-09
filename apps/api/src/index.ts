@@ -2,7 +2,11 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import cookie from "@fastify/cookie";
-import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import {
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from "fastify-type-provider-zod";
 
 // Import routes
 import { healthRoutes } from "./routes/health.js";
@@ -48,7 +52,11 @@ const app = Fastify({
           }
         : undefined,
   },
-}).withTypeProvider<TypeBoxTypeProvider>();
+}).withTypeProvider<ZodTypeProvider>();
+
+// Set up Zod validation and serialization
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
 
 // Register plugins
 await app.register(helmet, {

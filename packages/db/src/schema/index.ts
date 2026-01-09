@@ -57,12 +57,17 @@ export const marketSnapshots = pgTable("market_snapshots", {
   marketId: text("market_id").references(() => markets.id).notNull(),
   yesPrice: decimal("yes_price").notNull(),
   noPrice: decimal("no_price").notNull(),
+  price: decimal("price").notNull(), // Alias for yesPrice
   volume: decimal("volume").notNull(),
+  volume24h: decimal("volume_24h"), // 24h volume
   liquidity: decimal("liquidity").notNull(),
+  spread: decimal("spread"), // Bid-ask spread
   timestamp: timestamp("timestamp").defaultNow().notNull(),
+  snapshotAt: timestamp("snapshot_at").defaultNow().notNull(), // Alias for timestamp
 }, (table) => ({
   marketIdIdx: index("market_snapshots_market_id_idx").on(table.marketId),
   timestampIdx: index("market_snapshots_timestamp_idx").on(table.timestamp),
+  snapshotAtIdx: index("market_snapshots_snapshot_at_idx").on(table.snapshotAt),
 }));
 
 // Alerts table
@@ -364,4 +369,24 @@ export const leaderboard = pgTable("leaderboard", {
 }, (table) => ({
   rankIdx: index("leaderboard_rank_idx").on(table.rank),
   volumeIdx: index("leaderboard_volume_idx").on(table.totalVolume),
+}));
+
+// Weekly reports table
+export const weeklyReports = pgTable("weekly_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  weekStart: timestamp("week_start").notNull(),
+  weekEnd: timestamp("week_end").notNull(),
+  totalPnl: decimal("total_pnl"),
+  totalVolume: decimal("total_volume"),
+  tradesCount: integer("trades_count"),
+  winRate: decimal("win_rate"),
+  bestTrade: jsonb("best_trade"),
+  worstTrade: jsonb("worst_trade"),
+  insights: jsonb("insights"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("weekly_reports_user_id_idx").on(table.userId),
+  weekStartIdx: index("weekly_reports_week_start_idx").on(table.weekStart),
 }));

@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd ../.. && pnpm install && pnpm --filter @polybuddy/web build",
+  "installCommand": "cd ../.. && pnpm install",
+  "framework": "nextjs"
+}
+

@@ -1,4 +1,5 @@
-import { pgTable, text, uuid, timestamp, decimal, boolean, integer, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, decimal, boolean, integer, jsonb, index, real } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // Users table
 export const users = pgTable("users", {
@@ -9,13 +10,60 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Sessions table
+export const sessions = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  token: text("token").unique().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Watchlists table
 export const watchlists = pgTable("watchlists", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Watchlist markets junction table
+export const watchlistMarkets = pgTable("watchlist_markets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  watchlistId: uuid("watchlist_id").references(() => watchlists.id).notNull(),
   marketId: text("market_id").notNull(),
   addedAt: timestamp("added_at").defaultNow().notNull(),
 });
+
+// Markets table
+export const markets = pgTable("markets", {
+  id: text("id").primaryKey(),
+  question: text("question").notNull(),
+  description: text("description"),
+  category: text("category"),
+  endDate: timestamp("end_date"),
+  volume: decimal("volume"),
+  liquidity: decimal("liquidity"),
+  yesPrice: decimal("yes_price"),
+  noPrice: decimal("no_price"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Market snapshots table
+export const marketSnapshots = pgTable("market_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").references(() => markets.id).notNull(),
+  yesPrice: decimal("yes_price").notNull(),
+  noPrice: decimal("no_price").notNull(),
+  volume: decimal("volume").notNull(),
+  liquidity: decimal("liquidity").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => ({
+  marketIdIdx: index("market_snapshots_market_id_idx").on(table.marketId),
+  timestampIdx: index("market_snapshots_timestamp_idx").on(table.timestamp),
+}));
 
 // Alerts table
 export const alerts = pgTable("alerts", {
@@ -28,8 +76,19 @@ export const alerts = pgTable("alerts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Portfolio table
-export const portfolio = pgTable("portfolio", {
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  alertId: uuid("alert_id").references(() => alerts.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Portfolio positions table
+export const portfolioPositions = pgTable("portfolio_positions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => users.id).notNull(),
   marketId: text("market_id").notNull(),
@@ -41,6 +100,15 @@ export const portfolio = pgTable("portfolio", {
   pnlPercent: decimal("pnl_percent"),
   addedAt: timestamp("added_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tracked wallets table
+export const trackedWallets = pgTable("tracked_wallets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  label: text("label"),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
 });
 
 // Telegram connections table
@@ -81,6 +149,110 @@ export const whaleTrades = pgTable("whale_trades", {
   walletIdx: index("whale_trades_wallet_idx").on(table.walletAddress),
   timestampIdx: index("whale_trades_timestamp_idx").on(table.timestamp),
 }));
+
+// Retail signals table
+export const retailSignals = pgTable("retail_signals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  signalType: text("signal_type").notNull(),
+  severity: text("severity").notNull(), // 'INFO', 'WARNING', 'DANGER'
+  message: text("message").notNull(),
+  actionable: boolean("actionable").default(false).notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  marketIdIdx: index("retail_signals_market_id_idx").on(table.marketId),
+  createdAtIdx: index("retail_signals_created_at_idx").on(table.createdAt),
+}));
+
+// Market relations table
+export const marketRelations = pgTable("market_relations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  relatedMarketId: text("related_market_id").notNull(),
+  relationType: text("relation_type").notNull(),
+  strength: decimal("strength"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Constraint checks table
+export const constraintChecks = pgTable("constraint_checks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  checkType: text("check_type").notNull(),
+  passed: boolean("passed").notNull(),
+  details: jsonb("details"),
+  checkedAt: timestamp("checked_at").defaultNow().notNull(),
+});
+
+// Wallet flow events table
+export const walletFlowEvents = pgTable("wallet_flow_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  walletAddress: text("wallet_address").notNull(),
+  marketId: text("market_id").notNull(),
+  eventType: text("event_type").notNull(),
+  amount: decimal("amount").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  walletIdx: index("wallet_flow_events_wallet_idx").on(table.walletAddress),
+  marketIdIdx: index("wallet_flow_events_market_id_idx").on(table.marketId),
+}));
+
+// Market behavior dimensions table
+export const marketBehaviorDimensions = pgTable("market_behavior_dimensions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  volatility: decimal("volatility"),
+  momentum: decimal("momentum"),
+  sentiment: decimal("sentiment"),
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+}, (table) => ({
+  marketIdIdx: index("market_behavior_dimensions_market_id_idx").on(table.marketId),
+}));
+
+// Retail flow guard table
+export const retailFlowGuard = pgTable("retail_flow_guard", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  riskLevel: text("risk_level").notNull(),
+  recommendation: text("recommendation").notNull(),
+  reasons: jsonb("reasons"),
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+}, (table) => ({
+  marketIdIdx: index("retail_flow_guard_market_id_idx").on(table.marketId),
+}));
+
+// Market resolution drivers table
+export const marketResolutionDrivers = pgTable("market_resolution_drivers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  driverType: text("driver_type").notNull(),
+  description: text("description").notNull(),
+  impact: decimal("impact"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Hidden exposure links table
+export const hiddenExposureLinks = pgTable("hidden_exposure_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  linkedMarketId: text("linked_market_id").notNull(),
+  exposureType: text("exposure_type").notNull(),
+  strength: decimal("strength"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Market participation structure table
+export const marketParticipationStructure = pgTable("market_participation_structure", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull(),
+  whaleCount: integer("whale_count"),
+  retailCount: integer("retail_count"),
+  whaleVolume: decimal("whale_volume"),
+  retailVolume: decimal("retail_volume"),
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+});
 
 // Outcome patterns table
 export const outcomePatterns = pgTable("outcome_patterns", {
@@ -178,21 +350,6 @@ export const aiAnalysis = pgTable("ai_analysis", {
   marketIdIdx: index("ai_analysis_market_id_idx").on(table.marketId),
 }));
 
-// Retail signals table
-export const retailSignals = pgTable("retail_signals", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  marketId: text("market_id").notNull(),
-  signalType: text("signal_type").notNull(),
-  severity: text("severity").notNull(), // 'INFO', 'WARNING', 'DANGER'
-  message: text("message").notNull(),
-  actionable: boolean("actionable").default(false).notNull(),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  marketIdIdx: index("retail_signals_market_id_idx").on(table.marketId),
-  createdAtIdx: index("retail_signals_created_at_idx").on(table.createdAt),
-}));
-
 // Leaderboard table
 export const leaderboard = pgTable("leaderboard", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -208,37 +365,3 @@ export const leaderboard = pgTable("leaderboard", {
   rankIdx: index("leaderboard_rank_idx").on(table.rank),
   volumeIdx: index("leaderboard_volume_idx").on(table.totalVolume),
 }));
-
-// Export types
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-export type Watchlist = typeof watchlists.$inferSelect;
-export type NewWatchlist = typeof watchlists.$inferInsert;
-export type Alert = typeof alerts.$inferSelect;
-export type NewAlert = typeof alerts.$inferInsert;
-export type Portfolio = typeof portfolio.$inferSelect;
-export type NewPortfolio = typeof portfolio.$inferInsert;
-export type TelegramConnection = typeof telegramConnections.$inferSelect;
-export type NewTelegramConnection = typeof telegramConnections.$inferInsert;
-export type TelegramAlertSubscription = typeof telegramAlertSubscriptions.$inferSelect;
-export type NewTelegramAlertSubscription = typeof telegramAlertSubscriptions.$inferInsert;
-export type WhaleTrade = typeof whaleTrades.$inferSelect;
-export type NewWhaleTrade = typeof whaleTrades.$inferInsert;
-export type OutcomePattern = typeof outcomePatterns.$inferSelect;
-export type NewOutcomePattern = typeof outcomePatterns.$inferInsert;
-export type TimingWindow = typeof timingWindows.$inferSelect;
-export type NewTimingWindow = typeof timingWindows.$inferInsert;
-export type CrossPlatformMarket = typeof crossPlatformMarkets.$inferSelect;
-export type NewCrossPlatformMarket = typeof crossPlatformMarkets.$inferInsert;
-export type CrossPlatformPrice = typeof crossPlatformPrices.$inferSelect;
-export type NewCrossPlatformPrice = typeof crossPlatformPrices.$inferInsert;
-export type UmaDispute = typeof umaDisputes.$inferSelect;
-export type NewUmaDispute = typeof umaDisputes.$inferInsert;
-export type MarketQualityScore = typeof marketQualityScores.$inferSelect;
-export type NewMarketQualityScore = typeof marketQualityScores.$inferInsert;
-export type AiAnalysis = typeof aiAnalysis.$inferSelect;
-export type NewAiAnalysis = typeof aiAnalysis.$inferInsert;
-export type RetailSignal = typeof retailSignals.$inferSelect;
-export type NewRetailSignal = typeof retailSignals.$inferInsert;
-export type Leaderboard = typeof leaderboard.$inferSelect;
-export type NewLeaderboard = typeof leaderboard.$inferInsert;

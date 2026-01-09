@@ -104,7 +104,7 @@ export const portfolioPositions = pgTable("portfolio_positions", {
   walletId: text("wallet_id"), // Wallet ID for tracking
   marketId: text("market_id").notNull(),
   position: text("position").notNull(), // 'YES' or 'NO'
-  outcome: text("outcome"), // Outcome of the position
+  outcome: text("outcome").notNull().default(''), // Outcome of the position
   shares: decimal("shares").notNull(),
   avgPrice: decimal("avg_price").notNull(),
   avgEntryPrice: decimal("avg_entry_price"), // Average entry price
@@ -171,14 +171,15 @@ export const retailSignals = pgTable("retail_signals", {
   signalType: text("signal_type").notNull(),
   severity: text("severity").notNull(), // 'INFO', 'WARNING', 'DANGER'
   message: text("message").notNull(),
-  label: text("label"), // Short label for the signal
-  isFavorable: boolean("is_favorable"), // Whether this signal is favorable for traders
-  confidence: text("confidence"), // Confidence level (LOW, MEDIUM, HIGH)
+  label: text("label").notNull().default(''), // Short label for the signal
+  isFavorable: boolean("is_favorable").notNull().default(false), // Whether this signal is favorable for traders
+  confidence: text("confidence").notNull().default('medium'), // Confidence level (LOW, MEDIUM, HIGH)
   actionable: boolean("actionable").default(false).notNull(),
   metadata: jsonb("metadata"),
   whyBullets: jsonb("why_bullets"), // Array of bullet points explaining the signal
   metrics: jsonb("metrics"), // Additional metrics data
   unit: text("unit"), // Unit of measurement for metrics
+  validUntil: timestamp("valid_until"), // When the signal expires
   computedAt: timestamp("computed_at").defaultNow(), // When the signal was computed
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({

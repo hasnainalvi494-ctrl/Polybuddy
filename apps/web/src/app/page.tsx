@@ -13,7 +13,9 @@ import { LiveBadge } from "@/components/LiveBadge";
 import { LastUpdated } from "@/components/LastUpdated";
 import { PulseNotificationBadge } from "@/components/NotificationBadge";
 import { SoundToggle } from "@/components/SoundToggle";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ============================================================================
 // HERO SECTION - TRADER-FOCUSED
@@ -797,16 +799,22 @@ function SignalTimelineRow({ change, index }: { change: DailyAttentionResponse["
 // ============================================================================
 
 export default function PulsePage() {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["dailyAttention"],
     queryFn: getDailyAttention,
     staleTime: 5 * 60 * 1000,
   });
 
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries();
+  };
+
   return (
     <main className="min-h-screen bg-gray-950">
-      {/* Hero */}
-      <HeroSection />
+      <PullToRefresh onRefresh={handleRefresh}>
+        {/* Hero */}
+        <HeroSection />
 
       {/* Signal Sections */}
       <div id="signals" className="max-w-6xl mx-auto px-6 pb-16">
@@ -902,6 +910,7 @@ export default function PulsePage() {
           </p>
         </footer>
       </div>
+      </PullToRefresh>
     </main>
   );
 }

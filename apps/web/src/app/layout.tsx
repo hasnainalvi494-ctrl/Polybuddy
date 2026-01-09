@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navigation } from "@/components/Navigation";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +22,8 @@ export default function RootLayout({
       <body className={`${inter.className} bg-gray-950 text-gray-100`}>
         <Providers>
           <Navigation />
-          {children}
+          <div className="pb-16 md:pb-0">{children}</div>
+          <MobileBottomNav />
         </Providers>
       </body>
     </html>

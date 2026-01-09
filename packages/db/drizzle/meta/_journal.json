@@ -8,6 +8,20 @@
       "when": 1767905908676,
       "tag": "0000_nostalgic_cardiac",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1767962641041,
+      "tag": "0001_sparkling_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767962693953,
+      "tag": "0002_luxuriant_felicia_hardy",
+      "breakpoints": true
     }
   ]
 }

@@ -6,11 +6,22 @@ import { Navigation } from "@/components/Navigation";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "PolyBuddy - Prediction Market Signals",
   description: "Live structural signals across prediction markets. See where retail traders can compete — and where hidden risks quietly punish late or crowded entries.",
+  keywords: ["prediction markets", "polymarket", "trading signals", "market analysis"],
+  authors: [{ name: "PolyBuddy" }],
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+  },
 };
 
 export default function RootLayout({

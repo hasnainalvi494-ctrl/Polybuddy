@@ -22,7 +22,10 @@ export default function CalendarPage() {
   
   const { data: marketsData } = useQuery({
     queryKey: ["markets", "calendar"],
-    queryFn: () => getMarkets({ limit: 1000 }),
+    queryFn: async () => {
+      const result = await getMarkets({ limit: 1000 });
+      return result as { data: any[]; total: number };
+    },
   });
 
   // Generate calendar days

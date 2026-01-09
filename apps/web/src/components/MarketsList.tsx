@@ -10,7 +10,10 @@ import Link from "next/link";
 export function MarketsList() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["markets"],
-    queryFn: () => getMarkets(),
+    queryFn: async () => {
+      const result = await getMarkets();
+      return result as { data: any[]; total: number };
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 

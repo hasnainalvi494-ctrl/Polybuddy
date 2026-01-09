@@ -1140,3 +1140,45 @@ export const timingWindows = pgTable("timing_windows", {
   retailGuidance: text("retail_guidance").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// ============================================
+// FEATURE: Cross-Platform Price Comparison
+// ============================================
+
+// Cross-platform market mappings
+export const crossPlatformMarkets = pgTable("cross_platform_markets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  polymarketId: text("polymarket_id"),
+  kalshiId: text("kalshi_id"),
+  limitlessId: text("limitless_id"),
+  matchConfidence: decimal("match_confidence", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Platform enum
+export const platformType = pgEnum("platform_type", ["polymarket", "kalshi", "limitless"]);
+
+// Cross-platform prices
+export const crossPlatformPrices = pgTable("cross_platform_prices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  crossPlatformMarketId: uuid("cross_platform_market_id")
+    .notNull()
+    .references(() => crossPlatformMarkets.id, { onDelete: "cascade" }),
+  platform: text("platform").notNull(),
+  yesPrice: decimal("yes_price", { precision: 10, scale: 4 }),
+  noPrice: decimal("no_price", { precision: 10, scale: 4 }),
+  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
+});
+
+// Relations
+export const crossPlatformMarketsRelations = relations(crossPlatformMarkets, ({ many }) => ({
+  prices: many(crossPlatformPrices),
+}));
+
+export const crossPlatformPricesRelations = relations(crossPlatformPrices, ({ one }) => ({
+  market: one(crossPlatformMarkets, {
+    fields: [crossPlatformPrices.crossPlatformMarketId],
+    references: [crossPlatformMarkets.id],
+  }),
+}));

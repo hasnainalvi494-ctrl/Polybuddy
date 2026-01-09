@@ -1303,3 +1303,40 @@ export type CurrentTimingWindow = {
 export async function getTimingWindows(marketId: string): Promise<CurrentTimingWindow> {
   return fetchApi(`/api/markets/${marketId}/timing`);
 }
+
+// ============================================================================
+// Cross-Platform Price Comparison
+// ============================================================================
+
+export interface PlatformPrice {
+  platform: string;
+  yesPrice: number;
+  noPrice: number;
+  spread: number;
+  timestamp: string;
+}
+
+export interface CrossPlatformComparison {
+  marketId: string;
+  platforms: PlatformPrice[];
+  bestYesPrice: {
+    platform: string;
+    price: number;
+    savingsVsWorst: number;
+  } | null;
+  bestNoPrice: {
+    platform: string;
+    price: number;
+    savingsVsWorst: number;
+  } | null;
+  recommendation: string;
+}
+
+export async function getCrossPlatformPrices(marketId: string): Promise<CrossPlatformComparison | null> {
+  try {
+    return await fetchApi(`/api/markets/${marketId}/cross-platform`);
+  } catch (error) {
+    // Return null if no cross-platform data available
+    return null;
+  }
+}

@@ -1,29 +1,86 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...options.headers,
+// ============================================================================
+// RETRY LOGIC
+// ============================================================================
+
+interface RetryOptions {
+  maxRetries?: number;
+  retryDelay?: number;
+  retryableStatuses?: number[];
+}
+
+const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
+  maxRetries: 3,
+  retryDelay: 1000,
+  retryableStatuses: [408, 429, 500, 502, 503, 504],
+};
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  retryOptions: RetryOptions = {}
+): Promise<T> {
+  const { maxRetries, retryDelay, retryableStatuses } = {
+    ...DEFAULT_RETRY_OPTIONS,
+    ...retryOptions,
   };
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: "include", // Include cookies for auth
-    });
-  } catch {
-    // Network error - service unavailable
-    throw new Error("Service temporarily unavailable");
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        ...options.headers,
+      };
+
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        // Check if we should retry this status code
+        if (retryableStatuses.includes(response.status) && attempt < maxRetries) {
+          const delay = retryDelay * Math.pow(2, attempt); // Exponential backoff
+          console.warn(`Request failed with status ${response.status}. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+          await sleep(delay);
+          continue;
+        }
+
+        const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error.error || `Service error (${response.status})`);
+      }
+
+      return response.json();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unknown error");
+
+      // Network errors are retryable
+      if (attempt < maxRetries && (error instanceof TypeError || (error as any).name === "NetworkError")) {
+        const delay = retryDelay * Math.pow(2, attempt);
+        console.warn(`Network error. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        await sleep(delay);
+        continue;
+      }
+
+      // Non-retryable error or max retries reached
+      throw lastError;
+    }
   }
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(error.error || `Service error`);
-  }
+  throw lastError || new Error("Service temporarily unavailable");
+}
 
-  return response.json();
+// Wrapper for backward compatibility
+async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return fetchWithRetry<T>(endpoint, options);
 }
 
 // Auth types

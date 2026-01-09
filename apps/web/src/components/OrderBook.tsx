@@ -3,34 +3,59 @@
 import { useQuery } from "@tanstack/react-query";
 import { getOrderBook, type OrderBookResponse } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { ErrorState } from "./ErrorState";
 
 interface OrderBookProps {
   marketId: string;
 }
 
 export function OrderBook({ marketId }: OrderBookProps) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["orderbook", marketId],
     queryFn: () => getOrderBook(marketId),
     staleTime: 5 * 1000, // 5 seconds
     refetchInterval: 10 * 1000, // Refetch every 10 seconds
+    retry: 2,
   });
 
   if (isLoading) {
     return (
-      <div className="text-center py-16">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900 dark:border-gray-700 dark:border-t-gray-100"></div>
-        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          Loading order book...
+      <div className="bg-[#111111] border border-[#1f1f1f] rounded-lg p-6 animate-pulse">
+        <div className="h-6 bg-[#1f1f1f] rounded w-48 mb-6"></div>
+        <div className="h-64 bg-[#1f1f1f] rounded mb-4"></div>
+        <div className="space-y-2">
+          <div className="h-4 bg-[#1f1f1f] rounded w-3/4"></div>
+          <div className="h-4 bg-[#1f1f1f] rounded w-5/6"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-2xl">⚠️</span>
+          <h3 className="text-lg font-semibold text-red-400">Failed to load order book</h3>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          We couldn't fetch the order book data. Please try again.
         </p>
+        <button
+          onClick={() => refetch()}
+          className="text-sm text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        <p>No order book data available</p>
+      <div className="bg-[#111111] border border-[#1f1f1f] rounded-lg p-8 text-center">
+        <span className="text-4xl mb-3 block">📊</span>
+        <p className="text-gray-400">No order book data available for this market</p>
       </div>
     );
   }

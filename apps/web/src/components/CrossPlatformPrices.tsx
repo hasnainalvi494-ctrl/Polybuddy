@@ -2,16 +2,18 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getCrossPlatformPrices, type CrossPlatformComparison } from "@/lib/api";
+import { ErrorState } from "./ErrorState";
 
 interface CrossPlatformPricesProps {
   marketId: string;
 }
 
 export function CrossPlatformPrices({ marketId }: CrossPlatformPricesProps) {
-  const { data: comparison, isLoading } = useQuery<CrossPlatformComparison | null>({
+  const { data: comparison, isLoading, error, refetch } = useQuery<CrossPlatformComparison | null>({
     queryKey: ["cross-platform", marketId],
     queryFn: () => getCrossPlatformPrices(marketId),
     refetchInterval: 60000, // Refresh every minute
+    retry: 2,
   });
 
   if (isLoading) {
@@ -26,6 +28,17 @@ export function CrossPlatformPrices({ marketId }: CrossPlatformPricesProps) {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Failed to load cross-platform prices"
+        message="We couldn't fetch price comparison data. Please try again."
+        onRetry={() => refetch()}
+        compact
+      />
     );
   }
 

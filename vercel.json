@@ -6,6 +6,13 @@
       "use": "@vercel/next"
     }
   ],
+  "functions": {
+    "apps/web/src/app/**/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @polybuddy/web build",
   "rewrites": [
     {
       "source": "/api/:path*",

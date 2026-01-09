@@ -122,7 +122,7 @@ export async function signup(email: string, password: string) {
 
 export async function login(email: string, password: string) {
   const url = `${API_URL}/api/auth/login`;
-  
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -135,6 +135,476 @@ export async function login(email: string, password: string) {
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || "Login failed");
+  }
+
+  return response.json();
+}
+
+// Auth functions
+export async function getCurrentUser() {
+  const url = `${API_URL}/api/auth/me`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get current user");
+  }
+
+  return response.json();
+}
+
+export async function logout() {
+  const url = `${API_URL}/api/auth/logout`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Logout failed");
+  }
+
+  return response.json();
+}
+
+// Alerts functions
+export async function getAlerts() {
+  const url = `${API_URL}/api/alerts`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch alerts");
+  }
+
+  return response.json();
+}
+
+export async function getNotifications() {
+  const url = `${API_URL}/api/notifications`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch notifications");
+  }
+
+  return response.json();
+}
+
+export async function createAlert(data: any) {
+  const url = `${API_URL}/api/alerts`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to create alert");
+  }
+
+  return response.json();
+}
+
+export async function dismissAlert(id: string) {
+  const url = `${API_URL}/api/alerts/${id}/dismiss`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to dismiss alert");
+  }
+
+  return response.json();
+}
+
+export async function deleteAlert(id: string) {
+  const url = `${API_URL}/api/alerts/${id}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete alert");
+  }
+
+  return response.json();
+}
+
+export async function markNotificationRead(id: string) {
+  const url = `${API_URL}/api/notifications/${id}/read`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to mark notification as read");
+  }
+
+  return response.json();
+}
+
+export async function markAllNotificationsRead() {
+  const url = `${API_URL}/api/notifications/mark-all-read`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to mark all notifications as read");
+  }
+
+  return response.json();
+}
+
+export async function processAlerts() {
+  const url = `${API_URL}/api/alerts/process`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to process alerts");
+  }
+
+  return response.json();
+}
+
+// Portfolio functions
+export async function getWallets() {
+  const url = `${API_URL}/api/portfolio/wallets`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch wallets");
+  }
+
+  return response.json();
+}
+
+export async function getPortfolioSummary() {
+  const url = `${API_URL}/api/portfolio/summary`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch portfolio summary");
+  }
+
+  return response.json();
+}
+
+export async function getPerformance() {
+  const url = `${API_URL}/api/portfolio/performance`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch performance");
+  }
+
+  return response.json();
+}
+
+export async function getWalletPositions(walletId: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${walletId}/positions`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch wallet positions");
+  }
+
+  return response.json();
+}
+
+export async function addWallet(data: any) {
+  const url = `${API_URL}/api/portfolio/wallets`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add wallet");
+  }
+
+  return response.json();
+}
+
+export async function deleteWallet(id: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${id}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete wallet");
+  }
+
+  return response.json();
+}
+
+export async function deletePosition(walletId: string, positionId: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${walletId}/positions/${positionId}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete position");
+  }
+
+  return response.json();
+}
+
+// Reports functions
+export async function getReports() {
+  const url = `${API_URL}/api/reports`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch reports");
+  }
+
+  return response.json();
+}
+
+export async function generateReport(data: any) {
+  const url = `${API_URL}/api/reports/generate`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to generate report");
+  }
+
+  return response.json();
+}
+
+// Signals functions
+export async function checkSignalsAvailability() {
+  const url = `${API_URL}/api/signals/availability`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to check signals availability");
+  }
+
+  return response.json();
+}
+
+export async function getSignals() {
+  const url = `${API_URL}/api/signals`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch signals");
+  }
+
+  return response.json();
+}
+
+export async function checkDailySignalsAvailability() {
+  const url = `${API_URL}/api/signals/daily/availability`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to check daily signals availability");
+  }
+
+  return response.json();
+}
+
+export async function getDailySignals() {
+  const url = `${API_URL}/api/signals/daily`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch daily signals");
+  }
+
+  return response.json();
+}
+
+// Watchlists functions
+export async function getWatchlists() {
+  const url = `${API_URL}/api/watchlists`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch watchlists");
+  }
+
+  return response.json();
+}
+
+export async function createWatchlist(data: any) {
+  const url = `${API_URL}/api/watchlists`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to create watchlist");
+  }
+
+  return response.json();
+}
+
+export async function getWatchlist(id: string) {
+  const url = `${API_URL}/api/watchlists/${id}`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch watchlist");
+  }
+
+  return response.json();
+}
+
+export async function addToWatchlist(watchlistId: string, marketId: string) {
+  const url = `${API_URL}/api/watchlists/${watchlistId}/markets`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ marketId }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add to watchlist");
+  }
+
+  return response.json();
+}
+
+export async function removeFromWatchlist(watchlistId: string, marketId: string) {
+  const url = `${API_URL}/api/watchlists/${watchlistId}/markets/${marketId}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to remove from watchlist");
+  }
+
+  return response.json();
+}
+
+export async function deleteWatchlist(id: string) {
+  const url = `${API_URL}/api/watchlists/${id}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete watchlist");
+  }
+
+  return response.json();
+}
+
+// Hidden exposure functions
+export async function getWalletExposure(walletId: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${walletId}/exposure`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch wallet exposure");
+  }
+
+  return response.json();
+}
+
+export async function getHiddenExposure(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/hidden-exposure`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch hidden exposure");
   }
 
   return response.json();

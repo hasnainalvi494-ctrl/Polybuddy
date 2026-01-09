@@ -14,7 +14,7 @@ import { whaleFeedRoutes } from "./routes/whale-feed.js";
 import { watchlistsRoutes } from "./routes/watchlists.js";
 import { alertsRoutes } from "./routes/alerts.js";
 import { portfolioRoutes } from "./routes/portfolio.js";
-import { analyticsRoutes } from "./routes/analytics.js";
+// import { analyticsRoutes } from "./routes/analytics.js"; // Temporarily disabled
 import { leaderboardRoutes } from "./routes/leaderboard.js";
 import { telegramRoutes } from "./routes/telegram.js";
 import { aiAnalysisRoutes } from "./routes/ai-analysis.js";
@@ -74,7 +74,7 @@ await app.register(whaleFeedRoutes, { prefix: "/api/whale-feed" });
 await app.register(watchlistsRoutes, { prefix: "/api/watchlists" });
 await app.register(alertsRoutes, { prefix: "/api/alerts" });
 await app.register(portfolioRoutes, { prefix: "/api/portfolio" });
-await app.register(analyticsRoutes, { prefix: "/api/analytics" });
+// await app.register(analyticsRoutes, { prefix: "/api/analytics" }); // Temporarily disabled - missing schema
 await app.register(leaderboardRoutes, { prefix: "/api/leaderboard" });
 await app.register(telegramRoutes, { prefix: "/api/telegram" });
 await app.register(aiAnalysisRoutes, { prefix: "/api/ai-analysis" });

@@ -49,6 +49,8 @@ export const markets = pgTable("markets", {
   noPrice: decimal("no_price"),
   qualityScore: decimal("quality_score"), // Overall quality score
   qualityGrade: text("quality_grade"), // Letter grade (A, B, C, D, F)
+  clusterLabel: text("cluster_label"), // Cluster classification
+  volatilityScore: decimal("volatility_score"), // Volatility score
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -64,6 +66,7 @@ export const marketSnapshots = pgTable("market_snapshots", {
   volume24h: decimal("volume_24h"), // 24h volume
   liquidity: decimal("liquidity").notNull(),
   spread: decimal("spread"), // Bid-ask spread
+  depth: decimal("depth"), // Market depth
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   snapshotAt: timestamp("snapshot_at").defaultNow().notNull(), // Alias for timestamp
 }, (table) => ({
@@ -98,13 +101,17 @@ export const notifications = pgTable("notifications", {
 export const portfolioPositions = pgTable("portfolio_positions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => users.id).notNull(),
+  walletId: text("wallet_id"), // Wallet ID for tracking
   marketId: text("market_id").notNull(),
   position: text("position").notNull(), // 'YES' or 'NO'
+  outcome: text("outcome"), // Outcome of the position
   shares: decimal("shares").notNull(),
   avgPrice: decimal("avg_price").notNull(),
+  avgEntryPrice: decimal("avg_entry_price"), // Average entry price
   currentValue: decimal("current_value"),
   pnl: decimal("pnl"),
   pnlPercent: decimal("pnl_percent"),
+  unrealizedPnl: decimal("unrealized_pnl"), // Unrealized P&L
   addedAt: timestamp("added_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -164,10 +171,14 @@ export const retailSignals = pgTable("retail_signals", {
   signalType: text("signal_type").notNull(),
   severity: text("severity").notNull(), // 'INFO', 'WARNING', 'DANGER'
   message: text("message").notNull(),
+  label: text("label"), // Short label for the signal
+  isFavorable: boolean("is_favorable"), // Whether this signal is favorable for traders
+  confidence: text("confidence"), // Confidence level (LOW, MEDIUM, HIGH)
   actionable: boolean("actionable").default(false).notNull(),
   metadata: jsonb("metadata"),
   whyBullets: jsonb("why_bullets"), // Array of bullet points explaining the signal
   metrics: jsonb("metrics"), // Additional metrics data
+  unit: text("unit"), // Unit of measurement for metrics
   computedAt: timestamp("computed_at").defaultNow(), // When the signal was computed
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
@@ -180,6 +191,8 @@ export const marketRelations = pgTable("market_relations", {
   id: uuid("id").primaryKey().defaultRandom(),
   marketId: text("market_id").notNull(),
   relatedMarketId: text("related_market_id").notNull(),
+  aMarketId: text("a_market_id"), // First market in relation
+  bMarketId: text("b_market_id"), // Second market in relation
   relationType: text("relation_type").notNull(),
   strength: decimal("strength"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -189,9 +202,14 @@ export const marketRelations = pgTable("market_relations", {
 export const constraintChecks = pgTable("constraint_checks", {
   id: uuid("id").primaryKey().defaultRandom(),
   marketId: text("market_id").notNull(),
+  relationId: text("relation_id"), // Related relation ID
   checkType: text("check_type").notNull(),
   passed: boolean("passed").notNull(),
+  label: text("label"), // Label for the check
+  score: decimal("score"), // Score for the check
   details: jsonb("details"),
+  whyJson: jsonb("why_json"), // JSON explanation
+  ts: timestamp("ts"), // Timestamp
   checkedAt: timestamp("checked_at").defaultNow().notNull(),
 });
 
@@ -202,6 +220,9 @@ export const walletFlowEvents = pgTable("wallet_flow_events", {
   marketId: text("market_id").notNull(),
   eventType: text("event_type").notNull(),
   amount: decimal("amount").notNull(),
+  notional: decimal("notional"), // Notional value
+  side: text("side"), // BUY or SELL
+  startTs: timestamp("start_ts"), // Start timestamp
   timestamp: timestamp("timestamp").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
@@ -248,7 +269,10 @@ export const hiddenExposureLinks = pgTable("hidden_exposure_links", {
   id: uuid("id").primaryKey().defaultRandom(),
   marketId: text("market_id").notNull(),
   linkedMarketId: text("linked_market_id").notNull(),
+  marketAId: text("market_a_id"), // First market
+  marketBId: text("market_b_id"), // Second market
   exposureType: text("exposure_type").notNull(),
+  exposureLabel: text("exposure_label"), // Label for exposure
   strength: decimal("strength"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -383,15 +407,39 @@ export const weeklyReports = pgTable("weekly_reports", {
   weekStart: timestamp("week_start").notNull(),
   weekEnd: timestamp("week_end").notNull(),
   totalPnl: decimal("total_pnl"),
+  realizedPnl: decimal("realized_pnl"), // Realized P&L
+  unrealizedPnl: decimal("unrealized_pnl"), // Unrealized P&L
   totalVolume: decimal("total_volume"),
   tradesCount: integer("trades_count"),
+  totalTrades: integer("total_trades"), // Total number of trades
   winRate: decimal("win_rate"),
   bestTrade: jsonb("best_trade"),
   worstTrade: jsonb("worst_trade"),
+  bestMarketQuestion: text("best_market_question"), // Best performing market
+  worstMarketQuestion: text("worst_market_question"), // Worst performing market
+  entryTimingScore: decimal("entry_timing_score"), // Entry timing score
+  slippagePaid: decimal("slippage_paid"), // Slippage paid
+  concentrationScore: decimal("concentration_score"), // Portfolio concentration
+  qualityDisciplineScore: decimal("quality_discipline_score"), // Quality discipline
+  patternsObserved: jsonb("patterns_observed"), // Observed patterns
+  coachingNotes: jsonb("coaching_notes"), // Coaching notes
   insights: jsonb("insights"),
+  generatedAt: timestamp("generated_at").defaultNow(), // When report was generated
+  viewedAt: timestamp("viewed_at"), // When user viewed the report
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index("weekly_reports_user_id_idx").on(table.userId),
   weekStartIdx: index("weekly_reports_week_start_idx").on(table.weekStart),
 }));
+
+// Decision reviews table
+export const decisionReviews = pgTable("decision_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  marketId: text("market_id").notNull(),
+  decision: text("decision").notNull(),
+  reasoning: text("reasoning"),
+  outcome: text("outcome"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

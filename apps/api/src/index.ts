@@ -72,8 +72,29 @@ await app.register(cookie, {
   secret: process.env.COOKIE_SECRET || "change-this-secret-in-production",
 });
 
+// Root route
+app.get("/", async () => {
+  return {
+    name: "Polybuddy API",
+    version: "0.1.0",
+    status: "running",
+    endpoints: {
+      health: "/health",
+      ready: "/ready",
+      auth: "/api/auth/*",
+      markets: "/api/markets/*",
+      signals: "/api/signals/*",
+      watchlists: "/api/watchlists/*",
+      alerts: "/api/alerts/*",
+      portfolio: "/api/portfolio/*",
+      daily: "/api/daily/*",
+      reports: "/api/reports/*",
+    },
+  };
+});
+
 // Register routes
-await app.register(healthRoutes, { prefix: "/health" });
+await app.register(healthRoutes); // No prefix - routes define their own paths
 await app.register(authRoutes, { prefix: "/api/auth" });
 await app.register(marketsRoutes, { prefix: "/api/markets" });
 await app.register(signalsRoutes, { prefix: "/api/signals" });

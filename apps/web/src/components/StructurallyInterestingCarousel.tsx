@@ -13,6 +13,7 @@ import {
   RealDataCues,
   type MarketParticipationData,
 } from "./MarketScannerChips";
+import { FloatingTrendingBadge } from "./TrendingBadge";
 
 interface InterestingMarket {
   marketId: string;
@@ -43,11 +44,19 @@ function CarouselCard({ market }: { market: InterestingMarket }) {
   const risk = getRetailRisk(data.participationSummary, momentum.state);
   const noEdge = hasNoEdge(data.participationSummary, momentum.state, data.participantQualityScore);
 
+  // Determine if market is trending based on trade count
+  const isTrending = (market.tradeCount24h || 0) > 50;
+  const isHot = (market.tradeCount24h || 0) > 100;
+
   return (
     <Link
       href={`/markets/${market.marketId}`}
-      className="flex-shrink-0 w-80 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-emerald-500/30 dark:hover:border-emerald-500/30 transition-colors p-5"
+      className="flex-shrink-0 w-80 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-emerald-500/30 dark:hover:border-emerald-500/30 transition-colors p-5 relative"
     >
+      {/* Trending Badge */}
+      {isHot && <FloatingTrendingBadge variant="hot" />}
+      {!isHot && isTrending && <FloatingTrendingBadge variant="trending" />}
+      
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 dark:text-gray-400">

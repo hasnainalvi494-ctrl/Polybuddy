@@ -14,6 +14,10 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { PulseNotificationBadge } from "@/components/NotificationBadge";
 import { SoundToggle } from "@/components/SoundToggle";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { RecentWinsTicker } from "@/components/RecentWinsTicker";
+import { SuccessRate, SuccessRateBadge } from "@/components/SuccessRate";
+import { TrendingBadge, FloatingTrendingBadge } from "@/components/TrendingBadge";
+import { ActiveTradersCounter } from "@/components/ActiveTradersCounter";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -96,6 +100,19 @@ function HeroSection() {
           Real-time whale tracking, arbitrage scanner, and top trader leaderboard.{" "}
           <span className="text-emerald-400">Turn prediction markets into profit.</span>
         </p>
+
+        {/* Social Proof - Recent Wins Ticker */}
+        <div className="max-w-2xl mx-auto mb-8">
+          <RecentWinsTicker />
+        </div>
+
+        {/* Social Proof Stats */}
+        <div className="flex flex-wrap items-center justify-center gap-6 mb-12">
+          <ActiveTradersCounter variant="badge" />
+          <div className="flex items-center gap-2">
+            <SuccessRate rate={84} label="profitable" size="sm" showTrend={true} />
+          </div>
+        </div>
 
         {/* Value bullets - BENEFIT-FOCUSED */}
         <div className="grid sm:grid-cols-3 gap-6 mb-14 max-w-4xl mx-auto">

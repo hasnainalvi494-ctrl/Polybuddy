@@ -1,0 +1,29 @@
+services:
+  # API Service
+  - type: web
+    name: polybuddy-api
+    runtime: node
+    plan: free
+    buildCommand: pnpm install && pnpm --filter @polybuddy/api build
+    startCommand: pnpm --filter @polybuddy/api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: polybuddy-db
+          property: connectionString
+      - key: CORS_ORIGIN
+        sync: false
+      - key: COOKIE_SECRET
+        generateValue: true
+
+databases:
+  - name: polybuddy-db
+    plan: free
+    databaseName: polybuddy
+    user: polybuddy
+

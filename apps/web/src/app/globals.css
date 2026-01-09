@@ -3,20 +3,32 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-rgb: 10, 10, 10;
-  }
+  /* Polished Dark Mode Colors */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+  --border-primary: #1f1f1f;
+  --border-secondary: #2a2a2a;
+  
+  /* Brand Colors */
+  --color-primary: #10b981; /* emerald-500 */
+  --color-primary-hover: #059669; /* emerald-600 */
+  --color-danger: #ef4444; /* red-500 */
+  --color-warning: #f59e0b; /* amber-500 */
+  --color-info: #3b82f6; /* blue-500 */
+  
+  /* Text Colors (WCAG AA compliant) */
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3; /* neutral-400 */
+  --text-tertiary: #737373; /* neutral-500 */
+  --text-muted: #525252; /* neutral-600 */
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Pulse signal card animations - minimal, entrance-only */
@@ -39,6 +51,67 @@ body {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.4s ease-out forwards;
+}
+
+/* Interactive Elements - Subtle Glow Effects */
+@layer components {
+  /* Primary button with glow */
+  .btn-primary {
+    @apply bg-emerald-500 text-gray-950 font-semibold px-4 py-2 rounded-lg transition-all duration-200;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+  
+  .btn-primary:hover {
+    @apply bg-emerald-400;
+    box-shadow: 0 0 20px 0 rgba(16, 185, 129, 0.3);
+    transform: translateY(-1px);
+  }
+  
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  /* Card with subtle border glow on hover */
+  .card-interactive {
+    @apply bg-[#111111] border border-[#1f1f1f] rounded-xl transition-all duration-200;
+  }
+  
+  .card-interactive:hover {
+    @apply border-emerald-500/30;
+    box-shadow: 0 0 20px 0 rgba(16, 185, 129, 0.1);
+  }
+
+  /* Glassmorphism for modals and overlays */
+  .glass {
+    background: rgba(17, 17, 17, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .glass-strong {
+    background: rgba(17, 17, 17, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Input focus glow */
+  .input-glow:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  }
+
+  /* Danger button with red glow */
+  .btn-danger:hover {
+    box-shadow: 0 0 20px 0 rgba(239, 68, 68, 0.3);
+  }
+
+  /* Warning elements with amber glow */
+  .warning-glow {
+    box-shadow: 0 0 20px 0 rgba(245, 158, 11, 0.2);
+  }
 }
 
 /* Mobile optimizations */

@@ -35,7 +35,7 @@ export function Navigation() {
   };
 
   return (
-    <nav className="bg-gray-950 border-b border-gray-800 sticky top-0 z-50">
+    <nav className="bg-[#111111] border-b border-[#1f1f1f] sticky top-0 z-50 backdrop-blur-lg bg-opacity-95">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
@@ -59,10 +59,10 @@ export function Navigation() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
                     isActive
-                      ? "bg-gray-800 text-emerald-400"
-                      : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                      ? "bg-emerald-500/10 text-emerald-400 shadow-glow-sm"
+                      : "text-gray-400 hover:bg-[#1a1a1a] hover:text-gray-200"
                   }`}
                 >
                   <svg

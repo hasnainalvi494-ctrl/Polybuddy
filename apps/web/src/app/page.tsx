@@ -828,7 +828,7 @@ export default function PulsePage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-950">
+    <main className="min-h-screen bg-[#0a0a0a]">
       <PullToRefresh onRefresh={handleRefresh}>
         {/* Hero */}
         <HeroSection />

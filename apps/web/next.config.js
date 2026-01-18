@@ -18,6 +18,9 @@ const nextConfig = {
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
+
+  // Output standalone for deployment
+  output: 'standalone',
 };
 
 module.exports = nextConfig;

@@ -8,9 +8,17 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold starts
+      
+      // Add cache-busting headers to prevent stale data
+      const headers = new Headers(options.headers);
+      headers.set('Cache-Control', 'no-cache, no-store');
+      headers.set('Pragma', 'no-cache');
+      
       const response = await fetch(url, { 
-        ...options, 
-        signal: controller.signal 
+        ...options,
+        headers,
+        signal: controller.signal,
+        cache: 'no-store', // Force fresh fetch
       });
       clearTimeout(timeoutId);
       return response;

@@ -244,35 +244,62 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         clusterLabel: string | null;
       }[];
 
-      // For volume sorting, use a different strategy to avoid slow correlated subquery
+      // For volume sorting, try to use snapshots, fall back to createdAt if no snapshots
       if (sortBy === "volume") {
-        // Build category filter for SQL if needed
-        const categoryFilter = category ? sql`AND m.category = ${category}` : sql``;
-        const searchFilter = search ? sql`AND LOWER(m.question) LIKE ${`%${search.toLowerCase()}%`}` : sql``;
+        // First check if we have any snapshots
+        const snapshotCount = await db.execute<{ count: string }>(sql`SELECT COUNT(*) as count FROM market_snapshots`);
+        const hasSnapshots = parseInt(snapshotCount[0]?.count || '0') > 0;
         
-        // Get markets with their latest volume, applying filters
-        const volumeResults = await db.execute<{ market_id: string; volume_24h: string }>(sql`
-          SELECT DISTINCT ON (ms.market_id) ms.market_id, ms.volume_24h
-          FROM market_snapshots ms
-          INNER JOIN markets m ON m.id = ms.market_id
-          WHERE ms.volume_24h IS NOT NULL
-            ${categoryFilter}
-            ${searchFilter}
-          ORDER BY ms.market_id, ms.snapshot_at DESC
-        `);
+        if (hasSnapshots) {
+          // Build category filter for SQL if needed
+          const categoryFilter = category ? sql`AND m.category = ${category}` : sql``;
+          const searchFilter = search ? sql`AND LOWER(m.question) LIKE ${`%${search.toLowerCase()}%`}` : sql``;
+          
+          // Get markets with their latest volume, applying filters
+          const volumeResults = await db.execute<{ market_id: string; volume_24h: string }>(sql`
+            SELECT DISTINCT ON (ms.market_id) ms.market_id, ms.volume_24h
+            FROM market_snapshots ms
+            INNER JOIN markets m ON m.id = ms.market_id
+            WHERE ms.volume_24h IS NOT NULL
+              ${categoryFilter}
+              ${searchFilter}
+            ORDER BY ms.market_id, ms.snapshot_at DESC
+          `);
 
-        // Convert to array and sort by volume
-        const volumeRows = Array.from(volumeResults) as { market_id: string; volume_24h: string }[];
-        const sortedByVolume = volumeRows
-          .map(r => ({ marketId: r.market_id, volume: Number(r.volume_24h) || 0 }))
-          .sort((a, b) => sortOrder === "desc" ? b.volume - a.volume : a.volume - b.volume)
-          .slice(offset, offset + limit);
+          // Convert to array and sort by volume
+          const volumeRows = Array.from(volumeResults) as { market_id: string; volume_24h: string }[];
+          const sortedByVolume = volumeRows
+            .map(r => ({ marketId: r.market_id, volume: Number(r.volume_24h) || 0 }))
+            .sort((a, b) => sortOrder === "desc" ? b.volume - a.volume : a.volume - b.volume)
+            .slice(offset, offset + limit);
 
-        const sortedMarketIds = sortedByVolume.map(r => r.marketId);
+          const sortedMarketIds = sortedByVolume.map(r => r.marketId);
 
-        if (sortedMarketIds.length > 0) {
-          // Fetch market details for these IDs
-          const marketsData = await db
+          if (sortedMarketIds.length > 0) {
+            // Fetch market details for these IDs
+            const marketsData = await db
+              .select({
+                id: markets.id,
+                polymarketId: markets.polymarketId,
+                question: markets.question,
+                category: markets.category,
+                endDate: markets.endDate,
+                qualityGrade: markets.qualityGrade,
+                qualityScore: markets.qualityScore,
+                clusterLabel: markets.clusterLabel,
+              })
+              .from(markets)
+              .where(sql`${markets.id} IN (${sql.join(sortedMarketIds.map((id: string) => sql`${id}::uuid`), sql`, `)})`);
+
+            // Reorder to match volume sort order
+            const marketMap = new Map(marketsData.map(m => [m.id, m]));
+            marketRows = sortedMarketIds.map((id: string) => marketMap.get(id)!).filter(Boolean);
+          } else {
+            marketRows = [];
+          }
+        } else {
+          // No snapshots, fall back to sorting by createdAt
+          marketRows = await db
             .select({
               id: markets.id,
               polymarketId: markets.polymarketId,
@@ -284,13 +311,10 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
               clusterLabel: markets.clusterLabel,
             })
             .from(markets)
-            .where(sql`${markets.id} IN (${sql.join(sortedMarketIds.map((id: string) => sql`${id}::uuid`), sql`, `)})`);
-
-          // Reorder to match volume sort order
-          const marketMap = new Map(marketsData.map(m => [m.id, m]));
-          marketRows = sortedMarketIds.map((id: string) => marketMap.get(id)!).filter(Boolean);
-        } else {
-          marketRows = [];
+            .where(conditions.length > 0 ? and(...conditions) : undefined)
+            .orderBy(desc(markets.createdAt))
+            .limit(limit)
+            .offset(offset);
         }
       } else {
         // Standard sorting for other columns

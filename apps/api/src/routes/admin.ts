@@ -10,9 +10,75 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { db } from "@polybuddy/db";
 import { walletPerformance } from "@polybuddy/db";
 import { sql } from "drizzle-orm";
+import { syncMarkets } from "../jobs/sync-markets";
+import { syncRealTraders } from "../jobs/sync-real-traders";
 
 export async function adminRoutes(app: FastifyInstance) {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  // =============================================
+  // POST /api/admin/sync
+  // Manually trigger data sync
+  // =============================================
+  typedApp.post(
+    "/api/admin/sync",
+    {
+      schema: {
+        response: {
+          200: z.object({
+            success: z.boolean(),
+            message: z.string(),
+            results: z.object({
+              markets: z.boolean(),
+              traders: z.boolean(),
+            }),
+          }),
+          500: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        request.log.info("Starting manual data sync...");
+        
+        // Sync markets
+        let marketsSuccess = false;
+        try {
+          await syncMarkets();
+          marketsSuccess = true;
+          request.log.info("Markets synced successfully");
+        } catch (e) {
+          request.log.error(e, "Failed to sync markets");
+        }
+        
+        // Sync traders
+        let tradersSuccess = false;
+        try {
+          await syncRealTraders();
+          tradersSuccess = true;
+          request.log.info("Traders synced successfully");
+        } catch (e) {
+          request.log.error(e, "Failed to sync traders");
+        }
+        
+        return {
+          success: marketsSuccess || tradersSuccess,
+          message: "Sync completed",
+          results: {
+            markets: marketsSuccess,
+            traders: tradersSuccess,
+          },
+        };
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({
+          error: "Failed to trigger sync",
+        });
+      }
+    }
+  );
 
   // =============================================
   // POST /api/admin/refresh-demo-data

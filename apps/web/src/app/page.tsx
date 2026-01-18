@@ -66,27 +66,34 @@ interface ArbitrageOpportunity {
 
 export default function HomePage() {
   // Fetch best bets
-  const { data: bestBetsData, isLoading: loadingBets } = useQuery({
+  const { data: bestBetsData, isLoading: loadingBets, error: betsError } = useQuery({
     queryKey: ["best-bets-home"],
     queryFn: async () => {
+      console.log("[DEBUG] Fetching best bets from:", `${API_URL}/api/best-bets-signals`);
       const response = await fetch(`${API_URL}/api/best-bets-signals`);
-      if (!response.ok) throw new Error("Failed to fetch best bets");
+      if (!response.ok) throw new Error(`Failed to fetch best bets: ${response.status}`);
       return response.json();
     },
     refetchInterval: 30000,
   });
 
   // Fetch elite traders
-  const { data: eliteTraders, isLoading: loadingTraders } = useQuery({
+  const { data: eliteTraders, isLoading: loadingTraders, error: tradersError } = useQuery({
     queryKey: ["elite-traders-home"],
     queryFn: async () => {
+      console.log("[DEBUG] Fetching elite traders from:", `${API_URL}/api/elite-traders?limit=5`);
       const response = await fetch(`${API_URL}/api/elite-traders?limit=5`);
-      if (!response.ok) throw new Error("Failed to fetch elite traders");
+      if (!response.ok) throw new Error(`Failed to fetch elite traders: ${response.status}`);
       const data = await response.json();
+      console.log("[DEBUG] Elite traders response:", data);
       return data.traders || [];
     },
     refetchInterval: 60000,
   });
+  
+  // Log errors
+  if (betsError) console.error("[ERROR] Best bets:", betsError);
+  if (tradersError) console.error("[ERROR] Elite traders:", tradersError);
 
   // Fetch whale activity
   const { data: whaleData, isLoading: loadingWhales } = useQuery({

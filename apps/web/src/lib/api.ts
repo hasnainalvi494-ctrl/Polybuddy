@@ -1,6 +1,6 @@
-﻿// API client for PolyBuddy backend
+// API client for PolyBuddy backend
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
 
 interface GetMarketsParams {
   search?: string;

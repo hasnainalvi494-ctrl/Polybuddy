@@ -43,7 +43,7 @@ export default function PositionCalculator() {
     setError(null);
     
     try {
-      const response = await fetch('http://localhost:3001/api/positions/calculate', {
+      const response = await fetch('https://polybuddy-api-production.up.railway.app/api/positions/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

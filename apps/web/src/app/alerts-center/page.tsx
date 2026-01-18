@@ -80,7 +80,7 @@ export default function AlertsCenterPage() {
     setError(null);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system?userAddress=${userAddress}`
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system?userAddress=${userAddress}`
       );
       if (!response.ok) throw new Error("Failed to fetch alerts");
       const data = await response.json();
@@ -97,7 +97,7 @@ export default function AlertsCenterPage() {
     setError(null);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system/notifications?userAddress=${userAddress}`
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system/notifications?userAddress=${userAddress}`
       );
       if (!response.ok) throw new Error("Failed to fetch notifications");
       const data = await response.json();
@@ -114,7 +114,7 @@ export default function AlertsCenterPage() {
     setError(null);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system/preferences?userAddress=${userAddress}`
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system/preferences?userAddress=${userAddress}`
       );
       if (!response.ok) throw new Error("Failed to fetch preferences");
       const data = await response.json();
@@ -129,7 +129,7 @@ export default function AlertsCenterPage() {
   const toggleAlert = async (alertId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system/${alertId}/toggle`,
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system/${alertId}/toggle`,
         { method: "POST" }
       );
       if (!response.ok) throw new Error("Failed to toggle alert");
@@ -144,7 +144,7 @@ export default function AlertsCenterPage() {
     
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system/${alertId}`,
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system/${alertId}`,
         { method: "DELETE" }
       );
       if (!response.ok) throw new Error("Failed to delete alert");
@@ -157,7 +157,7 @@ export default function AlertsCenterPage() {
   const markAsRead = async (notificationIds: string[]) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system/notifications/mark-read?userAddress=${userAddress}`,
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system/notifications/mark-read?userAddress=${userAddress}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -174,7 +174,7 @@ export default function AlertsCenterPage() {
   const updatePreferences = async (updates: Partial<NotificationPreferences>) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/alerts-system/preferences`,
+        `https://polybuddy-api-production.up.railway.app/api/alerts-system/preferences`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

@@ -38,7 +38,7 @@ type Timeframe = "1h" | "4h" | "24h" | "7d";
 // ============================================================================
 
 async function getPriceHistory(marketId: string, timeframe: Timeframe): Promise<PriceHistoryData> {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
   const response = await fetch(`${API_BASE}/api/markets/${marketId}/price-history?timeframe=${timeframe}`);
   if (!response.ok) {
     throw new Error("Failed to fetch price history");

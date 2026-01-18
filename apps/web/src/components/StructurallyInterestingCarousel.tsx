@@ -115,7 +115,7 @@ export function StructurallyInterestingCarousel({ limit = 8 }: { limit?: number 
     queryKey: ["structurally-interesting", limit],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/structurally-interesting?limit=${limit}`
+        `${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/structurally-interesting?limit=${limit}`
       );
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -270,7 +270,7 @@ export function StructurallyInterestingCarouselDark({ limit = 8 }: { limit?: num
     queryKey: ["structurally-interesting", limit],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/structurally-interesting?limit=${limit}`
+        `${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/structurally-interesting?limit=${limit}`
       );
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();

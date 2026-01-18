@@ -47,7 +47,7 @@ export default function RiskDashboard() {
   const fetchRiskData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/portfolio/risk');
+      const response = await fetch('https://polybuddy-api-production.up.railway.app/api/portfolio/risk');
       const data = await response.json();
       
       setOverview(data.overview);

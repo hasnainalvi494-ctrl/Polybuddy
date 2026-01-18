@@ -89,7 +89,7 @@ export default function PatternAnalysisPage() {
     setError(null);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/patterns/${mktId}?limit=20`
+        `https://polybuddy-api-production.up.railway.app/api/patterns/${mktId}?limit=20`
       );
       if (!response.ok) throw new Error("Failed to fetch patterns");
       const data = await response.json();
@@ -107,7 +107,7 @@ export default function PatternAnalysisPage() {
     setError(null);
     try {
       const response = await fetch(
-        "http://localhost:3001/api/patterns/trader-clusters"
+        "https://polybuddy-api-production.up.railway.app/api/patterns/trader-clusters"
       );
       if (!response.ok) throw new Error("Failed to fetch trader clusters");
       const data = await response.json();
@@ -132,7 +132,7 @@ export default function PatternAnalysisPage() {
 
     try {
       const response = await fetch(
-        "http://localhost:3001/api/patterns/analyze",
+        "https://polybuddy-api-production.up.railway.app/api/patterns/analyze",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

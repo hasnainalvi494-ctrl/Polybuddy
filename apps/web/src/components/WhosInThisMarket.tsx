@@ -441,7 +441,7 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
   const { data, isLoading, error } = useQuery<ParticipationData>({
     queryKey: ["participation", marketId],
     queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/participation`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/${marketId}/participation`);
       if (!res.ok) {
         throw new Error("Failed to fetch participation data");
       }
@@ -453,7 +453,7 @@ export function WhosInThisMarket({ marketId }: { marketId: string }) {
 
   const computeMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/compute-participation`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/${marketId}/compute-participation`, {
         method: "POST",
       });
       if (!res.ok) throw new Error("Failed to compute");
@@ -652,7 +652,7 @@ export function ParticipationContextLine({ marketId }: { marketId: string }) {
   const { data, isLoading } = useQuery<ParticipationData>({
     queryKey: ["participation", marketId],
     queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/participation`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/${marketId}/participation`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -662,7 +662,7 @@ export function ParticipationContextLine({ marketId }: { marketId: string }) {
 
   const computeMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/compute-participation`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/${marketId}/compute-participation`, {
         method: "POST",
       });
       if (!res.ok) throw new Error("Failed to compute");
@@ -697,7 +697,7 @@ export function ParticipationMomentumBadge({ marketId }: { marketId: string }) {
   const { data } = useQuery<ParticipationData>({
     queryKey: ["participation", marketId],
     queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/participation`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/${marketId}/participation`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -742,7 +742,7 @@ export function useParticipationMomentum(marketId: string) {
   const { data } = useQuery<ParticipationData>({
     queryKey: ["participation", marketId],
     queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/markets/${marketId}/participation`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}/api/markets/${marketId}/participation`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },

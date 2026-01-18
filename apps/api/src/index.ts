@@ -97,6 +97,22 @@ async function buildApp() {
     logger: loggerConfig,
   });
 
+  // Global error handler for better resilience
+  app.setErrorHandler((error, request, reply) => {
+    request.log.error({ err: error, url: request.url }, "Request error");
+    
+    // Don't expose internal errors in production
+    const statusCode = error.statusCode || 500;
+    const message = statusCode === 500 
+      ? "Internal server error - please try again" 
+      : error.message;
+    
+    reply.status(statusCode).send({ 
+      error: message,
+      statusCode,
+    });
+  });
+
   // Zod validation
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);

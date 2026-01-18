@@ -1103,3 +1103,5 @@ export async function disconnectTelegram() {
   if (!response.ok) throw new Error("Failed to disconnect Telegram");
   return response.json();
 }
+
+// Trigger redeploy 2026-01-18 16:20:59

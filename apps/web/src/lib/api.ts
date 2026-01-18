@@ -1,6 +1,6 @@
 // API client for PolyBuddy backend
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
+// HARDCODED to avoid any environment variable issues
+const API_URL = "https://polybuddy-api-production.up.railway.app";
 
 // Helper for fetching with timeout and retry (handles Railway cold starts)
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {

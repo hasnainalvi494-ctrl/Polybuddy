@@ -242,13 +242,14 @@ export async function syncRealTraders(): Promise<{
 
         // Use raw SQL to ensure all fields are updated correctly
         // Note: trader_tier and risk_profile are stored as TEXT, not enum
+        // Note: address column is required (NOT NULL), so we set it to wallet_address
         await db.execute(sql`
           INSERT INTO wallet_performance (
-            wallet_address, total_profit, total_volume, win_rate, trade_count,
+            wallet_address, address, total_profit, total_volume, win_rate, trade_count,
             roi_percent, primary_category, elite_score, trader_tier, risk_profile,
             profit_factor, sharpe_ratio, max_drawdown, rank, elite_rank, updated_at, scored_at
           ) VALUES (
-            ${wallet}, ${trader.pnl.toFixed(2)}::numeric, ${trader.vol.toFixed(2)}::numeric,
+            ${wallet}, ${wallet}, ${trader.pnl.toFixed(2)}::numeric, ${trader.vol.toFixed(2)}::numeric,
             ${metrics.winRate.toFixed(2)}::numeric, ${Math.floor(trader.vol / 500) + 10},
             ${metrics.roi.toFixed(2)}::numeric, ${metrics.primaryCategory},
             ${metrics.eliteScore.toFixed(2)}::numeric, ${metrics.traderTier},
@@ -257,6 +258,7 @@ export async function syncRealTraders(): Promise<{
             ${parseInt(trader.rank)}, ${parseInt(trader.rank)}, NOW(), NOW()
           )
           ON CONFLICT (wallet_address) DO UPDATE SET
+            address = EXCLUDED.address,
             total_profit = EXCLUDED.total_profit,
             total_volume = EXCLUDED.total_volume,
             win_rate = EXCLUDED.win_rate,

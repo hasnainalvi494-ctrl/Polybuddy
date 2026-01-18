@@ -70,3 +70,4 @@ export function FloatingTrendingBadge({ variant = "hot" }: { variant?: "hot" | "
   );
 }
 
+

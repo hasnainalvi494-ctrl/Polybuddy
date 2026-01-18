@@ -189,8 +189,8 @@ export function OrderBook({ marketId }: OrderBookProps) {
                 borderRadius: "8px",
                 color: "#f3f4f6",
               }}
-              formatter={(value: number, name: string) => [
-                value.toLocaleString(),
+              formatter={(value: number | undefined, name: string | undefined) => [
+                (value || 0).toLocaleString(),
                 name === "bidDepth" ? "Bid Depth" : "Ask Depth",
               ]}
               labelFormatter={(value) => `Price: ${(value * 100).toFixed(2)}¢`}

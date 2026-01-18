@@ -3,25 +3,35 @@
 @tailwind utilities;
 
 :root {
-  /* Polished Dark Mode Colors */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #111111;
-  --bg-tertiary: #1a1a1a;
-  --border-primary: #1f1f1f;
-  --border-secondary: #2a2a2a;
+  /* Premium Dark Navy Backgrounds */
+  --bg-primary: #0f0f1a;      /* Deep navy black */
+  --bg-secondary: #14142b;     /* Rich navy */
+  --bg-tertiary: #1a1a3e;      /* Elevated navy */
+  --border-primary: #252545;   /* Subtle navy border */
+  --border-secondary: #2d2d52; /* Elevated border */
   
-  /* Brand Colors */
-  --color-primary: #10b981; /* emerald-500 */
-  --color-primary-hover: #059669; /* emerald-600 */
-  --color-danger: #ef4444; /* red-500 */
-  --color-warning: #f59e0b; /* amber-500 */
-  --color-info: #3b82f6; /* blue-500 */
+  /* Royal Indigo Brand Colors */
+  --color-primary: #6366f1;      /* Royal indigo */
+  --color-primary-hover: #4f46e5; /* Deeper indigo */
+  --color-primary-light: #818cf8; /* Light indigo */
+  --color-primary-dark: #4338ca;  /* Dark indigo */
   
-  /* Text Colors (WCAG AA compliant) */
-  --text-primary: #ffffff;
-  --text-secondary: #a3a3a3; /* neutral-400 */
-  --text-tertiary: #737373; /* neutral-500 */
-  --text-muted: #525252; /* neutral-600 */
+  /* State Colors */
+  --color-success: #10b981;  /* Emerald for buy/gains */
+  --color-danger: #f43f5e;   /* Rose for sell/losses */
+  --color-warning: #f59e0b;  /* Amber for warnings */
+  --color-info: #3b82f6;     /* Blue for info */
+  
+  /* Text Colors (WCAG AA compliant on dark navy) */
+  --text-primary: #f9fafb;    /* Off-white for reduced eye strain */
+  --text-secondary: #d1d5db;  /* Light gray for secondary text */
+  --text-tertiary: #9ca3af;   /* Medium gray */
+  --text-muted: #6b7280;      /* Muted gray */
+  
+  /* Glow Effects */
+  --glow-primary: rgba(99, 102, 241, 0.3);
+  --glow-success: rgba(16, 185, 129, 0.3);
+  --glow-danger: rgba(244, 63, 94, 0.3);
 }
 
 body {
@@ -29,17 +39,62 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Subtle gradient mesh background for depth */
+  background-image: radial-gradient(at 40% 20%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+                    radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.03) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
-/* Pulse signal card animations - minimal, entrance-only */
+/* Utility classes for CSS variables */
+@layer utilities {
+  .bg-bg-primary {
+    background-color: var(--bg-primary);
+  }
+  .bg-bg-secondary {
+    background-color: var(--bg-secondary);
+  }
+  .bg-bg-tertiary {
+    background-color: var(--bg-tertiary);
+  }
+  .border-border-primary {
+    border-color: var(--border-primary);
+  }
+  .border-border-secondary {
+    border-color: var(--border-secondary);
+  }
+  .text-text-primary {
+    color: var(--text-primary);
+  }
+  .text-text-secondary {
+    color: var(--text-secondary);
+  }
+  .text-text-tertiary {
+    color: var(--text-tertiary);
+  }
+  .text-text-muted {
+    color: var(--text-muted);
+  }
+}
+
+/* Premium Animations */
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -49,68 +104,143 @@ body {
   }
 }
 
-.animate-fade-in-up {
-  animation: fade-in-up 0.4s ease-out forwards;
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
-/* Interactive Elements - Subtle Glow Effects */
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Premium Component Styles */
 @layer components {
-  /* Primary button with glow */
+  /* Primary button with Royal Indigo */
   .btn-primary {
-    @apply bg-emerald-500 text-gray-950 font-semibold px-4 py-2 rounded-lg transition-all duration-200;
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    @apply bg-primary-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200;
+    box-shadow: 0 0 0 0 var(--glow-primary);
   }
   
   .btn-primary:hover {
-    @apply bg-emerald-400;
-    box-shadow: 0 0 20px 0 rgba(16, 185, 129, 0.3);
+    @apply bg-primary-600;
+    box-shadow: 0 0 20px 0 var(--glow-primary), 0 4px 8px -2px rgba(0, 0, 0, 0.3);
     transform: translateY(-1px);
   }
   
   .btn-primary:active {
+    @apply bg-primary-700;
     transform: translateY(0);
+    box-shadow: 0 0 10px 0 var(--glow-primary);
   }
 
-  /* Card with subtle border glow on hover */
+  /* Secondary button style */
+  .btn-secondary {
+    @apply bg-bg-tertiary text-text-primary border border-border-secondary font-semibold px-5 py-2.5 rounded-lg transition-all duration-200;
+  }
+  
+  .btn-secondary:hover {
+    @apply bg-bg-tertiary border-primary-500/50;
+    box-shadow: 0 0 15px 0 rgba(99, 102, 241, 0.15);
+  }
+
+  /* Premium card with hover effect */
   .card-interactive {
-    @apply bg-[#111111] border border-[#1f1f1f] rounded-xl transition-all duration-200;
+    @apply bg-bg-secondary border border-border-primary rounded-xl transition-all duration-300;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
   
   .card-interactive:hover {
-    @apply border-emerald-500/30;
-    box-shadow: 0 0 20px 0 rgba(16, 185, 129, 0.1);
+    @apply border-primary-500/40;
+    box-shadow: 0 0 25px 0 rgba(99, 102, 241, 0.15), 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+  }
+
+  /* Elevated card (already elevated, less hover effect) */
+  .card-elevated {
+    @apply bg-bg-tertiary border border-border-secondary rounded-xl;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
   }
 
   /* Glassmorphism for modals and overlays */
   .glass {
-    background: rgba(17, 17, 17, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(20, 20, 43, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(99, 102, 241, 0.15);
   }
   
   .glass-strong {
-    background: rgba(17, 17, 17, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(15, 15, 26, 0.92);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
 
-  /* Input focus glow */
+  /* Input with Royal Indigo focus */
+  .input-glow {
+    @apply bg-bg-tertiary border border-border-primary rounded-lg px-4 py-2.5 text-text-primary transition-all duration-200;
+  }
+  
   .input-glow:focus {
     outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    @apply border-primary-500;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 0 20px 0 rgba(99, 102, 241, 0.1);
   }
 
-  /* Danger button with red glow */
+  /* Success/Buy button */
+  .btn-success:hover {
+    box-shadow: 0 0 20px 0 var(--glow-success);
+  }
+
+  /* Danger/Sell button */
+  .btn-danger {
+    @apply bg-accent-rose text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200;
+  }
+  
   .btn-danger:hover {
-    box-shadow: 0 0 20px 0 rgba(239, 68, 68, 0.3);
+    @apply bg-rose-600;
+    box-shadow: 0 0 20px 0 var(--glow-danger);
+    transform: translateY(-1px);
   }
 
-  /* Warning elements with amber glow */
+  /* Warning elements */
   .warning-glow {
     box-shadow: 0 0 20px 0 rgba(245, 158, 11, 0.2);
+  }
+
+  /* Trading card borders */
+  .border-buy {
+    @apply border-l-4 border-l-accent-emerald;
+  }
+  
+  .border-sell {
+    @apply border-l-4 border-l-accent-rose;
+  }
+
+  /* Gradient text */
+  .text-gradient-primary {
+    @apply bg-gradient-to-r from-primary-400 via-primary-500 to-purple-500 bg-clip-text text-transparent;
+  }
+
+  /* Subtle shimmer effect for loading states */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(99, 102, 241, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
   }
 }
 

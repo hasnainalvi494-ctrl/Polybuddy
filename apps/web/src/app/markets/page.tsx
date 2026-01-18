@@ -46,6 +46,8 @@ export default function MarketsPage() {
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: getCategories,
+    refetchInterval: 60000, // Refresh every minute
+    refetchOnWindowFocus: true,
   });
 
   // Debounce search
@@ -73,6 +75,8 @@ export default function MarketsPage() {
         limit,
         offset: page * limit,
       }) as Promise<MarketsResponse>,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchOnWindowFocus: true,
   });
 
   const formatPrice = (price: number | null) => {

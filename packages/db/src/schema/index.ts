@@ -959,6 +959,34 @@ export const walletPerformance = pgTable("wallet_performance", {
   lastTradeAt: timestamp("last_trade_at", { withTimezone: true }),
   rank: integer("rank"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  
+  // Elite Trader Scoring Columns
+  eliteScore: decimal("elite_score", { precision: 5, scale: 2 }),
+  traderTier: text("trader_tier"), // 'elite' | 'strong' | 'moderate' | 'developing' | 'limited'
+  riskProfile: text("risk_profile"), // 'conservative' | 'moderate' | 'aggressive'
+  
+  // Advanced Performance Metrics
+  profitFactor: decimal("profit_factor", { precision: 10, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 10, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 5, scale: 2 }),
+  grossProfit: decimal("gross_profit", { precision: 18, scale: 2 }),
+  grossLoss: decimal("gross_loss", { precision: 18, scale: 2 }),
+  
+  // Consistency Metrics
+  consecutiveWins: integer("consecutive_wins").default(0),
+  consecutiveLosses: integer("consecutive_losses").default(0),
+  longestWinStreak: integer("longest_win_streak").default(0),
+  longestLossStreak: integer("longest_loss_streak").default(0),
+  avgHoldingTimeHours: decimal("avg_holding_time_hours", { precision: 10, scale: 2 }),
+  marketTimingScore: decimal("market_timing_score", { precision: 5, scale: 2 }),
+  
+  // Specialization
+  secondaryCategory: text("secondary_category"),
+  categorySpecialization: jsonb("category_specialization"),
+  
+  // Elite Ranking
+  eliteRank: integer("elite_rank"),
+  scoredAt: timestamp("scored_at", { withTimezone: true }),
 });
 
 // Individual trades for wallet tracking
@@ -989,6 +1017,79 @@ export const whaleActivity = pgTable("whale_activity", {
   priceAfter: decimal("price_after", { precision: 10, scale: 4 }),
   timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
 });
+
+// ============================================
+// FEATURE: Best Bet Signals
+// ============================================
+
+// Signal strength enum
+export const signalStrengthEnum = pgEnum("signal_strength", [
+  "elite",
+  "strong",
+  "moderate",
+  "weak",
+]);
+
+// Best bet signal status enum
+export const bestBetStatusEnum = pgEnum("best_bet_status", [
+  "active",
+  "executed",
+  "expired",
+  "cancelled",
+]);
+
+// Best bet signals table - AI-generated trading signals from elite traders
+export const bestBetSignals = pgTable("best_bet_signals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id").notNull().references(() => markets.id),
+  traderAddress: text("trader_address").notNull(),
+  
+  // Signal Metadata
+  confidence: decimal("confidence", { precision: 5, scale: 2 }).notNull(),
+  signalStrength: text("signal_strength").notNull(), // 'elite' | 'strong' | 'moderate' | 'weak'
+  
+  // Trading Parameters
+  entryPrice: decimal("entry_price", { precision: 10, scale: 4 }).notNull(),
+  targetPrice: decimal("target_price", { precision: 10, scale: 4 }),
+  stopLoss: decimal("stop_loss", { precision: 10, scale: 4 }),
+  positionSize: decimal("position_size", { precision: 18, scale: 2 }),
+  
+  // Risk Management
+  riskRewardRatio: decimal("risk_reward_ratio", { precision: 10, scale: 2 }),
+  kellyCriterion: decimal("kelly_criterion", { precision: 5, scale: 4 }),
+  maxPositionSize: decimal("max_position_size", { precision: 18, scale: 2 }),
+  
+  // Trader Metrics (snapshot at signal time)
+  traderWinRate: decimal("trader_win_rate", { precision: 5, scale: 2 }),
+  traderProfitHistory: decimal("trader_profit_history", { precision: 18, scale: 2 }),
+  traderEliteScore: decimal("trader_elite_score", { precision: 5, scale: 2 }),
+  traderSharpeRatio: decimal("trader_sharpe_ratio", { precision: 10, scale: 4 }),
+  
+  // Signal Details
+  reasoning: jsonb("reasoning"), // Array of reasoning strings
+  timeHorizon: text("time_horizon"),
+  outcome: text("outcome"), // 'yes' | 'no'
+  
+  // Metadata
+  generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  status: text("status").default("active"), // 'active' | 'executed' | 'expired' | 'cancelled'
+  
+  // Performance Tracking
+  actualOutcome: text("actual_outcome"),
+  actualProfit: decimal("actual_profit", { precision: 18, scale: 2 }),
+  
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Relations for best bet signals
+export const bestBetSignalsRelations = relations(bestBetSignals, ({ one }) => ({
+  market: one(markets, {
+    fields: [bestBetSignals.marketId],
+    references: [markets.id],
+  }),
+}));
 
 // Relations for trader tracking
 export const walletPerformanceRelations = relations(walletPerformance, ({ many }) => ({

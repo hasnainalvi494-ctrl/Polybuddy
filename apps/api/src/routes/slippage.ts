@@ -83,7 +83,7 @@ function calculateSlippage(
   
   // If we couldn't fill the entire order, use the last price for remaining
   if (remainingSize > 0 && orderBook.length > 0) {
-    const lastPrice = orderBook[orderBook.length - 1].price;
+    const lastPrice = orderBook[orderBook.length - 1]?.price ?? midPrice;
     totalCost += remainingSize * lastPrice;
     sharesFilled += remainingSize;
   }

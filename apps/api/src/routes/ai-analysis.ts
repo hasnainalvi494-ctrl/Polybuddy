@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { db, markets } from "@polybuddy/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generateAIAnalysis } from "../services/ai-analysis.js";
 
 // ============================================================================
@@ -52,26 +52,37 @@ export const aiAnalysisRoutes: FastifyPluginAsync = async (app) => {
       // Cache for 1 hour (AI analysis doesn't need to be real-time)
       reply.header("Cache-Control", "public, max-age=3600");
 
-      // Fetch market details
-      const market = await db.query.markets.findFirst({
-        where: eq(markets.id, id),
-      });
+      // Fetch market details with current price
+      const marketData = await db.execute(sql`
+        SELECT
+          m.*,
+          COALESCE(
+            (m.metadata->>'currentPrice')::numeric,
+            (SELECT price FROM market_snapshots WHERE market_id = m.id ORDER BY snapshot_at DESC LIMIT 1),
+            0.50
+          ) as current_price
+        FROM markets m
+        WHERE m.id = ${id}
+      `);
 
-      if (!market) {
+      if (marketData.length === 0) {
         return reply.status(404).send({
           error: "Market not found",
         });
       }
 
+      const market = marketData[0]!;
+
       // Generate AI analysis
       const analysis = await generateAIAnalysis(
-        market.id,
-        market.question,
-        market.currentPrice ? parseFloat(market.currentPrice) : null
+        market.id as string,
+        market.question as string,
+        market.current_price ? parseFloat(market.current_price.toString()) : null
       );
 
       return analysis;
     }
   );
 };
+
 

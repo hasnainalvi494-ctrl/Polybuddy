@@ -246,12 +246,19 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
 
       // For volume sorting, use a different strategy to avoid slow correlated subquery
       if (sortBy === "volume") {
-        // Get markets with their latest volume in a single optimized query
+        // Build category filter for SQL if needed
+        const categoryFilter = category ? sql`AND m.category = ${category}` : sql``;
+        const searchFilter = search ? sql`AND LOWER(m.question) LIKE ${`%${search.toLowerCase()}%`}` : sql``;
+        
+        // Get markets with their latest volume, applying filters
         const volumeResults = await db.execute<{ market_id: string; volume_24h: string }>(sql`
-          SELECT DISTINCT ON (market_id) market_id, volume_24h
-          FROM market_snapshots
-          WHERE volume_24h IS NOT NULL
-          ORDER BY market_id, snapshot_at DESC
+          SELECT DISTINCT ON (ms.market_id) ms.market_id, ms.volume_24h
+          FROM market_snapshots ms
+          INNER JOIN markets m ON m.id = ms.market_id
+          WHERE ms.volume_24h IS NOT NULL
+            ${categoryFilter}
+            ${searchFilter}
+          ORDER BY ms.market_id, ms.snapshot_at DESC
         `);
 
         // Convert to array and sort by volume
@@ -341,8 +348,26 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
+      // Also get metadata from markets for fallback
+      const marketsWithMetadata = await db
+        .select({
+          id: markets.id,
+          metadata: markets.metadata,
+        })
+        .from(markets)
+        .where(sql`${markets.id} IN (${sql.join(marketIds.map(id => sql`${id}::uuid`), sql`, `)})`);
+
+      const metadataMap = new Map<string, any>();
+      for (const m of marketsWithMetadata) {
+        if (m.metadata) {
+          metadataMap.set(m.id, m.metadata);
+        }
+      }
+
       const data = marketRows.map((m) => {
         const snapshot = snapshotMap.get(m.id);
+        const metadata = metadataMap.get(m.id) as { currentPrice?: number; volume24h?: number; liquidity?: number } | undefined;
+        
         return {
           id: m.id,
           polymarketId: m.polymarketId,
@@ -352,9 +377,9 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           qualityGrade: m.qualityGrade,
           qualityScore: m.qualityScore ? Number(m.qualityScore) : null,
           clusterLabel: m.clusterLabel,
-          currentPrice: snapshot?.price ? Number(snapshot.price) : null,
-          volume24h: snapshot?.volume24h ? Number(snapshot.volume24h) : null,
-          liquidity: snapshot?.liquidity ? Number(snapshot.liquidity) : null,
+          currentPrice: snapshot?.price ? Number(snapshot.price) : (metadata?.currentPrice ?? null),
+          volume24h: snapshot?.volume24h ? Number(snapshot.volume24h) : (metadata?.volume24h ?? null),
+          liquidity: snapshot?.liquidity ? Number(snapshot.liquidity) : (metadata?.liquidity ?? null),
         };
       });
 

@@ -1,5 +1,6 @@
 import { db, umaDisputes, umaDisputeHistory, markets } from "@polybuddy/db";
 import { eq, desc } from "drizzle-orm";
+import { logger } from "../lib/logger.js";
 
 // ============================================================================
 // TYPES
@@ -59,10 +60,10 @@ async function fetchDisputesFromSubgraph(): Promise<UMASubgraphDispute[]> {
     // return data.data.disputes;
 
     // Mock data for demonstration
-    console.log("[UMA] Fetching disputes from UMA subgraph (mock data)");
+    logger.debug("Fetching disputes from UMA subgraph (mock data)");
     return [];
   } catch (error) {
-    console.error("[UMA] Error fetching disputes from UMA subgraph:", error);
+    logger.error({ error }, "Error fetching disputes from UMA subgraph");
     return [];
   }
 }
@@ -73,12 +74,12 @@ async function fetchDisputesFromSubgraph(): Promise<UMASubgraphDispute[]> {
  */
 export async function syncUMADisputes(): Promise<void> {
   try {
-    console.log("[UMA] Starting UMA disputes sync...");
+    logger.info("Starting UMA disputes sync");
     
     const subgraphDisputes = await fetchDisputesFromSubgraph();
     
     if (subgraphDisputes.length === 0) {
-      console.log("[UMA] No active disputes found");
+      logger.debug("No active disputes found");
       return;
     }
 
@@ -89,7 +90,7 @@ export async function syncUMADisputes(): Promise<void> {
       });
 
       if (!marketExists) {
-        console.warn(`[UMA] Market ${dispute.marketId} not found in database, skipping dispute`);
+        logger.warn({ marketId: dispute.marketId }, "Market not found in database, skipping dispute");
         continue;
       }
 
@@ -114,7 +115,7 @@ export async function syncUMADisputes(): Promise<void> {
           })
           .where(eq(umaDisputes.id, existing.id));
 
-        console.log(`[UMA] Updated dispute for market ${marketExists.id}`);
+        logger.debug({ marketId: marketExists.id }, "Updated dispute for market");
       } else {
         // Insert new dispute
         await db.insert(umaDisputes).values({
@@ -128,13 +129,13 @@ export async function syncUMADisputes(): Promise<void> {
           votingEndsAt: dispute.votingEndsAt ? new Date(dispute.votingEndsAt) : null,
         });
 
-        console.log(`[UMA] Created new dispute for market ${marketExists.id}`);
+        logger.debug({ marketId: marketExists.id }, "Created new dispute for market");
       }
     }
 
-    console.log(`[UMA] UMA disputes sync completed. Processed ${subgraphDisputes.length} disputes`);
+    logger.info({ count: subgraphDisputes.length }, "UMA disputes sync completed");
   } catch (error) {
-    console.error("[UMA] Error syncing UMA disputes:", error);
+    logger.error({ error }, "Error syncing UMA disputes");
     throw error;
   }
 }
@@ -194,9 +195,9 @@ export async function recordResolvedDispute(
     // Remove from active disputes
     await db.delete(umaDisputes).where(eq(umaDisputes.marketId, marketId));
 
-    console.log(`[UMA] Recorded resolved dispute for market ${marketId}`);
+    logger.info({ marketId }, "Recorded resolved dispute for market");
   } catch (error) {
-    console.error("[UMA] Error recording resolved dispute:", error);
+    logger.error({ error, marketId }, "Error recording resolved dispute");
     throw error;
   }
 }
@@ -206,17 +207,17 @@ export async function recordResolvedDispute(
  * Runs every 5 minutes
  */
 export function scheduleUMADisputeSync(intervalMs: number = 5 * 60 * 1000): NodeJS.Timeout {
-  console.log(`[UMA] Scheduling UMA dispute sync every ${intervalMs / 1000} seconds`);
+  logger.info({ intervalSeconds: intervalMs / 1000 }, "Scheduling UMA dispute sync");
   
   // Run immediately on startup
   syncUMADisputes().catch((error) => {
-    console.error("[UMA] Initial UMA dispute sync failed:", error);
+    logger.error({ error }, "Initial UMA dispute sync failed");
   });
 
   // Then run periodically
   return setInterval(() => {
     syncUMADisputes().catch((error) => {
-      console.error("[UMA] Scheduled UMA dispute sync failed:", error);
+      logger.error({ error }, "Scheduled UMA dispute sync failed");
     });
   }, intervalMs);
 }

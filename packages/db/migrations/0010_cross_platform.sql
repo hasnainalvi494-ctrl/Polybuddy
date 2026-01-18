@@ -60,3 +60,4 @@ SELECT
   NOW()
 FROM cross_platform_markets WHERE polymarket_id = 'will-trump-win-2024';
 
+

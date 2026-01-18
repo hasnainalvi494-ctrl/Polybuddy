@@ -14,3 +14,4 @@ CREATE TABLE IF NOT EXISTS timing_windows (
 CREATE INDEX IF NOT EXISTS idx_timing_windows_market ON timing_windows(market_id);
 CREATE INDEX IF NOT EXISTS idx_timing_windows_time ON timing_windows(starts_at, ends_at);
 
+

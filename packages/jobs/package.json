@@ -1,0 +1,25 @@
+{
+  "name": "@polybuddy/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/sync-trader-data.ts"
+  },
+  "scripts": {
+    "sync": "tsx src/run-sync.ts",
+    "dev": "tsx watch src/run-sync.ts"
+  },
+  "dependencies": {
+    "@polybuddy/db": "workspace:*",
+    "@polybuddy/analytics": "workspace:*",
+    "@polybuddy/polymarket-client": "workspace:*",
+    "drizzle-orm": "^0.36.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.7.0",
+    "dotenv": "^16.4.5"
+  }
+}

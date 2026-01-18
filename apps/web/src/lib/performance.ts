@@ -17,8 +17,10 @@ export function measureRender(componentName: string) {
     performance.measure(measureName, startMark, endMark);
 
     const measure = performance.getEntriesByName(measureName)[0];
-    if (measure) {
-      console.log(`[Performance] ${componentName} rendered in ${measure.duration.toFixed(2)}ms`);
+    if (measure && process.env.NODE_ENV === 'development') {
+      // Only log in development
+      // eslint-disable-next-line no-console
+      console.debug(`[Performance] ${componentName} rendered in ${measure.duration.toFixed(2)}ms`);
     }
 
     // Cleanup
@@ -37,25 +39,30 @@ export async function measureApiCall<T>(
   
   try {
     const result = await apiCall();
-    const duration = performance.now() - start;
-    console.log(`[Performance] API call "${name}" took ${duration.toFixed(2)}ms`);
+    if (process.env.NODE_ENV === 'development') {
+      const duration = performance.now() - start;
+      // eslint-disable-next-line no-console
+      console.debug(`[Performance] API call "${name}" took ${duration.toFixed(2)}ms`);
+    }
     return result;
   } catch (error) {
-    const duration = performance.now() - start;
-    console.error(`[Performance] API call "${name}" failed after ${duration.toFixed(2)}ms`);
+    if (process.env.NODE_ENV === 'development') {
+      const duration = performance.now() - start;
+      // eslint-disable-next-line no-console
+      console.error(`[Performance] API call "${name}" failed after ${duration.toFixed(2)}ms`);
+    }
     throw error;
   }
 }
 
 // Report Web Vitals
 export function reportWebVitals(metric: any) {
-  if (process.env.NODE_ENV === 'production') {
-    // Log to console in development
-    console.log(metric);
-    
-    // In production, you could send to analytics service
-    // Example: sendToAnalytics(metric);
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.debug('[Web Vitals]', metric);
   }
+  // In production, you could send to analytics service
+  // Example: sendToAnalytics(metric);
 }
 
 // Lazy load images with Intersection Observer
@@ -158,4 +165,5 @@ export function getMemoryUsage() {
     jsHeapSizeLimit: (memory.jsHeapSizeLimit / 1048576).toFixed(2) + ' MB',
   };
 }
+
 

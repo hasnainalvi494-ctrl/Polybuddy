@@ -50,3 +50,4 @@ INSERT INTO outcome_patterns (cluster_type, pattern_name, frequency_percent, des
   ('tech', 'Regulatory Overhang', 19.4, 'Markets discount heavily for potential regulation that rarely materializes', 'Retail avoids regulatory risk, missing value in overdiscounted scenarios'),
   ('tech', 'Adoption S-Curve', 15.2, 'Technology adoption follows S-curve, but market prices linearly', 'Retail misses inflection point where adoption accelerates');
 
+

@@ -109,3 +109,4 @@ export function ActiveTradersCounter({ count, variant = "default" }: ActiveTrade
   );
 }
 
+

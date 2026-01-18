@@ -69,11 +69,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("theme", newTheme);
   };
 
-  // Prevent flash of wrong theme
-  if (!mounted) {
-    return null;
-  }
-
+  // Always render children - use a default value until mounted to prevent hydration mismatch
+  // This ensures the app is interactive immediately instead of blocking
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
       {children}

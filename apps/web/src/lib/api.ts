@@ -1,1399 +1,1000 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+// API client for PolyBuddy backend
 
-// ============================================================================
-// RETRY LOGIC
-// ============================================================================
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-interface RetryOptions {
-  maxRetries?: number;
-  retryDelay?: number;
-  retryableStatuses?: number[];
-}
-
-const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 3,
-  retryDelay: 1000,
-  retryableStatuses: [408, 429, 500, 502, 503, 504],
-};
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function fetchWithRetry<T>(
-  endpoint: string,
-  options: RequestInit = {},
-  retryOptions: RetryOptions = {}
-): Promise<T> {
-  const { maxRetries, retryDelay, retryableStatuses } = {
-    ...DEFAULT_RETRY_OPTIONS,
-    ...retryOptions,
-  };
-
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        ...options.headers,
-      };
-
-      const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        // Check if we should retry this status code
-        if (retryableStatuses.includes(response.status) && attempt < maxRetries) {
-          const delay = retryDelay * Math.pow(2, attempt); // Exponential backoff
-          console.warn(`Request failed with status ${response.status}. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
-          await sleep(delay);
-          continue;
-        }
-
-        const error = await response.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(error.error || `Service error (${response.status})`);
-      }
-
-      return response.json();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error("Unknown error");
-
-      // Network errors are retryable
-      if (attempt < maxRetries && (error instanceof TypeError || (error as any).name === "NetworkError")) {
-        const delay = retryDelay * Math.pow(2, attempt);
-        console.warn(`Network error. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
-        await sleep(delay);
-        continue;
-      }
-
-      // Non-retryable error or max retries reached
-      throw lastError;
-    }
-  }
-
-  throw lastError || new Error("Service temporarily unavailable");
-}
-
-// Wrapper for backward compatibility
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  return fetchWithRetry<T>(endpoint, options);
-}
-
-// Auth types
-export type User = {
-  id: string;
-  email: string;
-  name: string | null;
-};
-
-// Auth functions
-export async function signup(email: string, password: string, name?: string): Promise<User> {
-  return fetchApi("/api/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ email, password, name }),
-  });
-}
-
-export async function login(email: string, password: string): Promise<User> {
-  return fetchApi("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-export async function logout(): Promise<{ success: boolean }> {
-  return fetchApi("/api/auth/logout", { method: "POST" });
-}
-
-export async function getCurrentUser(): Promise<User> {
-  return fetchApi("/api/auth/me");
-}
-
-// Markets
-export async function getMarkets(params?: {
+interface GetMarketsParams {
+  search?: string;
+  category?: string;
+  sortBy?: "volume" | "createdAt" | "endDate";
+  sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
-  category?: string;
-  minQuality?: string;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: string;
-}) {
+}
+
+export async function getMarkets(params: GetMarketsParams = {}) {
   const searchParams = new URLSearchParams();
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) searchParams.set(key, String(value));
-    });
+  
+  if (params.search) searchParams.set("search", params.search);
+  if (params.category) searchParams.set("category", params.category);
+  if (params.sortBy) searchParams.set("sortBy", params.sortBy);
+  if (params.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+  if (params.limit) searchParams.set("limit", params.limit.toString());
+  if (params.offset) searchParams.set("offset", params.offset.toString());
+
+  const url = `${API_URL}/api/markets?${searchParams.toString()}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch markets: ${response.statusText}`);
   }
-  const query = searchParams.toString();
-  return fetchApi(`/api/markets${query ? `?${query}` : ""}`);
+
+  return response.json();
 }
 
-export async function getMarket(id: string) {
-  return fetchApi(`/api/markets/${id}`);
-}
-
-export async function getMarketHistory(id: string, period: string = "24h") {
-  return fetchApi(`/api/markets/${id}/history?period=${period}`);
-}
-
-export async function getCategories(): Promise<{ category: string; count: number }[]> {
-  return fetchApi("/api/markets/categories");
-}
-
-// Watchlists
-export async function getWatchlists() {
-  return fetchApi("/api/watchlists");
-}
-
-export async function createWatchlist(name: string) {
-  return fetchApi("/api/watchlists", {
-    method: "POST",
-    body: JSON.stringify({ name }),
+export async function getCategories() {
+  const url = `${API_URL}/api/markets/categories`;
+  
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch categories: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 
-export async function getWatchlist(watchlistId: string) {
-  return fetchApi(`/api/watchlists/${watchlistId}`);
-}
-
-export async function addToWatchlist(watchlistId: string, marketId: string) {
-  return fetchApi(`/api/watchlists/${watchlistId}/markets`, {
-    method: "POST",
-    body: JSON.stringify({ marketId }),
+export async function getMarketById(id: string) {
+  const url = `${API_URL}/api/markets/${id}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch market: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 
-export async function removeFromWatchlist(watchlistId: string, marketId: string) {
-  return fetchApi(`/api/watchlists/${watchlistId}/markets/${marketId}`, {
+// Alias for backwards compatibility
+export const getMarket = getMarketById;
+
+export async function getStructurallyInteresting(limit: number = 6) {
+  const url = `${API_URL}/api/markets/structurally-interesting?limit=${limit}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch structurally interesting markets: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getRetailSignals(marketId: string) {
+  const url = `${API_URL}/api/retail-signals/${marketId}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch retail signals: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function signup(email: string, password: string) {
+  const url = `${API_URL}/api/auth/signup`;
+  
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Signup failed");
+  }
+
+  return response.json();
+}
+
+export async function login(email: string, password: string) {
+  const url = `${API_URL}/api/auth/login`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Login failed");
+  }
+
+  return response.json();
+}
+
+// Auth functions
+export async function getCurrentUser() {
+  const url = `${API_URL}/api/auth/me`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get current user");
+  }
+
+  return response.json();
+}
+
+export async function logout() {
+  const url = `${API_URL}/api/auth/logout`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Logout failed");
+  }
+
+  return response.json();
+}
+
+// Alerts functions
+export async function getAlerts() {
+  const url = `${API_URL}/api/alerts`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch alerts");
+  }
+
+  return response.json();
+}
+
+export async function getNotifications() {
+  const url = `${API_URL}/api/notifications`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch notifications");
+  }
+
+  return response.json();
+}
+
+export async function createAlert(data: any) {
+  const url = `${API_URL}/api/alerts`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to create alert");
+  }
+
+  return response.json();
+}
+
+export async function dismissAlert(id: string) {
+  const url = `${API_URL}/api/alerts/${id}/dismiss`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to dismiss alert");
+  }
+
+  return response.json();
+}
+
+export async function deleteAlert(id: string) {
+  const url = `${API_URL}/api/alerts/${id}`;
+
+  const response = await fetch(url, {
     method: "DELETE",
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete alert");
+  }
+
+  return response.json();
 }
 
-export async function deleteWatchlist(watchlistId: string) {
-  return fetchApi(`/api/watchlists/${watchlistId}`, {
-    method: "DELETE",
-  });
-}
+export async function markNotificationRead(id: string) {
+  const url = `${API_URL}/api/notifications/${id}/read`;
 
-// Alerts
-export async function getAlerts(status?: string) {
-  const query = status && status !== "all" ? `?status=${status}` : "";
-  return fetchApi(`/api/alerts${query}`);
-}
-
-export async function createAlert(
-  marketId: string,
-  condition: { type: string; [key: string]: unknown }
-) {
-  return fetchApi("/api/alerts", {
+  const response = await fetch(url, {
     method: "POST",
-    body: JSON.stringify({ marketId, condition }),
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to mark notification as read");
+  }
+
+  return response.json();
 }
 
-export async function dismissAlert(alertId: string) {
-  return fetchApi(`/api/alerts/${alertId}/dismiss`, {
+export async function markAllNotificationsRead() {
+  const url = `${API_URL}/api/notifications/mark-all-read`;
+
+  const response = await fetch(url, {
     method: "POST",
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to mark all notifications as read");
+  }
+
+  return response.json();
 }
 
-export async function deleteAlert(alertId: string) {
-  return fetchApi(`/api/alerts/${alertId}`, {
-    method: "DELETE",
+export async function processAlerts() {
+  const url = `${API_URL}/api/alerts/process`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to process alerts");
+  }
+
+  return response.json();
 }
 
-// Notification types
-export type Notification = {
-  id: string;
-  alertId: string | null;
-  marketId: string | null;
-  type: "price_move" | "volume_spike" | "liquidity_drop" | "resolution_approaching";
-  title: string;
-  message: string;
-  marketQuestion: string | null;
-  read: boolean;
-  createdAt: string;
-};
-
-// Notification functions
-export async function getNotifications(params?: { unreadOnly?: boolean; limit?: number }): Promise<{
-  notifications: Notification[];
-  unreadCount: number;
-}> {
-  const searchParams = new URLSearchParams();
-  if (params?.unreadOnly) searchParams.set("unreadOnly", "true");
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  const query = searchParams.toString();
-  return fetchApi(`/api/alerts/notifications${query ? `?${query}` : ""}`);
-}
-
-export async function markNotificationRead(notificationId: string): Promise<{ success: boolean }> {
-  return fetchApi(`/api/alerts/notifications/${notificationId}/read`, { method: "POST" });
-}
-
-export async function markAllNotificationsRead(): Promise<{ success: boolean; count: number }> {
-  return fetchApi("/api/alerts/notifications/read-all", { method: "POST" });
-}
-
-export async function processAlerts(): Promise<{ processed: number; triggered: number }> {
-  return fetchApi("/api/alerts/process", { method: "POST" });
-}
-
-// Portfolio
+// Portfolio functions
 export async function getWallets() {
-  return fetchApi("/api/portfolio/wallets");
-}
+  const url = `${API_URL}/api/portfolio/wallets`;
 
-export async function addWallet(address: string, label?: string) {
-  return fetchApi("/api/portfolio/wallets", {
-    method: "POST",
-    body: JSON.stringify({ address, label }),
+  const response = await fetch(url, {
+    credentials: "include",
   });
-}
 
-export async function updateWalletLabel(walletId: string, label: string | null) {
-  return fetchApi(`/api/portfolio/wallets/${walletId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ label }),
-  });
-}
+  if (!response.ok) {
+    throw new Error("Failed to fetch wallets");
+  }
 
-export async function deleteWallet(walletId: string) {
-  return fetchApi(`/api/portfolio/wallets/${walletId}`, {
-    method: "DELETE",
-  });
-}
-
-export async function getWalletPositions(walletId: string) {
-  return fetchApi(`/api/portfolio/wallets/${walletId}/positions`);
-}
-
-export async function addPosition(
-  walletId: string,
-  marketId: string,
-  outcome: string,
-  shares: number,
-  avgEntryPrice?: number
-) {
-  return fetchApi(`/api/portfolio/wallets/${walletId}/positions`, {
-    method: "POST",
-    body: JSON.stringify({ marketId, outcome, shares, avgEntryPrice }),
-  });
-}
-
-export async function deletePosition(walletId: string, positionId: string) {
-  return fetchApi(`/api/portfolio/wallets/${walletId}/positions/${positionId}`, {
-    method: "DELETE",
-  });
-}
-
-export async function getPerformance(params?: { walletId?: string; period?: string }) {
-  const searchParams = new URLSearchParams();
-  if (params?.walletId) searchParams.set("walletId", params.walletId);
-  if (params?.period) searchParams.set("period", params.period);
-  const query = searchParams.toString();
-  return fetchApi(`/api/portfolio/performance${query ? `?${query}` : ""}`);
+  return response.json();
 }
 
 export async function getPortfolioSummary() {
-  return fetchApi("/api/portfolio/summary");
-}
+  const url = `${API_URL}/api/portfolio/summary`;
 
-// Analytics types
-export type WhyBullet = {
-  text: string;
-  metric: string;
-  value: number;
-  unit?: string;
-  comparison?: string;
-};
-
-export type MarketStateResponse = {
-  marketId: string;
-  stateLabel: "calm_liquid" | "thin_slippage" | "jumpy" | "event_driven";
-  displayLabel: string;
-  confidence: number;
-  whyBullets: WhyBullet[];
-  features: {
-    spreadPct: number | null;
-    depthUsd: number | null;
-    stalenessMinutes: number | null;
-    volatility: number | null;
-  };
-  computedAt: string;
-};
-
-export type ExposureCluster = {
-  clusterId: string;
-  label: string;
-  exposurePct: number;
-  exposureUsd: number;
-  marketCount: number;
-  confidence: number;
-  whyBullets: WhyBullet[];
-  markets: {
-    marketId: string;
-    question: string;
-    exposure: number;
-    weight: number;
-  }[];
-};
-
-export type ExposureResponse = {
-  walletId: string;
-  totalExposure: number;
-  clusters: ExposureCluster[];
-  concentrationRisk: number;
-  diversificationScore: number;
-  topClusterExposure: number;
-  warning: string | null;
-  isDangerous: boolean;
-  computedAt: string;
-};
-
-export type ConsistencyCheck = {
-  aMarketId: string;
-  bMarketId: string;
-  aQuestion: string;
-  bQuestion: string;
-  relationType: "calendar_variant" | "multi_outcome" | "inverse" | "correlated";
-  label: "looks_consistent" | "potential_inconsistency_low" | "potential_inconsistency_medium" | "potential_inconsistency_high";
-  displayLabel: string;
-  score: number;
-  confidence: number;
-  whyBullets: WhyBullet[];
-  priceA: number;
-  priceB: number;
-  computedAt: string;
-};
-
-export type ConsistencyResponse = {
-  checks: ConsistencyCheck[];
-  summary: {
-    totalPairs: number;
-    relatedPairs: number;
-    inconsistentPairs: number;
-  };
-};
-
-export type RelatedMarketsResponse = {
-  marketId: string;
-  relatedMarkets: ConsistencyCheck[];
-};
-
-// Analytics functions
-export async function getMarketState(marketId: string): Promise<MarketStateResponse> {
-  return fetchApi(`/api/analytics/markets/${marketId}/state`);
-}
-
-export async function getWalletExposure(walletId: string): Promise<ExposureResponse> {
-  return fetchApi(`/api/analytics/wallets/${walletId}/exposure`);
-}
-
-export async function checkConsistency(marketIds: string[]): Promise<ConsistencyResponse> {
-  return fetchApi("/api/analytics/consistency", {
-    method: "POST",
-    body: JSON.stringify({ marketIds }),
+  const response = await fetch(url, {
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch portfolio summary");
+  }
+
+  return response.json();
 }
 
-export async function getRelatedMarkets(marketId: string, limit?: number): Promise<RelatedMarketsResponse> {
-  const query = limit ? `?limit=${limit}` : "";
-  return fetchApi(`/api/analytics/markets/${marketId}/related${query}`);
+export async function getPerformance() {
+  const url = `${API_URL}/api/portfolio/performance`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch performance");
+  }
+
+  return response.json();
 }
 
-// Behavior Cluster types
-export type BehaviorClusterType =
-  | "scheduled_event"
-  | "continuous_info"
-  | "binary_catalyst"
-  | "high_volatility"
-  | "long_duration"
-  | "sports_scheduled";
+export async function getWalletPositions(walletId: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${walletId}/positions`;
 
-export type BehaviorDimensions = {
-  infoCadence: number;
-  infoStructure: number;
-  liquidityStability: number;
-  timeToResolution: number;
-  participantConcentration: number;
-};
+  const response = await fetch(url, {
+    credentials: "include",
+  });
 
-export type RetailFriendliness = "favorable" | "neutral" | "unfavorable";
+  if (!response.ok) {
+    throw new Error("Failed to fetch wallet positions");
+  }
 
-export type RetailInterpretation = {
-  friendliness: RetailFriendliness;
-  whatThisMeansForRetail: string;
-  commonMistake: string;
-  whyRetailLoses: string;
-  whenRetailCanCompete: string;
-};
-
-export type BehaviorClusterResponse = {
-  marketId: string;
-  cluster: BehaviorClusterType;
-  clusterLabel: string;
-  confidence: number;
-  explanation: string;
-  dimensions: BehaviorDimensions;
-  whyBullets: WhyBullet[];
-  displayInfo: {
-    label: string;
-    description: string;
-    color: string;
-    icon: string;
-  };
-  retailInterpretation?: RetailInterpretation;
-  computedAt: string;
-};
-
-export async function getMarketBehavior(marketId: string): Promise<BehaviorClusterResponse> {
-  return fetchApi(`/api/analytics/markets/${marketId}/behavior`);
+  return response.json();
 }
 
-// Flow Analysis types
-export type FlowType = "smart_money" | "mixed" | "retail_dominated" | "unknown";
-export type FlowDirection = "bullish" | "bearish" | "neutral";
+export async function addWallet(data: any) {
+  const url = `${API_URL}/api/portfolio/wallets`;
 
-export type FlowAnalysisResponse = {
-  marketId: string;
-  flowType: FlowType;
-  flowLabel: string;
-  confidence: number;
-  metrics: {
-    totalTransactions: number;
-    smartMoneyTransactions: number;
-    retailTransactions: number;
-    smartMoneyVolume: number;
-    retailVolume: number;
-    netFlowDirection: FlowDirection;
-    largestTransaction: number | null;
-  };
-  recentActivity: Array<{
-    timestamp: string;
-    type: "smart_money" | "retail" | "unknown";
-    direction: "buy" | "sell";
-    volumeUsd: number;
-  }>;
-  whyBullets: WhyBullet[];
-  computedAt: string;
-};
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
 
-export async function getMarketFlow(marketId: string): Promise<FlowAnalysisResponse> {
-  return fetchApi(`/api/analytics/markets/${marketId}/flow`);
+  if (!response.ok) {
+    throw new Error("Failed to add wallet");
+  }
+
+  return response.json();
 }
 
-// Public Flow Context types
-export type WalletTrend = "increasing" | "decreasing" | "stable";
+export async function deleteWallet(id: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${id}`;
 
-export type PublicContextResponse = {
-  marketId: string;
-  participation: {
-    totalWallets: number;
-    activeWallets24h: number;
-    newWallets24h: number;
-    walletTrend: WalletTrend;
-    largeWalletsEntered24h?: number; // Wallets with >$10K entered in last 24h
-    largeWalletsEnteredDirection?: "YES" | "NO"; // Which direction they entered
-  };
-  positions: {
-    totalLongPositions: number;
-    totalShortPositions: number;
-    longShortRatio: number;
-    avgPositionSize: number;
-    medianPositionSize: number;
-  };
-  volume: {
-    volume24h: number;
-    volume7d: number;
-    volumeChange24h: number;
-    avgDailyVolume: number;
-    isVolumeSpike: boolean;
-    volumeVsAverage?: number; // Ratio of 24h volume to 7d average
-  };
-  largeTransactions: Array<{
-    timestamp: string;
-    direction: "buy" | "sell";
-    volumeUsd: number;
-    isWhale: boolean;
-  }>;
-  insights: string[];
-  computedAt: string;
-};
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-export async function getMarketContext(marketId: string): Promise<PublicContextResponse> {
-  return fetchApi(`/api/analytics/markets/${marketId}/context`);
+  if (!response.ok) {
+    throw new Error("Failed to delete wallet");
+  }
+
+  return response.json();
 }
 
-// Signals types
-export type SignalType = "momentum" | "contrarian" | "liquidity_opportunity" | "value_gap" | "event_catalyst";
-export type SignalStrength = "weak" | "moderate" | "strong";
+export async function deletePosition(walletId: string, positionId: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${walletId}/positions/${positionId}`;
 
-export type Signal = {
-  id: string;
-  marketId: string;
-  marketQuestion: string;
-  type: SignalType;
-  strength: SignalStrength;
-  direction: "bullish" | "bearish";
-  currentPrice: number;
-  targetPrice: number | null;
-  confidence: number;
-  reasoning: string[];
-  risks: string[];
-  timeHorizon: string;
-  expiresAt: string;
-  createdAt: string;
-};
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-export type SignalsResponse = {
-  signals: Signal[];
-  disclaimer: string;
-  generatedAt: string;
-};
+  if (!response.ok) {
+    throw new Error("Failed to delete position");
+  }
 
-export type SignalsAvailability = {
-  available: boolean;
-  countryDetected: string | null;
-  reason: string | null;
-};
+  return response.json();
+}
+
+// Reports functions
+export async function getReports() {
+  const url = `${API_URL}/api/reports`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch reports");
+  }
+
+  return response.json();
+}
+
+export async function generateReport(data: any) {
+  const url = `${API_URL}/api/reports/generate`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to generate report");
+  }
+
+  return response.json();
+}
 
 // Signals functions
-export async function getSignals(params?: {
-  type?: SignalType;
-  minStrength?: SignalStrength;
-  limit?: number;
-}): Promise<SignalsResponse> {
-  const searchParams = new URLSearchParams();
-  if (params?.type) searchParams.set("type", params.type);
-  if (params?.minStrength) searchParams.set("minStrength", params.minStrength);
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  const query = searchParams.toString();
-  return fetchApi(`/api/signals${query ? `?${query}` : ""}`);
-}
+export async function checkSignalsAvailability() {
+  const url = `${API_URL}/api/signals/availability`;
 
-export async function checkSignalsAvailability(): Promise<SignalsAvailability> {
-  return fetchApi("/api/signals/availability");
-}
+  const response = await fetch(url);
 
-// ============================================
-// RETAIL SIGNALS
-// ============================================
-
-export type RetailSignalType =
-  | "favorable_structure"
-  | "structural_mispricing"
-  | "crowd_chasing"
-  | "event_window"
-  | "retail_friendliness";
-
-export type SignalConfidenceLevel = "low" | "medium" | "high";
-
-export type RetailWhyBullet = {
-  text: string;
-  metric: string;
-  value: number;
-  unit?: string;
-};
-
-export type RetailSignal = {
-  id: string;
-  marketId: string;
-  signalType: RetailSignalType;
-  label: string;
-  isFavorable: boolean;
-  confidence: SignalConfidenceLevel;
-  whyBullets: RetailWhyBullet[];
-  metrics: Record<string, unknown> | null;
-  computedAt: string;
-};
-
-export type MarketRetailSignalsResponse = {
-  marketId: string;
-  signals: RetailSignal[];
-};
-
-// Get favorable structure signal for a market
-export async function getFavorableStructureSignal(marketId: string): Promise<RetailSignal | null> {
-  return fetchApi(`/api/retail-signals/markets/${marketId}/favorable-structure`);
-}
-
-// Get structural mispricing signal for a market
-export async function getStructuralMispricingSignal(marketId: string): Promise<RetailSignal | null> {
-  return fetchApi(`/api/retail-signals/markets/${marketId}/structural-mispricing`);
-}
-
-// Get crowd chasing signal for a market
-export async function getCrowdChasingSignal(marketId: string): Promise<RetailSignal | null> {
-  return fetchApi(`/api/retail-signals/markets/${marketId}/crowd-chasing`);
-}
-
-// Get event window signal for a market
-export async function getEventWindowSignal(marketId: string): Promise<RetailSignal | null> {
-  return fetchApi(`/api/retail-signals/markets/${marketId}/event-window`);
-}
-
-// Get retail friendliness signal for a market
-export async function getRetailFriendlinessSignal(marketId: string): Promise<RetailSignal | null> {
-  return fetchApi(`/api/retail-signals/markets/${marketId}/retail-friendliness`);
-}
-
-// Get all retail signals for a market
-export async function getMarketRetailSignals(marketId: string): Promise<MarketRetailSignalsResponse> {
-  return fetchApi(`/api/retail-signals/markets/${marketId}`);
-}
-
-// Daily signals types
-export type DailySignalsMarket = {
-  marketId: string;
-  question: string;
-  category: string | null;
-  currentPrice: number | null;
-  signals: RetailSignal[];
-};
-
-export type DailySignalsCrowdMarket = {
-  marketId: string;
-  question: string;
-  category: string | null;
-  currentPrice: number | null;
-  signal: RetailSignal;
-};
-
-export type DailySignalsEventMarket = {
-  marketId: string;
-  question: string;
-  category: string | null;
-  currentPrice: number | null;
-  hoursUntilEvent: number;
-  signal: RetailSignal;
-};
-
-export type DailySignalsResponse = {
-  date: string;
-  available: boolean;
-  reason?: string;
-  summary: {
-    totalMarkets: number;
-    favorableCount: number;
-    crowdChasingCount: number;
-    eventWindowCount: number;
-  };
-  favorableMarkets: DailySignalsMarket[];
-  crowdChasingMarkets: DailySignalsCrowdMarket[];
-  eventWindowMarkets: DailySignalsEventMarket[];
-  generatedAt: string;
-  disclaimer: string;
-};
-
-// Get daily signals summary
-export async function getDailySignals(): Promise<DailySignalsResponse> {
-  return fetchApi("/api/retail-signals/daily");
-}
-
-// Check if daily signals are available (region check)
-export async function checkDailySignalsAvailability(): Promise<{ available: boolean; reason?: string }> {
-  try {
-    const response = await fetch(`${API_BASE}/api/retail-signals/daily`, {
-      method: "GET",
-      credentials: "include",
-    });
-
-    if (response.status === 403) {
-      const data = await response.json();
-      return { available: false, reason: data.reason };
-    }
-
-    return { available: true };
-  } catch {
-    return { available: false, reason: "Unable to check availability" };
+  if (!response.ok) {
+    throw new Error("Failed to check signals availability");
   }
+
+  return response.json();
 }
 
-// Weekly Reports types
-export type WeeklyReport = {
-  id: string;
-  weekStart: string;
-  weekEnd: string;
-  realizedPnl: number | null;
-  unrealizedPnl: number | null;
-  totalTrades: number;
-  winRate: number | null;
-  bestMarketQuestion: string | null;
-  worstMarketQuestion: string | null;
-  entryTimingScore: number | null;
-  slippagePaid: number | null;
-  concentrationScore: number | null;
-  qualityDisciplineScore: number | null;
-  patternsObserved: string[];
-  coachingNotes: string[];
-  generatedAt: string;
-  viewedAt: string | null;
-};
+export async function getSignals() {
+  const url = `${API_URL}/api/signals`;
 
-// Weekly Reports functions
-export async function getReports(limit?: number): Promise<{ reports: WeeklyReport[] }> {
-  const query = limit ? `?limit=${limit}` : "";
-  return fetchApi(`/api/reports${query}`);
-}
-
-export async function getReport(id: string): Promise<WeeklyReport> {
-  return fetchApi(`/api/reports/${id}`);
-}
-
-export async function generateReport(weekOffset?: number): Promise<WeeklyReport> {
-  return fetchApi("/api/reports/generate", {
-    method: "POST",
-    body: JSON.stringify({ weekOffset: weekOffset || 0 }),
+  const response = await fetch(url, {
+    credentials: "include",
   });
-}
 
-// ============================================
-// DAILY ATTENTION
-// ============================================
-
-export type DailyAttentionResponse = {
-  worthAttention: Array<{
-    id: string;
-    question: string;
-    category: string | null;
-    setupLabel: string;
-    confidence: number;
-    whyBullets: Array<{ text: string; value: string; unit: string }>;
-    whyThisMatters: string;
-  }>;
-  retailTraps: Array<{
-    id: string;
-    question: string;
-    category: string | null;
-    warningLabel: string;
-    commonMistake: string;
-  }>;
-  whatChanged: Array<{
-    marketId: string;
-    question: string;
-    changeType: "state_shift" | "event_window" | "mispricing" | "flow_guard";
-    description: string;
-  }>;
-  generatedAt: string;
-};
-
-export async function getDailyAttention(): Promise<DailyAttentionResponse> {
-  return fetchApi("/api/daily");
-}
-
-// ============================================
-// RETAIL FLOW GUARD
-// ============================================
-
-export type FlowGuardLabel = "historically_noisy" | "pro_dominant" | "retail_actionable";
-export type FlowGuardSeverity = "warning" | "caution" | "info";
-
-export type FlowGuardWhyBullet = {
-  text: string;
-  metric?: string;
-  value?: number;
-  unit?: string;
-};
-
-export type FlowGuardResponse = {
-  label: FlowGuardLabel;
-  confidence: "low" | "medium" | "high";
-  whyBullets: FlowGuardWhyBullet[];
-  commonRetailMistake: string;
-  displayLabel: string;
-  severity: FlowGuardSeverity;
-  explanation: string;
-  disclaimer: string;
-  metrics?: {
-    largeEarlyTradesPct: number | null;
-    orderBookConcentration: number | null;
-    depthShiftSpeed: number | null;
-    repricingSpeed: number | null;
-  };
-};
-
-export async function getFlowGuard(marketId: string): Promise<FlowGuardResponse | null> {
-  return fetchApi(`/api/markets/${marketId}/flow-guard`);
-}
-
-export async function computeFlowGuard(marketId: string): Promise<FlowGuardResponse> {
-  return fetchApi(`/api/markets/${marketId}/compute-flow-guard`, {
-    method: "POST",
-  });
-}
-
-// ============================================
-// HIDDEN EXPOSURE DETECTOR
-// ============================================
-
-export type ExposureLinkLabel = "independent" | "partially_linked" | "highly_linked";
-
-export type LinkedMarket = {
-  marketId: string;
-  question: string;
-  exposureLabel: ExposureLinkLabel;
-  explanation: string;
-  exampleOutcome: string;
-  mistakePrevented: string;
-  sharedDriverType: string;
-};
-
-export type HiddenExposureResponse = {
-  marketId: string;
-  linkedMarkets: LinkedMarket[];
-  totalLinked: number;
-  highlyLinkedCount: number;
-  warningLevel: "none" | "caution" | "warning";
-};
-
-export type ResolutionDriversResponse = {
-  marketId: string;
-  underlyingAsset: string | null;
-  assetCategory: string | null;
-  narrativeDependency: string | null;
-  resolutionSource: string | null;
-};
-
-export type ComputeExposureResponse = {
-  marketId: string;
-  linksCreated: number;
-  highlyLinked: number;
-  partiallyLinked: number;
-};
-
-// Get hidden exposure for a market
-export async function getHiddenExposure(marketId: string): Promise<HiddenExposureResponse> {
-  return fetchApi(`/api/markets/${marketId}/hidden-exposure`);
-}
-
-// Compute resolution drivers for a market
-export async function computeResolutionDrivers(marketId: string): Promise<ResolutionDriversResponse> {
-  return fetchApi(`/api/markets/${marketId}/compute-drivers`, {
-    method: "POST",
-  });
-}
-
-// Compute hidden exposure links for a market
-export async function computeHiddenExposure(marketId: string): Promise<ComputeExposureResponse> {
-  return fetchApi(`/api/markets/${marketId}/compute-exposure`, {
-    method: "POST",
-  });
-}
-
-// ============================================================================
-// LIVE STATS
-// ============================================================================
-
-export type LiveStatsResponse = {
-  volume24h: number;
-  activeTraders: number;
-  topWinRate: number;
-  lastUpdated: string;
-};
-
-// Get live platform statistics
-export async function getLiveStats(): Promise<LiveStatsResponse> {
-  return fetchApi("/api/stats/live");
-}
-
-// ============================================================================
-// ARBITRAGE OPPORTUNITIES
-// ============================================================================
-
-export type ArbitrageOpportunity = {
-  marketId: string;
-  marketName: string;
-  yesPrice: number;
-  noPrice: number;
-  spread: number;
-  profitPerShare: number;
-  profitPer100: number;
-  roiPercent: number;
-  resolvesIn: string;
-  difficulty: "easy" | "medium" | "hard";
-};
-
-export type ArbitrageResponse = {
-  opportunities: ArbitrageOpportunity[];
-  lastUpdated: string;
-  nextUpdate: number;
-};
-
-// Get arbitrage opportunities
-export async function getArbitrageOpportunities(): Promise<ArbitrageResponse> {
-  return fetchApi("/api/arbitrage");
-}
-
-// ============================================================================
-// TOP TRADERS LEADERBOARD
-// ============================================================================
-
-export type Trader = {
-  rank: number;
-  walletAddress: string;
-  totalProfit: number;
-  winRate: number;
-  tradeCount: number;
-  roiPercent: number;
-  primaryCategory: string | null;
-  lastTradeAt: string | null;
-  activePositions: number;
-};
-
-export type LeaderboardResponse = {
-  traders: Trader[];
-  totalTraders: number;
-};
-
-export type Trade = {
-  id: string;
-  marketId: string;
-  side: string;
-  outcome: string;
-  entryPrice: number | null;
-  exitPrice: number | null;
-  size: number | null;
-  profit: number | null;
-  timestamp: string;
-  txHash: string | null;
-};
-
-export type CategoryBreakdown = {
-  category: string;
-  tradeCount: number;
-  profit: number;
-  winRate: number;
-};
-
-export type TraderProfile = {
-  walletAddress: string;
-  rank: number | null;
-  totalProfit: number | null;
-  totalVolume: number | null;
-  winRate: number | null;
-  tradeCount: number;
-  roiPercent: number | null;
-  primaryCategory: string | null;
-  lastTradeAt: string | null;
-  recentTrades: Trade[];
-  categoryBreakdown: CategoryBreakdown[];
-  performanceOverTime: Array<{
-    date: string;
-    profit: number;
-    trades: number;
-  }>;
-  winLossDistribution: {
-    wins: number;
-    losses: number;
-    breakeven: number;
-  };
-};
-
-export type LeaderboardCategory = {
-  category: string;
-  traderCount: number;
-};
-
-// Get top traders leaderboard
-export async function getLeaderboard(params?: {
-  category?: string;
-  sort?: "profit" | "winRate" | "roi" | "volume";
-  limit?: number;
-  offset?: number;
-}): Promise<LeaderboardResponse> {
-  const searchParams = new URLSearchParams();
-  if (params?.category) searchParams.set("category", params.category);
-  if (params?.sort) searchParams.set("sort", params.sort);
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  if (params?.offset) searchParams.set("offset", String(params.offset));
-  const query = searchParams.toString();
-  return fetchApi(`/api/leaderboard${query ? `?${query}` : ""}`);
-}
-
-// Get trader profile by wallet address
-export async function getTraderProfile(walletAddress: string): Promise<TraderProfile> {
-  return fetchApi(`/api/leaderboard/${walletAddress}`);
-}
-
-// Get available categories
-export async function getLeaderboardCategories(): Promise<{ categories: LeaderboardCategory[] }> {
-  return fetchApi("/api/leaderboard/categories");
-}
-
-// ============================================================================
-// WHALE ACTIVITY FEED
-// ============================================================================
-
-export type WhaleTrade = {
-  id: string;
-  walletAddress: string;
-  marketId: string;
-  marketName: string;
-  action: string;
-  outcome: string;
-  amountUsd: number;
-  price: number | null;
-  priceBefore: number | null;
-  priceAfter: number | null;
-  priceImpact: number | null;
-  timestamp: string;
-  isHot: boolean;
-};
-
-export type WhaleFeedResponse = {
-  trades: WhaleTrade[];
-  lastUpdated: string;
-};
-
-// Get whale activity feed
-export async function getWhaleActivity(limit?: number): Promise<WhaleFeedResponse> {
-  const searchParams = new URLSearchParams();
-  if (limit) searchParams.set("limit", String(limit));
-  const query = searchParams.toString();
-  return fetchApi(`/api/whale-activity${query ? `?${query}` : ""}`);
-}
-
-// ============================================================================
-// SIMILAR HISTORY (WIN RATE VISUALIZATION)
-// ============================================================================
-
-export type HistoryResult = {
-  outcome: "win" | "loss" | "pending";
-  marketId: string;
-  marketQuestion: string;
-  roi: number | null;
-};
-
-export type SimilarHistoryResponse = {
-  marketId: string;
-  clusterType: string;
-  history: HistoryResult[];
-  totalWins: number;
-  totalLosses: number;
-  totalPending: number;
-  winRate: number;
-  averageROI: number;
-};
-
-// Get similar market history for win rate visualization
-export async function getSimilarHistory(marketId: string): Promise<SimilarHistoryResponse> {
-  return fetchApi(`/api/markets/${marketId}/similar-history`);
-}
-
-// ============================================================================
-// SLIPPAGE CALCULATOR
-// ============================================================================
-
-export type SlippageResponse = {
-  inputSize: number;
-  side: "buy" | "sell";
-  outcome: "YES" | "NO";
-  midPrice: number;
-  executionPrice: number;
-  slippagePercent: number;
-  slippageDollars: number;
-  priceImpact: "Low" | "Medium" | "High";
-  warning: string;
-  breakdown: Array<{
-    price: number;
-    size: number;
-  }>;
-};
-
-// Get slippage calculation for a trade
-export async function getSlippage(
-  marketId: string,
-  size: number,
-  side: "buy" | "sell",
-  outcome: "YES" | "NO"
-): Promise<SlippageResponse> {
-  const params = new URLSearchParams({
-    size: String(size),
-    side,
-    outcome,
-  });
-  return fetchApi(`/api/markets/${marketId}/slippage?${params.toString()}`);
-}
-
-// ============================================================================
-// UMA DISPUTES
-// ============================================================================
-
-export type DisputeStatus = "commit_stage" | "reveal_stage" | "resolved";
-
-export type Dispute = {
-  id: string;
-  marketId: string;
-  disputeStatus: DisputeStatus;
-  proposedOutcome: string | null;
-  disputedOutcome: string | null;
-  totalVotes: number;
-  yesVotes: number;
-  noVotes: number;
-  votingEndsAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  market?: {
-    id: string;
-    polymarketId: string;
-    question: string;
-    category: string | null;
-    endDate: string | null;
-  };
-};
-
-export type DisputeHistory = {
-  id: string;
-  marketId: string;
-  resolutionFlipped: boolean;
-  originalOutcome: string | null;
-  finalOutcome: string | null;
-  resolvedAt: string;
-};
-
-export type DisputesResponse = {
-  disputes: Dispute[];
-  count: number;
-};
-
-export type DisputeHistoryResponse = {
-  history: DisputeHistory[];
-  count: number;
-};
-
-// Get all active disputes
-export async function getDisputes(): Promise<DisputesResponse> {
-  return fetchApi("/api/disputes");
-}
-
-// Get dispute for a specific market
-export async function getDisputeForMarket(marketId: string): Promise<{ dispute: Dispute | null }> {
-  try {
-    return await fetchApi(`/api/disputes/${marketId}`);
-  } catch (error) {
-    // Return null if no dispute found (404)
-    return { dispute: null };
+  if (!response.ok) {
+    throw new Error("Failed to fetch signals");
   }
+
+  return response.json();
 }
 
-// Get historical disputes
-export async function getDisputeHistory(limit: number = 50): Promise<DisputeHistoryResponse> {
-  return fetchApi(`/api/disputes/history?limit=${limit}`);
+export async function checkDailySignalsAvailability() {
+  const url = `${API_URL}/api/signals/daily/availability`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to check daily signals availability");
+  }
+
+  return response.json();
 }
 
-// ============================================================================
-// TELEGRAM INTEGRATION
-// ============================================================================
+export async function getDailySignals() {
+  const url = `${API_URL}/api/signals/daily`;
 
-export type TelegramConnection = {
-  id: string;
-  userId: string;
-  telegramChatId: string;
-  telegramUsername: string | null;
-  connectedAt: string;
-  isActive: boolean;
-};
+  const response = await fetch(url, {
+    credentials: "include",
+  });
 
-export type TelegramSubscription = {
-  id: string;
-  telegramConnectionId: string;
-  alertType: string;
-  marketId: string | null;
-  threshold: string | null;
-  createdAt: string;
-};
+  if (!response.ok) {
+    throw new Error("Failed to fetch daily signals");
+  }
 
-export type TelegramBotInfo = {
-  botUsername: string;
-  botUrl: string;
-  instructions: string[];
-};
-
-// Get Telegram connection status
-export async function getTelegramConnection(): Promise<{ connection: TelegramConnection | null }> {
-  return fetchApi("/api/telegram/connection");
+  return response.json();
 }
 
-// Get Telegram alert subscriptions
-export async function getTelegramSubscriptions(): Promise<{
-  subscriptions: TelegramSubscription[];
-  count: number;
-}> {
-  return fetchApi("/api/telegram/subscriptions");
+// Watchlists functions
+export async function getWatchlists() {
+  const url = `${API_URL}/api/watchlists`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch watchlists");
+  }
+
+  return response.json();
 }
 
-// Disconnect Telegram
-export async function disconnectTelegram(): Promise<{ success: boolean; message: string }> {
-  return fetchApi("/api/telegram/connection", { method: "DELETE" });
+export async function createWatchlist(data: any) {
+  const url = `${API_URL}/api/watchlists`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to create watchlist");
+  }
+
+  return response.json();
 }
 
-// Get bot information
-export async function getTelegramBotInfo(): Promise<TelegramBotInfo> {
-  return fetchApi("/api/telegram/bot-info");
+export async function getWatchlist(id: string) {
+  const url = `${API_URL}/api/watchlists/${id}`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch watchlist");
+  }
+
+  return response.json();
 }
 
-// ============================================================================
-// ORDER BOOK
-// ============================================================================
+export async function addToWatchlist(watchlistId: string, marketId: string) {
+  const url = `${API_URL}/api/watchlists/${watchlistId}/markets`;
 
-export type OrderBookLevel = {
-  price: number;
-  size: number;
-  total: number;
-};
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ marketId }),
+    credentials: "include",
+  });
 
-export type OrderBookInterpretation = {
-  bookBalance: "balanced" | "heavy_bid" | "heavy_ask";
-  largeWalls: Array<{
-    side: "bid" | "ask";
-    price: number;
-    size: number;
-    percentage: number;
-  }>;
-  thinZones: Array<{
-    startPrice: number;
-    endPrice: number;
-    gap: number;
-  }>;
-  summary: string;
-};
+  if (!response.ok) {
+    throw new Error("Failed to add to watchlist");
+  }
 
-export type OrderBookResponse = {
-  marketId: string;
-  midPrice: number;
-  spread: number;
-  bids: OrderBookLevel[];
-  asks: OrderBookLevel[];
-  timestamp: string;
-  interpretation: OrderBookInterpretation;
-};
-
-// Get order book for a market
-export async function getOrderBook(marketId: string): Promise<OrderBookResponse> {
-  return fetchApi(`/api/markets/${marketId}/orderbook`);
+  return response.json();
 }
 
-// ============================================================================
-// AI ANALYSIS
-// ============================================================================
+export async function removeFromWatchlist(watchlistId: string, marketId: string) {
+  const url = `${API_URL}/api/watchlists/${watchlistId}/markets/${marketId}`;
 
-export type AIAnalysisResponse = {
-  marketId: string;
-  generatedAt: string;
-  probability_estimate: number;
-  confidence: "Low" | "Medium" | "High";
-  thesis: string;
-  counter_thesis: string;
-  key_factors: string[];
-  what_could_go_wrong: string[];
-  news_summary?: string;
-};
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-// Get AI analysis for a market
-export async function getAIAnalysis(marketId: string): Promise<AIAnalysisResponse> {
-  return fetchApi(`/api/markets/${marketId}/analysis`);
+  if (!response.ok) {
+    throw new Error("Failed to remove from watchlist");
+  }
+
+  return response.json();
 }
 
-// ============================================================================
-// OUTCOME PATH ANALYSIS
-// ============================================================================
+export async function deleteWatchlist(id: string) {
+  const url = `${API_URL}/api/watchlists/${id}`;
 
-export type OutcomePattern = {
-  patternName: string;
-  frequencyPercent: number;
-  description: string;
-  retailImplication: string;
-};
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-export type OutcomePathAnalysis = {
-  marketId: string;
-  clusterType: string;
-  patterns: OutcomePattern[];
-  summary: {
-    mostCommonPath: string;
-    retailTrapFrequency: number;
-    keyTiming: string;
-  };
-  recommendations: string[];
-};
+  if (!response.ok) {
+    throw new Error("Failed to delete watchlist");
+  }
 
-// Get outcome path analysis for a market
-export async function getOutcomePaths(marketId: string): Promise<OutcomePathAnalysis> {
-  return fetchApi(`/api/markets/${marketId}/outcome-paths`);
+  return response.json();
 }
 
-// ============================================================================
-// TIMING WINDOWS
-// ============================================================================
+// Hidden exposure functions
+export async function getWalletExposure(walletId: string) {
+  const url = `${API_URL}/api/portfolio/wallets/${walletId}/exposure`;
 
-export type WindowType = "dead_zone" | "danger_window" | "final_positioning" | "opportunity_window";
+  const response = await fetch(url, {
+    credentials: "include",
+  });
 
-export type TimingWindow = {
-  windowType: WindowType;
-  startsAt: string;
-  endsAt: string;
-  reason: string;
-  retailGuidance: string;
-};
+  if (!response.ok) {
+    throw new Error("Failed to fetch wallet exposure");
+  }
 
-export type CurrentTimingWindow = {
-  marketId: string;
-  currentWindow: TimingWindow | null;
-  upcomingWindows: TimingWindow[];
-  timeUntilResolution: number | null;
-  guidance: {
-    shouldEnter: boolean;
-    shouldExit: boolean;
-    waitFor: string | null;
-    reasoning: string;
-  };
-};
-
-// Get timing window analysis for a market
-export async function getTimingWindows(marketId: string): Promise<CurrentTimingWindow> {
-  return fetchApi(`/api/markets/${marketId}/timing`);
+  return response.json();
 }
 
-// ============================================================================
-// Cross-Platform Price Comparison
-// ============================================================================
+export async function getHiddenExposure(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/hidden-exposure`;
 
-export interface PlatformPrice {
-  platform: string;
-  yesPrice: number;
-  noPrice: number;
-  spread: number;
-  timestamp: string;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch hidden exposure");
+  }
+
+  return response.json();
 }
 
-export interface CrossPlatformComparison {
-  marketId: string;
-  platforms: PlatformPrice[];
-  bestYesPrice: {
-    platform: string;
-    price: number;
-    savingsVsWorst: number;
-  } | null;
-  bestNoPrice: {
-    platform: string;
-    price: number;
-    savingsVsWorst: number;
-  } | null;
-  recommendation: string;
+// Best Bets functions
+export async function getBestBets() {
+  const url = `${API_URL}/api/best-bets-signals`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch best bets");
+  }
+
+  return response.json();
 }
 
-export async function getCrossPlatformPrices(marketId: string): Promise<CrossPlatformComparison | null> {
-  try {
-    return await fetchApi(`/api/markets/${marketId}/cross-platform`);
-  } catch (error) {
-    // Return null if no cross-platform data available
+export async function getBestBetByMarket(marketId: string) {
+  const url = `${API_URL}/api/best-bets-signals/${marketId}`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch best bet");
+  }
+
+  return response.json();
+}
+
+// Elite Traders functions
+export async function getEliteTraders() {
+  const url = `${API_URL}/api/elite-traders?limit=100`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch elite traders");
+  }
+
+  const data = await response.json();
+  return data.traders; // Return just the traders array
+}
+
+export async function getEliteTrader(address: string) {
+  const url = `${API_URL}/api/elite-traders/${address}`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch elite trader");
+  }
+
+  return response.json();
+}
+
+// Copy Trading functions
+export async function followTrader(traderAddress: string, copyPercentage: number = 100) {
+  const url = `${API_URL}/api/copy-trading/follow`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ traderAddress, copyPercentage }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to follow trader");
+  }
+
+  return response.json();
+}
+
+export async function unfollowTrader(traderAddress: string) {
+  const url = `${API_URL}/api/copy-trading/unfollow/${traderAddress}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to unfollow trader");
+  }
+
+  return response.json();
+}
+
+export async function getFollowedTraders() {
+  const url = `${API_URL}/api/copy-trading/following`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch followed traders");
+  }
+
+  return response.json();
+}
+
+export async function getCopyTradingDashboard() {
+  const url = `${API_URL}/api/copy-trading/dashboard`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch copy trading dashboard");
+  }
+
+  return response.json();
+}
+
+// Analytics functions
+export async function getAnalyticsStats() {
+  const url = `${API_URL}/api/analytics/stats`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch analytics stats");
+  }
+
+  return response.json();
+}
+
+// Market Detail Components API Functions
+
+export async function getAIAnalysis(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/ai-analysis`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    // Return null for features that may not be implemented yet
     return null;
   }
+
+  return response.json();
 }
+
+export async function getMarketBehavior(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/behavior`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getCrossPlatformPrices(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/cross-platform`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getDisputeForMarket(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/disputes`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getRelatedMarkets(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/related`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return { markets: [] };
+  }
+
+  return response.json();
+}
+
+export async function getFlowGuard(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/flow-guard`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getMarketFlow(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/flow`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getOrderBook(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/orderbook`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getPriceHistory(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/price-history`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return { prices: [] };
+  }
+
+  return response.json();
+}
+
+export async function getPublicContext(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/context`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getTimingWindow(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/timing`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getWhosInMarket(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/participants`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return { participants: [] };
+  }
+
+  return response.json();
+}
+
+export async function getOutcomePathAnalysis(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/outcome-paths`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getSlippageEstimate(marketId: string, amount: number, side: string) {
+  const url = `${API_URL}/api/markets/${marketId}/slippage?amount=${amount}&side=${side}`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+// Alias for SlippageCalculator component
+export const getSlippage = getSlippageEstimate;
+
+export async function getMarketState(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/state`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getOutcomePaths(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/outcome-paths`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getMarketHistory(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/history`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return { history: [] };
+  }
+
+  return response.json();
+}
+
+export async function getMarketContext(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/context`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getMarketRetailSignals(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/retail-signals`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getTimingWindows(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/timing`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+export async function getParticipants(marketId: string) {
+  const url = `${API_URL}/api/markets/${marketId}/participants`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    return { participants: [] };
+  }
+
+  return response.json();
+}
+

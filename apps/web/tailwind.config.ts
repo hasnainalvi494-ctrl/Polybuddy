@@ -10,43 +10,51 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Polished Dark Mode Backgrounds
-        "bg-primary": "#0a0a0a",
-        "bg-secondary": "#111111",
-        "bg-tertiary": "#1a1a1a",
-        "border-primary": "#1f1f1f",
-        "border-secondary": "#2a2a2a",
+        // Premium Dark Navy Backgrounds
+        "bg-primary": "#0f0f1a",      // Deep navy black
+        "bg-secondary": "#14142b",     // Rich navy
+        "bg-tertiary": "#1a1a3e",      // Elevated navy
+        "border-primary": "#252545",   // Subtle navy border
+        "border-secondary": "#2d2d52", // Elevated border
         
-        // Override gray scale for better dark mode
+        // Enhanced gray scale for dark mode (WCAG AA compliant)
         gray: {
-          50: "#fafafa",
-          100: "#f5f5f5",
-          200: "#e5e5e5",
-          300: "#d4d4d4",
-          400: "#a3a3a3", // WCAG AA compliant on dark bg
-          500: "#737373",
-          600: "#525252",
-          700: "#404040",
-          800: "#262626",
-          850: "#1a1a1a",
-          900: "#171717",
-          925: "#111111",
-          950: "#0a0a0a",
+          50: "#f9fafb",
+          100: "#f3f4f6",
+          200: "#e5e7eb",
+          300: "#d1d5db",
+          400: "#9ca3af",  // WCAG AA on dark navy
+          500: "#6b7280",
+          600: "#4b5563",
+          700: "#374151",
+          800: "#1f2937",
+          850: "#1a1a3e",
+          900: "#14142b",
+          925: "#111122",
+          950: "#0f0f1a",
         },
         
-        // Brand colors with better dark mode support
+        // Royal Indigo - Premium accent (full scale)
         primary: {
-          50: "#ecfdf5",
-          100: "#d1fae5",
-          200: "#a7f3d0",
-          300: "#6ee7b7",
-          400: "#34d399",
-          500: "#10b981", // Main emerald
-          600: "#059669",
-          700: "#047857",
-          800: "#065f46",
-          900: "#064e3b",
-          950: "#022c22",
+          50: "#eef2ff",   // Lightest indigo
+          100: "#e0e7ff",
+          200: "#c7d2fe",
+          300: "#a5b4fc",
+          400: "#818cf8",
+          500: "#6366f1",  // Main Royal Indigo
+          600: "#4f46e5",  // Hover state
+          700: "#4338ca",  // Active state
+          800: "#3730a3",
+          900: "#312e81",
+          950: "#1e1b4b",  // Darkest for backgrounds
+        },
+        
+        // Complementary accent colors
+        accent: {
+          blue: "#3b82f6",    // Info states
+          purple: "#8b5cf6",  // Secondary highlights
+          rose: "#f43f5e",    // Danger/sell
+          emerald: "#10b981", // Success/buy
         },
       },
       keyframes: {
@@ -55,20 +63,37 @@ const config: Config = {
           "100%": { backgroundPosition: "-200% 0" },
         },
         glow: {
-          "0%, 100%": { boxShadow: "0 0 20px 0 rgba(16, 185, 129, 0.3)" },
-          "50%": { boxShadow: "0 0 30px 0 rgba(16, 185, 129, 0.5)" },
+          "0%, 100%": { boxShadow: "0 0 20px 0 rgba(99, 102, 241, 0.3)" },
+          "50%": { boxShadow: "0 0 30px 0 rgba(99, 102, 241, 0.5)" },
+        },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
         },
       },
       animation: {
         shimmer: "shimmer 2s ease-in-out infinite",
         glow: "glow 2s ease-in-out infinite",
+        pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       boxShadow: {
-        "glow-sm": "0 0 10px 0 rgba(16, 185, 129, 0.2)",
-        "glow-md": "0 0 20px 0 rgba(16, 185, 129, 0.3)",
-        "glow-lg": "0 0 30px 0 rgba(16, 185, 129, 0.4)",
-        "glow-danger": "0 0 20px 0 rgba(239, 68, 68, 0.3)",
+        // Royal Indigo glows
+        "glow-sm": "0 0 10px 0 rgba(99, 102, 241, 0.2)",
+        "glow-md": "0 0 20px 0 rgba(99, 102, 241, 0.3)",
+        "glow-lg": "0 0 30px 0 rgba(99, 102, 241, 0.4)",
+        "glow-xl": "0 0 40px 0 rgba(99, 102, 241, 0.5)",
+        // State-specific glows
+        "glow-danger": "0 0 20px 0 rgba(244, 63, 94, 0.3)",
+        "glow-success": "0 0 20px 0 rgba(16, 185, 129, 0.3)",
         "glow-warning": "0 0 20px 0 rgba(245, 158, 11, 0.3)",
+        // Elevated card shadows
+        "card": "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)",
+        "card-hover": "0 10px 15px -3px rgba(99, 102, 241, 0.2), 0 4px 6px -2px rgba(99, 102, 241, 0.1)",
+      },
+      backgroundImage: {
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "gradient-primary": "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+        "gradient-mesh": "radial-gradient(at 40% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%), radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%)",
       },
     },
   },

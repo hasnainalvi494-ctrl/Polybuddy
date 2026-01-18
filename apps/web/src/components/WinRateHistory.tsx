@@ -185,3 +185,4 @@ export function WinRateHistoryCompact({ marketId }: { marketId: string }) {
   );
 }
 
+

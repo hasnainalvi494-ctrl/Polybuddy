@@ -29,3 +29,4 @@ export function TableSkeleton({ rows = 5, columns = 4 }: TableSkeletonProps) {
   );
 }
 
+

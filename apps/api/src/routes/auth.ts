@@ -9,6 +9,15 @@ import crypto from "crypto";
 const SESSION_COOKIE = "polybuddy_session";
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Rate limit config for auth endpoints (stricter than global)
+const AUTH_RATE_LIMIT = {
+  max: 5, // 5 attempts per minute
+  timeWindow: "1 minute",
+  errorResponseBuilder: () => ({
+    error: "Too many login attempts. Please try again later.",
+  }),
+};
+
 const UserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
@@ -29,15 +38,19 @@ const LoginSchema = z.object({
 export const authRoutes: FastifyPluginAsync = async (app) => {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-  // Signup
+  // Signup (rate limited to prevent abuse)
   typedApp.post(
     "/signup",
     {
+      config: {
+        rateLimit: AUTH_RATE_LIMIT,
+      },
       schema: {
         body: SignupSchema,
         response: {
           201: UserSchema,
           409: z.object({ error: z.string() }),
+          429: z.object({ error: z.string() }),
         },
       },
     },
@@ -93,15 +106,19 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  // Login
+  // Login (rate limited to prevent brute force)
   typedApp.post(
     "/login",
     {
+      config: {
+        rateLimit: AUTH_RATE_LIMIT,
+      },
       schema: {
         body: LoginSchema,
         response: {
           200: UserSchema,
           401: z.object({ error: z.string() }),
+          429: z.object({ error: z.string() }),
         },
       },
     },

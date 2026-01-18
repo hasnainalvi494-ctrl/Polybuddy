@@ -46,7 +46,10 @@ export class WebSocketManager {
       this.ws = new WebSocket(this.url);
       
       this.ws.onopen = () => {
-        console.log('[WebSocket] Connected');
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.debug('[WebSocket] Connected');
+        }
         this.reconnectAttempts = 0;
         this.startHeartbeat();
       };
@@ -55,26 +58,27 @@ export class WebSocketManager {
         try {
           const data = JSON.parse(event.data);
           this.messageHandlers.forEach((handler) => handler(data));
-        } catch (error) {
-          console.error('[WebSocket] Failed to parse message:', error);
+        } catch {
+          // Silently ignore parse errors in production
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
         this.errorHandlers.forEach((handler) => handler(error));
       };
 
       this.ws.onclose = () => {
-        console.log('[WebSocket] Disconnected');
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.debug('[WebSocket] Disconnected');
+        }
         this.stopHeartbeat();
         
         if (!this.isIntentionallyClosed) {
           this.scheduleReconnect();
         }
       };
-    } catch (error) {
-      console.error('[WebSocket] Connection failed:', error);
+    } catch {
       this.scheduleReconnect();
     }
   }
@@ -97,9 +101,8 @@ export class WebSocketManager {
   send(data: any): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
-    } else {
-      console.warn('[WebSocket] Cannot send message, not connected');
     }
+    // Silently ignore if not connected
   }
 
   onMessage(handler: MessageHandler): () => void {
@@ -114,12 +117,10 @@ export class WebSocketManager {
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
-      console.error('[WebSocket] Max reconnection attempts reached');
-      return;
+      return; // Stop trying after max attempts
     }
 
     const delay = this.options.reconnectInterval * Math.pow(1.5, this.reconnectAttempts);
-    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.options.maxReconnectAttempts})`);
     
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
@@ -172,4 +173,5 @@ export function useWebSocket(url: string, onMessage: MessageHandler) {
     ws.disconnect();
   };
 }
+
 

@@ -1,6 +1,8 @@
 export * from "./quality/index.js";
 export * from "./clustering/index.js";
 export * from "./performance/index.js";
+export * from "./position-sizing.js";
+// export * from "./pattern-recognition.js"; // File was deleted
 export * from "./types.js";
 
 // Institutional Edge Features

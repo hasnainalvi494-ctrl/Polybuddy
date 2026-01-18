@@ -596,3 +596,4 @@ Users can now receive real-time Telegram alerts for all their tracked markets! ð
 **Deployed**: Ready for production (requires bot token)  
 **Next Steps**: Create bot with BotFather and configure environment variables
 
+

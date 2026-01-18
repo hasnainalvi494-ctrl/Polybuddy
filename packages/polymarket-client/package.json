@@ -1,0 +1,31 @@
+{
+  "name": "@polybuddy/polymarket-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./public-api": "./src/public-api.ts",
+    "./data-api": "./src/data-api.ts",
+    "./websocket": "./src/websocket.ts",
+    "./subgraph": "./src/subgraph.ts",
+    "./sync-markets": "./src/sync-markets.ts"
+  },
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx src/test-real-data.ts",
+    "sync": "tsx src/test-sync.ts"
+  },
+  "dependencies": {
+    "@polybuddy/db": "workspace:*",
+    "drizzle-orm": "^0.38.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.7.0",
+    "dotenv": "^16.4.5"
+  }
+}

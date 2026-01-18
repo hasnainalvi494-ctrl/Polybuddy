@@ -17,11 +17,12 @@ export const metadata: Metadata = {
   description: "Live structural signals across prediction markets. See where retail traders can compete — and where hidden risks quietly punish late or crowded entries.",
   keywords: ["prediction markets", "polymarket", "trading signals", "market analysis"],
   authors: [{ name: "PolyBuddy" }],
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({

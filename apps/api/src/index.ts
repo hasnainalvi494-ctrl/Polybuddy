@@ -104,12 +104,12 @@ async function buildApp() {
   // Security
   await app.register(helmet);
   await app.register(cors, {
-    origin: env.CORS_ORIGIN?.split(",") || [
-      "http://localhost:3000",
-      "http://localhost:3002",
-      "http://localhost:3003",
-    ],
+    // Allow all origins in production for easier sharing
+    // In a real production app, you'd want to restrict this
+    origin: env.CORS_ORIGIN?.split(",") || true,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   });
   
   // Cookie secret - required in production

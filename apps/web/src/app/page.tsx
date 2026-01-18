@@ -65,30 +65,44 @@ interface ArbitrageOpportunity {
 }
 
 export default function HomePage() {
+  // Helper for fetching with timeout and retry (handles Railway cold starts)
+  const fetchWithRetry = async (url: string, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold starts
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      } catch (error) {
+        if (i === retries - 1) throw error;
+        await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+      }
+    }
+  };
+
   // Fetch best bets
   const { data: bestBetsData, isLoading: loadingBets, error: betsError } = useQuery({
     queryKey: ["best-bets-home"],
-    queryFn: async () => {
-      console.log("[DEBUG] Fetching best bets from:", `${API_URL}/api/best-bets-signals`);
-      const response = await fetch(`${API_URL}/api/best-bets-signals`);
-      if (!response.ok) throw new Error(`Failed to fetch best bets: ${response.status}`);
-      return response.json();
-    },
+    queryFn: () => fetchWithRetry(`${API_URL}/api/best-bets-signals`),
     refetchInterval: 30000,
+    retry: 3,
+    retryDelay: 2000,
+    staleTime: 60000, // Keep data fresh for 1 minute
   });
 
   // Fetch elite traders
   const { data: eliteTraders, isLoading: loadingTraders, error: tradersError } = useQuery({
     queryKey: ["elite-traders-home"],
     queryFn: async () => {
-      console.log("[DEBUG] Fetching elite traders from:", `${API_URL}/api/elite-traders?limit=5`);
-      const response = await fetch(`${API_URL}/api/elite-traders?limit=5`);
-      if (!response.ok) throw new Error(`Failed to fetch elite traders: ${response.status}`);
-      const data = await response.json();
-      console.log("[DEBUG] Elite traders response:", data);
+      const data = await fetchWithRetry(`${API_URL}/api/elite-traders?limit=5`);
       return data.traders || [];
     },
     refetchInterval: 60000,
+    retry: 3,
+    retryDelay: 2000,
+    staleTime: 60000,
   });
   
   // Log errors
@@ -98,23 +112,21 @@ export default function HomePage() {
   // Fetch whale activity
   const { data: whaleData, isLoading: loadingWhales } = useQuery({
     queryKey: ["whale-activity-home"],
-    queryFn: async () => {
-      const response = await fetch(`${API_URL}/api/whale-activity?limit=5`);
-      if (!response.ok) throw new Error("Failed to fetch whale activity");
-      return response.json();
-    },
+    queryFn: () => fetchWithRetry(`${API_URL}/api/whale-activity?limit=5`),
     refetchInterval: 30000,
+    retry: 3,
+    retryDelay: 2000,
+    staleTime: 60000,
   });
 
   // Fetch arbitrage opportunities
   const { data: arbitrageData, isLoading: loadingArbitrage } = useQuery({
     queryKey: ["arbitrage-home"],
-    queryFn: async () => {
-      const response = await fetch(`${API_URL}/api/arbitrage`);
-      if (!response.ok) throw new Error("Failed to fetch arbitrage");
-      return response.json();
-    },
+    queryFn: () => fetchWithRetry(`${API_URL}/api/arbitrage`),
     refetchInterval: 60000,
+    retry: 3,
+    retryDelay: 2000,
+    staleTime: 60000,
   });
 
   const bestBets: BestBetSignal[] = bestBetsData?.signals?.slice(0, 5) || [];

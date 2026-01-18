@@ -1,6 +1,27 @@
 // API client for PolyBuddy backend
 
-const API_URL = "https://polybuddy-api-production.up.railway.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
+
+// Helper for fetching with timeout and retry (handles Railway cold starts)
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold starts
+      const response = await fetch(url, { 
+        ...options, 
+        signal: controller.signal 
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      // Wait before retry: 2s, 4s, 8s (exponential backoff)
+      await new Promise(r => setTimeout(r, Math.pow(2, i + 1) * 1000));
+    }
+  }
+  throw new Error("Failed after retries");
+}
 
 interface GetMarketsParams {
   search?: string;
@@ -23,7 +44,7 @@ export async function getMarkets(params: GetMarketsParams = {}) {
 
   const url = `${API_URL}/api/markets?${searchParams.toString()}`;
   
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -39,7 +60,7 @@ export async function getMarkets(params: GetMarketsParams = {}) {
 export async function getCategories() {
   const url = `${API_URL}/api/markets/categories`;
   
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -55,7 +76,7 @@ export async function getCategories() {
 export async function getMarketById(id: string) {
   const url = `${API_URL}/api/markets/${id}`;
   
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -74,7 +95,7 @@ export const getMarket = getMarketById;
 export async function getStructurallyInteresting(limit: number = 6) {
   const url = `${API_URL}/api/markets/structurally-interesting?limit=${limit}`;
   
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -90,7 +111,7 @@ export async function getStructurallyInteresting(limit: number = 6) {
 export async function getRetailSignals(marketId: string) {
   const url = `${API_URL}/api/retail-signals/${marketId}`;
   
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -440,7 +461,7 @@ export async function generateReport(data: any) {
 export async function checkSignalsAvailability() {
   const url = `${API_URL}/api/signals/availability`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to check signals availability");
@@ -466,7 +487,7 @@ export async function getSignals() {
 export async function checkDailySignalsAvailability() {
   const url = `${API_URL}/api/signals/daily/availability`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to check daily signals availability");
@@ -604,7 +625,7 @@ export async function getWalletExposure(walletId: string) {
 export async function getHiddenExposure(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/hidden-exposure`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to fetch hidden exposure");
@@ -617,7 +638,7 @@ export async function getHiddenExposure(marketId: string) {
 export async function getBestBets() {
   const url = `${API_URL}/api/best-bets-signals`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to fetch best bets");
@@ -629,7 +650,7 @@ export async function getBestBets() {
 export async function getBestBetByMarket(marketId: string) {
   const url = `${API_URL}/api/best-bets-signals/${marketId}`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to fetch best bet");
@@ -642,7 +663,7 @@ export async function getBestBetByMarket(marketId: string) {
 export async function getEliteTraders() {
   const url = `${API_URL}/api/elite-traders?limit=100`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to fetch elite traders");
@@ -655,7 +676,7 @@ export async function getEliteTraders() {
 export async function getEliteTrader(address: string) {
   const url = `${API_URL}/api/elite-traders/${address}`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to fetch elite trader");
@@ -731,7 +752,7 @@ export async function getCopyTradingDashboard() {
 export async function getAnalyticsStats() {
   const url = `${API_URL}/api/analytics/stats`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     throw new Error("Failed to fetch analytics stats");
@@ -745,7 +766,7 @@ export async function getAnalyticsStats() {
 export async function getAIAnalysis(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/ai-analysis`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     // Return null for features that may not be implemented yet
@@ -758,7 +779,7 @@ export async function getAIAnalysis(marketId: string) {
 export async function getMarketBehavior(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/behavior`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -770,7 +791,7 @@ export async function getMarketBehavior(marketId: string) {
 export async function getCrossPlatformPrices(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/cross-platform`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -782,7 +803,7 @@ export async function getCrossPlatformPrices(marketId: string) {
 export async function getDisputeForMarket(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/disputes`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -794,7 +815,7 @@ export async function getDisputeForMarket(marketId: string) {
 export async function getRelatedMarkets(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/related`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return { markets: [] };
@@ -806,7 +827,7 @@ export async function getRelatedMarkets(marketId: string) {
 export async function getFlowGuard(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/flow-guard`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -818,7 +839,7 @@ export async function getFlowGuard(marketId: string) {
 export async function getMarketFlow(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/flow`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -830,7 +851,7 @@ export async function getMarketFlow(marketId: string) {
 export async function getOrderBook(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/orderbook`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -842,7 +863,7 @@ export async function getOrderBook(marketId: string) {
 export async function getPriceHistory(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/price-history`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return { prices: [] };
@@ -854,7 +875,7 @@ export async function getPriceHistory(marketId: string) {
 export async function getPublicContext(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/context`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -866,7 +887,7 @@ export async function getPublicContext(marketId: string) {
 export async function getTimingWindow(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/timing`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -878,7 +899,7 @@ export async function getTimingWindow(marketId: string) {
 export async function getWhosInMarket(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/participants`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return { participants: [] };
@@ -890,7 +911,7 @@ export async function getWhosInMarket(marketId: string) {
 export async function getOutcomePathAnalysis(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/outcome-paths`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -902,7 +923,7 @@ export async function getOutcomePathAnalysis(marketId: string) {
 export async function getSlippageEstimate(marketId: string, amount: number, side: string) {
   const url = `${API_URL}/api/markets/${marketId}/slippage?amount=${amount}&side=${side}`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -917,7 +938,7 @@ export const getSlippage = getSlippageEstimate;
 export async function getMarketState(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/state`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -929,7 +950,7 @@ export async function getMarketState(marketId: string) {
 export async function getOutcomePaths(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/outcome-paths`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -941,7 +962,7 @@ export async function getOutcomePaths(marketId: string) {
 export async function getMarketHistory(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/history`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return { history: [] };
@@ -953,7 +974,7 @@ export async function getMarketHistory(marketId: string) {
 export async function getMarketContext(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/context`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -965,7 +986,7 @@ export async function getMarketContext(marketId: string) {
 export async function getMarketRetailSignals(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/retail-signals`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -977,7 +998,7 @@ export async function getMarketRetailSignals(marketId: string) {
 export async function getTimingWindows(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/timing`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return null;
@@ -989,7 +1010,7 @@ export async function getTimingWindows(marketId: string) {
 export async function getParticipants(marketId: string) {
   const url = `${API_URL}/api/markets/${marketId}/participants`;
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
 
   if (!response.ok) {
     return { participants: [] };
@@ -1025,16 +1046,26 @@ export interface DisputeHistory {
 
 export async function getDisputes(): Promise<Dispute[]> {
   const url = `${API_URL}/api/disputes`;
-  const response = await fetch(url);
-  if (!response.ok) return [];
+
+  const response = await fetchWithRetry(url);
+
+  if (!response.ok) {
+    return [];
+  }
+
   const data = await response.json();
   return data.disputes || [];
 }
 
 export async function getDisputeHistory(): Promise<DisputeHistory[]> {
   const url = `${API_URL}/api/disputes/history`;
-  const response = await fetch(url);
-  if (!response.ok) return [];
+
+  const response = await fetchWithRetry(url);
+
+  if (!response.ok) {
+    return [];
+  }
+
   const data = await response.json();
   return data.history || [];
 }
@@ -1057,16 +1088,26 @@ export async function getLeaderboard(category?: string): Promise<Trader[]> {
   const url = category 
     ? `${API_URL}/api/leaderboard?category=${category}`
     : `${API_URL}/api/leaderboard`;
-  const response = await fetch(url);
-  if (!response.ok) return [];
+
+  const response = await fetchWithRetry(url);
+
+  if (!response.ok) {
+    return [];
+  }
+
   const data = await response.json();
   return data.traders || [];
 }
 
 export async function getLeaderboardCategories(): Promise<string[]> {
   const url = `${API_URL}/api/leaderboard/categories`;
-  const response = await fetch(url);
-  if (!response.ok) return [];
+
+  const response = await fetchWithRetry(url);
+
+  if (!response.ok) {
+    return [];
+  }
+
   const data = await response.json();
   return data.categories || [];
 }
@@ -1085,25 +1126,41 @@ export interface TelegramConnection {
 
 export async function getTelegramConnection(): Promise<TelegramConnection> {
   const url = `${API_URL}/api/telegram/connection`;
-  const response = await fetch(url, { credentials: "include" });
-  if (!response.ok) return { isConnected: false };
+
+  const response = await fetch(url, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    return { isConnected: false };
+  }
+
   return response.json();
 }
 
 export async function getTelegramBotInfo() {
   const url = `${API_URL}/api/telegram/bot-info`;
-  const response = await fetch(url);
-  if (!response.ok) return null;
+
+  const response = await fetchWithRetry(url);
+
+  if (!response.ok) {
+    return null;
+  }
+
   return response.json();
 }
 
 export async function disconnectTelegram() {
   const url = `${API_URL}/api/telegram/disconnect`;
-  const response = await fetch(url, { method: "POST", credentials: "include" });
-  if (!response.ok) throw new Error("Failed to disconnect Telegram");
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to disconnect Telegram");
+  }
+
   return response.json();
 }
-
-// Trigger redeploy 2026-01-18 16:20:59
-/ /   R e b u i l d   2 0 2 6 - 0 1 - 1 8   1 7 : 0 7 : 5 9  
- 

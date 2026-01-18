@@ -56,7 +56,10 @@ async function fetchLeaderboard(limit: number = 100): Promise<PolymarketTrader[]
       throw new Error(`Leaderboard API error: ${response.status}`);
     }
 
-    const traders = await response.json() as PolymarketTrader[];
+    const data = await response.json() as { value: PolymarketTrader[]; Count: number } | PolymarketTrader[];
+    
+    // Handle both response formats: { value: [...] } or direct array
+    const traders = Array.isArray(data) ? data : (data.value || []);
     logger.info(`✅ Fetched ${traders.length} real traders from Polymarket`);
     
     return traders;
@@ -238,6 +241,7 @@ export async function syncRealTraders(): Promise<{
         };
 
         // Use raw SQL to ensure all fields are updated correctly
+        // Note: trader_tier and risk_profile are stored as TEXT, not enum
         await db.execute(sql`
           INSERT INTO wallet_performance (
             wallet_address, total_profit, total_volume, win_rate, trade_count,
@@ -247,8 +251,8 @@ export async function syncRealTraders(): Promise<{
             ${wallet}, ${trader.pnl.toFixed(2)}::numeric, ${trader.vol.toFixed(2)}::numeric,
             ${metrics.winRate.toFixed(2)}::numeric, ${Math.floor(trader.vol / 500) + 10},
             ${metrics.roi.toFixed(2)}::numeric, ${metrics.primaryCategory},
-            ${metrics.eliteScore.toFixed(2)}::numeric, ${metrics.traderTier}::trader_tier,
-            ${metrics.riskProfile}::risk_profile, ${metrics.profitFactor.toFixed(4)}::numeric,
+            ${metrics.eliteScore.toFixed(2)}::numeric, ${metrics.traderTier},
+            ${metrics.riskProfile}, ${metrics.profitFactor.toFixed(4)}::numeric,
             ${metrics.sharpeRatio.toFixed(4)}::numeric, ${metrics.maxDrawdown.toFixed(2)}::numeric,
             ${parseInt(trader.rank)}, ${parseInt(trader.rank)}, NOW(), NOW()
           )

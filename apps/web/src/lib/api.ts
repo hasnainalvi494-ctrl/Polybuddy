@@ -1,4 +1,4 @@
-// API client for PolyBuddy backend
+﻿// API client for PolyBuddy backend
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -998,3 +998,108 @@ export async function getParticipants(marketId: string) {
   return response.json();
 }
 
+// ==========================================
+// Disputes API
+// ==========================================
+
+export interface Dispute {
+  id: string;
+  marketId: string;
+  marketQuestion: string;
+  disputeStatus: "commit_stage" | "reveal_stage" | "resolved";
+  votingEndsAt: string | null;
+  proposedOutcome: string;
+  currentOutcome: string;
+  bondAmount: number;
+  createdAt: string;
+}
+
+export interface DisputeHistory {
+  id: string;
+  marketId: string;
+  marketQuestion: string;
+  finalOutcome: string;
+  resolvedAt: string;
+  totalVotes: number;
+}
+
+export async function getDisputes(): Promise<Dispute[]> {
+  const url = `${API_URL}/api/disputes`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.disputes || [];
+}
+
+export async function getDisputeHistory(): Promise<DisputeHistory[]> {
+  const url = `${API_URL}/api/disputes/history`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.history || [];
+}
+
+// ==========================================
+// Leaderboard API
+// ==========================================
+
+export interface Trader {
+  address: string;
+  rank: number;
+  profit: number;
+  winRate: number;
+  tradeCount: number;
+  volume: number;
+  category?: string;
+}
+
+export async function getLeaderboard(category?: string): Promise<Trader[]> {
+  const url = category 
+    ? `${API_URL}/api/leaderboard?category=${category}`
+    : `${API_URL}/api/leaderboard`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.traders || [];
+}
+
+export async function getLeaderboardCategories(): Promise<string[]> {
+  const url = `${API_URL}/api/leaderboard/categories`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.categories || [];
+}
+
+// ==========================================
+// Telegram API
+// ==========================================
+
+export interface TelegramConnection {
+  isConnected: boolean;
+  username?: string;
+  chatId?: string;
+  connectedAt?: string;
+  linkCode?: string;
+}
+
+export async function getTelegramConnection(): Promise<TelegramConnection> {
+  const url = `${API_URL}/api/telegram/connection`;
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) return { isConnected: false };
+  return response.json();
+}
+
+export async function getTelegramBotInfo() {
+  const url = `${API_URL}/api/telegram/bot-info`;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return response.json();
+}
+
+export async function disconnectTelegram() {
+  const url = `${API_URL}/api/telegram/disconnect`;
+  const response = await fetch(url, { method: "POST", credentials: "include" });
+  if (!response.ok) throw new Error("Failed to disconnect Telegram");
+  return response.json();
+}

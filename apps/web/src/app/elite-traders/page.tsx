@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
+const API_URL = "https://polybuddy-api-production.up.railway.app";
 
 interface EliteTrader {
   walletAddress: string;

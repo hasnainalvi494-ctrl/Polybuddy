@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getBestBets, getEliteTraders } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
+// Hardcoded API URL to ensure it works
+const API_URL = "https://polybuddy-api-production.up.railway.app";
 
 interface BestBetSignal {
   id: string;

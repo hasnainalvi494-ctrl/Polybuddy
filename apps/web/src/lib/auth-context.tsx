@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { User, getCurrentUser, login as apiLogin, logout as apiLogout, signup as apiSignup } from "./api";
+import { User, getCurrentUser, login as apiLogin, logout as apiLogout, signup as apiSignup, loginWithWallet as apiLoginWithWallet } from "./api";
 
 type AuthContextType = {
   user: User | null;
@@ -9,6 +9,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
+  loginWithWallet: (walletAddress: string, signature: string, message: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -21,8 +22,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const user = await getCurrentUser();
-      setUser(user);
+      const userData = await getCurrentUser();
+      setUser(userData);
     } catch {
       setUser(null);
     }
@@ -33,13 +34,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
-    const user = await apiLogin(email, password);
-    setUser(user);
+    const userData = await apiLogin(email, password);
+    setUser(userData);
   };
 
   const signup = async (email: string, password: string, name?: string) => {
-    const user = await apiSignup(email, password, name);
-    setUser(user);
+    const userData = await apiSignup(email, password, name);
+    setUser(userData);
+  };
+
+  const loginWithWallet = async (walletAddress: string, signature: string, message: string) => {
+    const userData = await apiLoginWithWallet(walletAddress, signature, message);
+    setUser(userData);
   };
 
   const logout = async () => {
@@ -55,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         signup,
+        loginWithWallet,
         logout,
         refreshUser,
       }}

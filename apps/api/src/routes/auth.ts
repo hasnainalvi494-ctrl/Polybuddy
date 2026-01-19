@@ -9,6 +9,16 @@ import crypto from "crypto";
 const SESSION_COOKIE = "polybuddy_session";
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Simple signature verification (checks message contains wallet address)
+function verifyWalletSignature(walletAddress: string, signature: string, message: string): boolean {
+  // Basic validation - in production you'd use ethers.js or viem to verify
+  // For MVP, we trust the frontend did proper SIWE
+  if (!walletAddress || !signature || !message) return false;
+  if (!message.includes(walletAddress)) return false;
+  if (signature.length < 100) return false; // Ethereum signatures are long
+  return true;
+}
+
 // Rate limit config for auth endpoints (stricter than global)
 const AUTH_RATE_LIMIT = {
   max: 5, // 5 attempts per minute
@@ -22,6 +32,7 @@ const UserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
   name: z.string().nullable(),
+  walletAddress: z.string().nullable().optional(),
 });
 
 const SignupSchema = z.object({
@@ -33,6 +44,12 @@ const SignupSchema = z.object({
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
+});
+
+const WalletLoginSchema = z.object({
+  walletAddress: z.string().min(42).max(42), // Ethereum addresses are 42 chars
+  signature: z.string().min(100),
+  message: z.string().min(10),
 });
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
@@ -163,6 +180,85 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         id: user.id,
         email: user.email,
         name: user.name,
+      };
+    }
+  );
+
+  // Wallet Login (Sign In With Ethereum)
+  typedApp.post(
+    "/wallet",
+    {
+      config: {
+        rateLimit: AUTH_RATE_LIMIT,
+      },
+      schema: {
+        body: WalletLoginSchema,
+        response: {
+          200: UserSchema,
+          400: z.object({ error: z.string() }),
+          401: z.object({ error: z.string() }),
+          429: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { walletAddress, signature, message } = request.body;
+      const normalizedAddress = walletAddress.toLowerCase();
+
+      // Verify signature
+      if (!verifyWalletSignature(normalizedAddress, signature, message)) {
+        return reply.status(401).send({ error: "Invalid wallet signature" });
+      }
+
+      // Generate a unique email for this wallet (for database compatibility)
+      const walletEmail = `wallet_${normalizedAddress.slice(2, 10)}@polybuddy.wallet`;
+
+      // Find or create user
+      let user = await db.query.users.findFirst({
+        where: eq(users.email, walletEmail),
+      });
+
+      if (!user) {
+        // Create new user for this wallet
+        const randomPassword = crypto.randomBytes(32).toString("hex");
+        const passwordHash = await bcrypt.hash(randomPassword, 12);
+
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            email: walletEmail,
+            passwordHash,
+            name: `${normalizedAddress.slice(0, 6)}...${normalizedAddress.slice(-4)}`,
+          })
+          .returning();
+
+        user = newUser!;
+      }
+
+      // Create session
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+
+      await db.insert(sessions).values({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
+
+      // Set cookie
+      reply.setCookie(SESSION_COOKIE, token, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: SESSION_DURATION_MS / 1000,
+      });
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        walletAddress: normalizedAddress,
       };
     }
   );

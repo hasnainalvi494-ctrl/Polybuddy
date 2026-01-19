@@ -2,6 +2,15 @@
 // HARDCODED to avoid any environment variable issues
 const API_URL = "https://polybuddy-api-production.up.railway.app";
 
+// User type for authentication
+export interface User {
+  id: string;
+  email?: string;
+  name?: string;
+  walletAddress?: string;
+  createdAt?: string;
+}
+
 // Helper for fetching with timeout and retry (handles Railway cold starts)
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
   for (let i = 0; i < retries; i++) {
@@ -197,6 +206,27 @@ export async function logout() {
 
   if (!response.ok) {
     throw new Error("Logout failed");
+  }
+
+  return response.json();
+}
+
+// Wallet authentication - sign in with Ethereum wallet
+export async function loginWithWallet(walletAddress: string, signature: string, message: string): Promise<User> {
+  const url = `${API_URL}/api/auth/wallet`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ walletAddress, signature, message }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Wallet login failed" }));
+    throw new Error(error.message || "Wallet login failed");
   }
 
   return response.json();

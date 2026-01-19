@@ -85,11 +85,11 @@ export default function EliteTradersPage() {
   const getTierColor = (tier: string) => {
     switch (tier?.toLowerCase()) {
       case "elite":
-        return "bg-yellow-500/20 text-yellow-300 border-yellow-500/50";
+        return "bg-amber-500/20 text-amber-300 border-amber-500/50";
       case "strong":
-        return "bg-emerald-500/20 text-emerald-300 border-emerald-500/50";
+        return "bg-teal-500/20 text-teal-300 border-teal-500/50";
       case "moderate":
-        return "bg-blue-500/20 text-blue-300 border-blue-500/50";
+        return "bg-sky-500/20 text-sky-300 border-sky-500/50";
       case "developing":
         return "bg-purple-500/20 text-purple-300 border-purple-500/50";
       default:
@@ -111,29 +111,38 @@ export default function EliteTradersPage() {
   };
 
   return (
-    <main className="min-h-screen p-4 md:p-8 bg-[#0a0a1a]">
+    <main className="min-h-screen p-4 md:p-8 bg-[#0a0f14]">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <header className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-white">Elite Traders</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-white">Elite Traders</h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium border border-amber-500/30">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+              </span>
+              LIVE
+            </span>
+          </div>
           <p className="text-gray-400">
             Real top performing traders from Polymarket's leaderboard
           </p>
 
           {/* Stats Bar */}
           {data && (
-            <div className="flex flex-wrap gap-4 mt-4 p-4 bg-[#14142b] rounded-xl border border-[#252545]">
+            <div className="flex flex-wrap gap-4 mt-4 p-4 bg-[#111820] rounded-xl border border-[#243040]">
               <div>
                 <p className="text-sm text-gray-400">Total Traders</p>
                 <p className="text-2xl font-bold text-white">{data.total}</p>
               </div>
-              <div className="border-l border-[#252545] pl-4">
+              <div className="border-l border-[#243040] pl-4">
                 <p className="text-sm text-gray-400">Elite Tier</p>
-                <p className="text-2xl font-bold text-yellow-400">{data.eliteCount}</p>
+                <p className="text-2xl font-bold text-amber-400">{data.eliteCount}</p>
               </div>
-              <div className="border-l border-[#252545] pl-4">
+              <div className="border-l border-[#243040] pl-4">
                 <p className="text-sm text-gray-400">Strong Tier</p>
-                <p className="text-2xl font-bold text-emerald-400">{data.strongCount}</p>
+                <p className="text-2xl font-bold text-teal-400">{data.strongCount}</p>
               </div>
             </div>
           )}
@@ -145,8 +154,8 @@ export default function EliteTradersPage() {
             onClick={() => setSelectedTier(null)}
             className={`px-4 py-2 rounded-lg transition-all ${
               selectedTier === null
-                ? "bg-primary-500 text-white shadow-glow-sm"
-                : "bg-[#14142b] text-gray-300 border border-[#252545] hover:bg-[#1a1a3e]"
+                ? "bg-teal-500 text-white shadow-glow-sm"
+                : "bg-[#111820] text-gray-300 border border-[#243040] hover:bg-[#1a2332]"
             }`}
           >
             All Tiers
@@ -157,8 +166,8 @@ export default function EliteTradersPage() {
               onClick={() => setSelectedTier(tier)}
               className={`px-4 py-2 rounded-lg transition-all capitalize ${
                 selectedTier === tier
-                  ? "bg-primary-500 text-white shadow-glow-sm"
-                  : "bg-[#14142b] text-gray-300 border border-[#252545] hover:bg-[#1a1a3e]"
+                  ? "bg-teal-500 text-white shadow-glow-sm"
+                  : "bg-[#111820] text-gray-300 border border-[#243040] hover:bg-[#1a2332]"
               }`}
             >
               {tier}
@@ -169,18 +178,18 @@ export default function EliteTradersPage() {
         {/* Loading State */}
         {isLoading && (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-500 border-t-transparent"></div>
             <p className="mt-2 text-gray-400">Loading elite traders...</p>
           </div>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6 text-center">
-            <p className="text-amber-300 font-medium mb-2">
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-center">
+            <p className="text-rose-300 font-medium mb-2">
               Trader data temporarily unavailable
             </p>
-            <p className="text-sm text-amber-400/80">
+            <p className="text-sm text-rose-400/80">
               We're refreshing trader data. Please try again shortly.
             </p>
           </div>
@@ -192,7 +201,7 @@ export default function EliteTradersPage() {
             {data.traders.map((trader, index) => (
               <div
                 key={trader.walletAddress}
-                className="bg-[#14142b] rounded-xl border border-[#252545] p-5 hover:border-primary-500/50 transition-all"
+                className="bg-[#111820] rounded-xl border border-[#243040] p-5 hover:border-teal-500/50 transition-all hover:shadow-glow-md"
               >
                 {/* Header with rank and tier */}
                 <div className="flex items-start justify-between mb-4">
@@ -236,7 +245,7 @@ export default function EliteTradersPage() {
                 </div>
 
                 {/* Wallet address with copy and links */}
-                <div className="flex items-center gap-2 mb-4 p-2 bg-[#0a0a1a] rounded-lg">
+                <div className="flex items-center gap-2 mb-4 p-2 bg-[#0a0f14] rounded-lg">
                   <span className="font-mono text-sm text-gray-400 flex-1">
                     {formatAddress(trader.walletAddress)}
                   </span>
@@ -281,28 +290,28 @@ export default function EliteTradersPage() {
 
                 {/* Key metrics */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                  <div className="p-2 bg-[#0a0f14] rounded-lg">
                     <p className="text-xs text-gray-500">Elite Score</p>
-                    <p className="text-lg font-bold text-primary-400">{trader.eliteScore?.toFixed(1) || "-"}</p>
+                    <p className="text-lg font-bold text-teal-400">{trader.eliteScore?.toFixed(1) || "-"}</p>
                   </div>
-                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                  <div className="p-2 bg-[#0a0f14] rounded-lg">
                     <p className="text-xs text-gray-500">Win Rate</p>
                     <p className="text-lg font-bold text-emerald-400">{formatPercentage(trader.winRate || 0)}</p>
                   </div>
-                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                  <div className="p-2 bg-[#0a0f14] rounded-lg">
                     <p className="text-xs text-gray-500">Total Profit</p>
-                    <p className={`text-lg font-bold ${(trader.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    <p className={`text-lg font-bold ${(trader.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                       {formatCurrency(trader.totalProfit || 0)}
                     </p>
                   </div>
-                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                  <div className="p-2 bg-[#0a0f14] rounded-lg">
                     <p className="text-xs text-gray-500">Volume</p>
                     <p className="text-lg font-bold text-white">{formatCurrency(trader.totalVolume || 0)}</p>
                   </div>
                 </div>
 
                 {/* Additional stats */}
-                <div className="flex items-center justify-between text-sm border-t border-[#252545] pt-3">
+                <div className="flex items-center justify-between text-sm border-t border-[#243040] pt-3">
                   <div className="flex items-center gap-3">
                     <span className="text-gray-400">
                       <span className="text-gray-500">Sharpe:</span> {(trader.sharpeRatio || 0).toFixed(2)}
@@ -318,9 +327,9 @@ export default function EliteTradersPage() {
 
                 {/* Recommended badge */}
                 {trader.isRecommended && (
-                  <div className="mt-3 py-2 px-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2">
-                    <span className="text-yellow-400">⭐</span>
-                    <span className="text-sm text-yellow-300">Recommended for copy trading</span>
+                  <div className="mt-3 py-2 px-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-2">
+                    <span className="text-amber-400">⭐</span>
+                    <span className="text-sm text-amber-300">Recommended for copy trading</span>
                   </div>
                 )}
               </div>
@@ -330,11 +339,11 @@ export default function EliteTradersPage() {
 
         {/* Empty State */}
         {data && data.traders && data.traders.length === 0 && !isLoading && !error && (
-          <div className="text-center py-12 bg-[#14142b] rounded-xl border border-[#252545]">
+          <div className="text-center py-12 bg-[#111820] rounded-xl border border-[#243040]">
             <p className="text-gray-400">No traders found for the selected tier.</p>
             <button
               onClick={() => setSelectedTier(null)}
-              className="mt-4 text-primary-400 hover:text-primary-300"
+              className="mt-4 text-teal-400 hover:text-teal-300"
             >
               View all traders
             </button>
@@ -342,22 +351,22 @@ export default function EliteTradersPage() {
         )}
 
         {/* Scoring Explanation */}
-        <section className="mt-8 p-6 bg-[#14142b] rounded-xl border border-[#252545]">
+        <section className="mt-8 p-6 bg-[#111820] rounded-xl border border-[#243040]">
           <h2 className="text-lg font-semibold text-white mb-4">Elite Score Methodology</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-            <div className="p-3 rounded-lg bg-[#0a0a1a]">
-              <p className="text-yellow-400 font-medium mb-1">Elite (90+)</p>
+            <div className="p-3 rounded-lg bg-[#0a0f14]">
+              <p className="text-amber-400 font-medium mb-1">Elite (90+)</p>
               <p className="text-gray-400">Top 1% performers with exceptional win rates, profit factors, and risk management.</p>
             </div>
-            <div className="p-3 rounded-lg bg-[#0a0a1a]">
-              <p className="text-emerald-400 font-medium mb-1">Strong (75-89)</p>
+            <div className="p-3 rounded-lg bg-[#0a0f14]">
+              <p className="text-teal-400 font-medium mb-1">Strong (75-89)</p>
               <p className="text-gray-400">Consistently profitable traders with above-average risk-adjusted returns.</p>
             </div>
-            <div className="p-3 rounded-lg bg-[#0a0a1a]">
-              <p className="text-blue-400 font-medium mb-1">Moderate (60-74)</p>
+            <div className="p-3 rounded-lg bg-[#0a0f14]">
+              <p className="text-sky-400 font-medium mb-1">Moderate (60-74)</p>
               <p className="text-gray-400">Solid performers with good potential for improvement.</p>
             </div>
-            <div className="p-3 rounded-lg bg-[#0a0a1a]">
+            <div className="p-3 rounded-lg bg-[#0a0f14]">
               <p className="text-purple-400 font-medium mb-1">Developing (&lt;60)</p>
               <p className="text-gray-400">Traders building their track record with limited data.</p>
             </div>

@@ -17,31 +17,19 @@ const navItems = [
     ),
   },
   {
-    href: "/markets",
-    label: "Markets",
+    href: "/best-bets",
+    label: "Signals",
     icon: (
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+        d="M13 10V3L4 14h7v7l9-11h-7z"
       />
     ),
   },
   {
-    href: "/calendar",
-    label: "Calendar",
-    icon: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-      />
-    ),
-  },
-  {
-    href: "/leaderboard",
+    href: "/elite-traders",
     label: "Traders",
     icon: (
       <path
@@ -52,13 +40,25 @@ const navItems = [
       />
     ),
   },
+  {
+    href: "/markets",
+    label: "Markets",
+    icon: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+      />
+    ),
+  },
 ];
 
 export function MobileBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#111111] border-t border-[#1f1f1f] z-50 safe-area-inset-bottom backdrop-blur-lg bg-opacity-95">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#111820]/95 border-t border-[#243040] z-50 safe-area-inset-bottom backdrop-blur-lg">
       <div className="grid grid-cols-4 h-16">
         {navItems.map((item) => {
           const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -68,7 +68,7 @@ export function MobileBottomNav() {
               key={item.href}
               href={item.href}
               className={`flex flex-col items-center justify-center gap-1 transition-colors min-h-[44px] ${
-                isActive ? "text-emerald-400" : "text-gray-400 active:text-gray-200"
+                isActive ? "text-teal-400" : "text-gray-400 active:text-gray-200"
               }`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,4 +82,3 @@ export function MobileBottomNav() {
     </nav>
   );
 }
-

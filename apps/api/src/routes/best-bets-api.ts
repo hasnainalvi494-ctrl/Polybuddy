@@ -240,7 +240,6 @@ export async function bestBetsApiRoutes(app: FastifyInstance) {
             bbs.risk_reward_ratio,
             COALESCE(
               (m.metadata->>'currentPrice')::numeric,
-              (SELECT price FROM market_snapshots WHERE market_id = m.id ORDER BY snapshot_at DESC LIMIT 1),
               0.50
             ) as current_price
           FROM best_bet_signals bbs
@@ -392,7 +391,6 @@ export async function bestBetsApiRoutes(app: FastifyInstance) {
             m.category as market_category,
             COALESCE(
               (m.metadata->>'currentPrice')::numeric,
-              (SELECT price FROM market_snapshots WHERE market_id = m.id ORDER BY snapshot_at DESC LIMIT 1),
               0.50
             ) as current_price
           FROM best_bet_signals bbs
@@ -525,7 +523,6 @@ export async function bestBetsApiRoutes(app: FastifyInstance) {
             m.category as market_category,
             COALESCE(
               (m.metadata->>'currentPrice')::numeric,
-              (SELECT price FROM market_snapshots WHERE market_id = m.id ORDER BY snapshot_at DESC LIMIT 1),
               0.50
             ) as current_price
           FROM best_bet_signals bbs

@@ -460,13 +460,20 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         return reply.status(404).send({ error: `Market ${id} not found` });
       }
 
-      // Get latest snapshot
-      const [snapshot] = await db
-        .select()
-        .from(marketSnapshots)
-        .where(eq(marketSnapshots.marketId, id))
-        .orderBy(desc(marketSnapshots.snapshotAt))
-        .limit(1);
+      // Get latest snapshot (may not exist)
+      let snapshot = null;
+      try {
+        const snapshots = await db
+          .select()
+          .from(marketSnapshots)
+          .where(eq(marketSnapshots.marketId, id))
+          .orderBy(desc(marketSnapshots.snapshotAt))
+          .limit(1);
+        snapshot = snapshots[0] || null;
+      } catch {
+        // Table may not exist or be empty
+        snapshot = null;
+      }
 
       const spreadScore = market.spreadScore ? Number(market.spreadScore) : null;
       const depthScore = market.depthScore ? Number(market.depthScore) : null;
@@ -505,12 +512,19 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
 
       const isLowQuality = market.qualityGrade === "D" || market.qualityGrade === "F";
 
-      // Get behavior cluster dimensions
-      const [behaviorDims] = await db
-        .select()
-        .from(marketBehaviorDimensions)
-        .where(eq(marketBehaviorDimensions.marketId, id))
-        .limit(1);
+      // Get behavior cluster dimensions (may not exist in database yet)
+      let behaviorDims = null;
+      try {
+        const dims = await db
+          .select()
+          .from(marketBehaviorDimensions)
+          .where(eq(marketBehaviorDimensions.marketId, id))
+          .limit(1);
+        behaviorDims = dims[0] || null;
+      } catch {
+        // Table may not exist yet
+        behaviorDims = null;
+      }
 
       const behaviorCluster = behaviorDims ? {
         cluster: behaviorDims.behaviorCluster,

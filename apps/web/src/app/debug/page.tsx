@@ -1,138 +1,111 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-const API_URL = "https://polybuddy-api-production.up.railway.app";
+import { useEffect, useState } from "react";
 
 export default function DebugPage() {
-  const [results, setResults] = useState<Record<string, any>>({});
+  const [results, setResults] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function runTests() {
-      const tests: Record<string, any> = {};
+    async function test() {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
+      console.log("Testing with API_URL:", API_URL);
+      
+      const tests = {
+        health: `${API_URL}/health`,
+        bestBets: `${API_URL}/api/best-bets-signals`,
+        markets: `${API_URL}/api/markets?limit=3`,
+        eliteTraders: `${API_URL}/api/elite-traders?limit=3`,
+      };
 
-      // Test 1: Health check
-      try {
-        const start = Date.now();
-        const res = await fetch(`${API_URL}/health`);
-        const data = await res.json();
-        tests.health = { 
-          status: "✅ OK", 
-          time: `${Date.now() - start}ms`,
-          data 
-        };
-      } catch (e: any) {
-        tests.health = { status: "❌ FAILED", error: e.message };
+      const testResults: any = {};
+
+      for (const [name, url] of Object.entries(tests)) {
+        try {
+          console.log(`Testing ${name}:`, url);
+          const response = await fetch(url, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache',
+            },
+          });
+          
+          if (!response.ok) {
+            testResults[name] = {
+              error: `HTTP ${response.status}: ${response.statusText}`,
+              status: response.status,
+            };
+          } else {
+            const data = await response.json();
+            testResults[name] = {
+              success: true,
+              data: JSON.stringify(data).substring(0, 200) + "...",
+              fullData: data,
+            };
+          }
+        } catch (error: any) {
+          testResults[name] = {
+            error: error.message,
+            stack: error.stack,
+          };
+        }
       }
 
-      // Test 2: Elite traders
-      try {
-        const start = Date.now();
-        const res = await fetch(`${API_URL}/api/elite-traders?limit=2`);
-        const data = await res.json();
-        tests.eliteTraders = { 
-          status: "✅ OK", 
-          time: `${Date.now() - start}ms`,
-          count: data.traders?.length || 0,
-          sample: data.traders?.[0]?.walletAddress || "none"
-        };
-      } catch (e: any) {
-        tests.eliteTraders = { status: "❌ FAILED", error: e.message };
-      }
-
-      // Test 3: Markets
-      try {
-        const start = Date.now();
-        const res = await fetch(`${API_URL}/api/markets?limit=2`);
-        const data = await res.json();
-        tests.markets = { 
-          status: "✅ OK", 
-          time: `${Date.now() - start}ms`,
-          count: data.data?.length || 0,
-          sample: data.data?.[0]?.question?.substring(0, 30) || "none"
-        };
-      } catch (e: any) {
-        tests.markets = { status: "❌ FAILED", error: e.message };
-      }
-
-      // Test 4: Best bets
-      try {
-        const start = Date.now();
-        const res = await fetch(`${API_URL}/api/best-bets-signals`);
-        const data = await res.json();
-        tests.bestBets = { 
-          status: "✅ OK", 
-          time: `${Date.now() - start}ms`,
-          count: data.signals?.length || 0
-        };
-      } catch (e: any) {
-        tests.bestBets = { status: "❌ FAILED", error: e.message };
-      }
-
-      // Test 5: Whale activity
-      try {
-        const start = Date.now();
-        const res = await fetch(`${API_URL}/api/whale-activity?limit=2`);
-        const data = await res.json();
-        tests.whaleActivity = { 
-          status: "✅ OK", 
-          time: `${Date.now() - start}ms`,
-          count: data.trades?.length || 0
-        };
-      } catch (e: any) {
-        tests.whaleActivity = { status: "❌ FAILED", error: e.message };
-      }
-
-      setResults(tests);
+      console.log("Test results:", testResults);
+      setResults(testResults);
       setLoading(false);
     }
 
-    runTests();
+    test();
   }, []);
 
+  if (loading) {
+    return (
+      <div className="p-8 bg-black text-green-400 font-mono min-h-screen">
+        <h1 className="text-2xl mb-4">🔍 Testing API Connection...</h1>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-black text-white p-8">
-      <h1 className="text-3xl font-bold mb-2">🔧 PolyBuddy Debug Page</h1>
-      <p className="text-gray-400 mb-6">API URL: {API_URL}</p>
+    <div className="p-8 bg-black text-green-400 font-mono min-h-screen">
+      <h1 className="text-2xl mb-4">🔍 API Debug Results</h1>
+      
+      <div className="mb-4 p-4 border border-green-400">
+        <strong>API URL:</strong> {process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app"}
+      </div>
 
-      {loading ? (
-        <div className="text-yellow-400 text-xl animate-pulse">
-          Running API tests...
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {Object.entries(results).map(([name, result]) => (
-            <div 
-              key={name} 
-              className={`p-4 rounded-lg border ${
-                result.status.includes("✅") 
-                  ? "border-green-500 bg-green-500/10" 
-                  : "border-red-500 bg-red-500/10"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-lg capitalize">
-                  {name.replace(/([A-Z])/g, ' $1').trim()}
-                </span>
-                <span>{result.status}</span>
-              </div>
-              <pre className="mt-2 text-sm text-gray-300 overflow-auto">
-                {JSON.stringify(result, null, 2)}
-              </pre>
+      {Object.entries(results).map(([name, result]: [string, any]) => (
+        <div key={name} className="mb-6 p-4 border border-green-400">
+          <h2 className="text-xl mb-2">
+            {result.error ? "❌" : "✅"} {name}
+          </h2>
+          
+          {result.error ? (
+            <div className="text-red-400">
+              <p><strong>Error:</strong> {result.error}</p>
+              {result.stack && (
+                <pre className="text-xs mt-2 overflow-auto">
+                  {result.stack}
+                </pre>
+              )}
             </div>
-          ))}
-
-          <div className="mt-8 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
-            <h2 className="font-bold text-lg mb-2">What this means:</h2>
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              <li>If all tests show ✅ - API works, issue is in frontend components</li>
-              <li>If tests show ❌ FAILED - There's a CORS or network issue</li>
-              <li>Share a screenshot of this page to help debug</li>
-            </ul>
-          </div>
+          ) : (
+            <div>
+              <p className="text-sm mb-2">{result.data}</p>
+              
+              {result.fullData && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer">View full response</summary>
+                  <pre className="text-xs mt-2 overflow-auto max-h-96 bg-gray-900 p-2">
+                    {JSON.stringify(result.fullData, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   );
 }

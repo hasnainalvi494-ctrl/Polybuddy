@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "./db.js";
+import { db } from "@polybuddy/db";
 import { logger } from "./logger.js";
 
 /**
@@ -91,8 +91,9 @@ export async function initializeMissingTables(): Promise<void> {
 
     logger.info("✅ All database tables initialized successfully");
 
-  } catch (error) {
-    logger.error("Failed to initialize missing tables", error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to initialize missing tables: ${message}`);
     // Don't throw - allow server to start even if this fails
     // The specific queries will fail later with better error context
   }

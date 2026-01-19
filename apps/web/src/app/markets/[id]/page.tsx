@@ -102,7 +102,7 @@ export default function MarketDetailPage() {
         <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 mb-6">
           <div className="flex items-start justify-between gap-4 mb-4">
             <h1 className="text-2xl font-bold text-white">
-              {market.question}
+              {market.question || "Market Details"}
             </h1>
             {market.qualityGrade && (
               <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
@@ -225,7 +225,7 @@ export default function MarketDetailPage() {
             Search for this market on Polymarket to trade
           </p>
           <a 
-            href={`https://polymarket.com/markets?_q=${encodeURIComponent(market.question.slice(0, 50))}`}
+            href={`https://polymarket.com/markets?_q=${encodeURIComponent((market.question || '').slice(0, 50))}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"

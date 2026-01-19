@@ -232,9 +232,13 @@ async function main() {
     } else {
       app.log.info(`✅ Database connected (latency: ${dbHealth.latencyMs}ms)`);
 
-      // Initialize any missing tables before starting jobs
+      // Initialize any missing tables before starting jobs (non-blocking)
       app.log.info("Initializing database tables...");
-      await initializeMissingTables();
+      try {
+        await initializeMissingTables();
+      } catch (initError) {
+        app.log.warn("Table initialization failed - continuing with existing schema");
+      }
 
       // Start market sync job (runs every 15 minutes) - PRIORITY: populates market data
       app.log.info("Starting market sync job...");

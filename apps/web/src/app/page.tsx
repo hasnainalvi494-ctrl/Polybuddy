@@ -6,8 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getBestBets, getEliteTraders } from "@/lib/api";
 
-// Hardcoded API URL to ensure it works
-const API_URL = "https://polybuddy-api-production.up.railway.app";
+// Use environment variable or fallback to Railway
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polybuddy-api-production.up.railway.app";
 
 interface BestBetSignal {
   id: string;
@@ -69,6 +69,7 @@ export default function HomePage() {
   const fetchWithRetry = async (url: string, retries = 3) => {
     for (let i = 0; i < retries; i++) {
       try {
+        console.log(`[API] Fetching: ${url} (attempt ${i + 1}/${retries})`);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold starts
         const response = await fetch(url, { 
@@ -80,9 +81,15 @@ export default function HomePage() {
           },
         });
         clearTimeout(timeoutId);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
+        if (!response.ok) {
+          console.error(`[API] HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        console.log(`[API] Success:`, data);
+        return data;
       } catch (error) {
+        console.error(`[API] Error (attempt ${i + 1}):`, error);
         if (i === retries - 1) throw error;
         await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
       }
@@ -211,6 +218,26 @@ export default function HomePage() {
               <span className="text-primary-300 font-medium">Connecting to live data...</span>
             </div>
             <p className="text-sm text-gray-400 mt-2">This may take a few seconds on first load</p>
+          </div>
+        )}
+
+        {/* Error Banner - show API errors */}
+        {(betsError || tradersError) && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-red-300 font-medium">Unable to connect to API</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  {betsError instanceof Error ? betsError.message : 'API connection error'}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  API: {API_URL}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

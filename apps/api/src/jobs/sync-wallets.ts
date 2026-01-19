@@ -281,8 +281,14 @@ async function fetchLargeTradesFromGamma(): Promise<PolymarketTrade[]> {
           const estimatedSize = volume24h / (tradeCount * 2);
           
           if (estimatedSize >= WHALE_THRESHOLD_USD / 2) {
+            // Generate a deterministic UUID from market ID and index
+            // This prevents duplicates and ensures valid UUID format
+            const crypto = require('crypto');
+            const hash = crypto.createHash('sha256').update(`${market.id}-${i}`).digest('hex');
+            const uuid = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+            
             trades.push({
-              id: `gamma-${market.id}-${i}`,
+              id: uuid,
               market: market.id,
               marketQuestion: market.question,
               asset_id: `${market.id}-0`,
@@ -292,7 +298,7 @@ async function fetchLargeTradesFromGamma(): Promise<PolymarketTrade[]> {
               price: String(prices[0] || 0.5),
               size: estimatedSize.toFixed(2),
               timestamp: Date.now() - (i * 3600000), // Spread over last few hours
-              transaction_hash: `gamma-${market.id}-${i}`,
+              transaction_hash: uuid, // Use same UUID for tx hash
             });
           }
         }
@@ -711,6 +717,7 @@ async function trackWhaleActivity(trades: PolymarketTrade[]): Promise<void> {
       }
 
       // Insert whale activity with ISO string timestamp
+      // Let database auto-generate the UUID
       await db.insert(whaleActivity).values({
         walletAddress: trade.maker_address,
         marketId: trade.market,

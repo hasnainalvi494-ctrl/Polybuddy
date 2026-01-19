@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polybuddy API Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #00ff00; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #00ff00; }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        pre { background: #000; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Polybuddy API Connection Test</h1>
+    
+    <div class="section">
+        <h2>Test Results:</h2>
+        <div id="results">Testing...</div>
+    </div>
+
+    <script>
+        const API_URL = "https://polybuddy-api-production.up.railway.app";
+        const resultsDiv = document.getElementById('results');
+
+        async function testAPI() {
+            let html = '';
+
+            // Test 1: Health Check
+            html += '<h3>1. API Health Check</h3>';
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                html += `<div class="success">✅ API is alive: ${JSON.stringify(data)}</div>`;
+            } catch (error) {
+                html += `<div class="error">❌ API health failed: ${error.message}</div>`;
+            }
+
+            // Test 2: Best Bets Signals
+            html += '<h3>2. Best Bets Signals</h3>';
+            try {
+                const response = await fetch(`${API_URL}/api/best-bets-signals`);
+                const data = await response.json();
+                html += `<div class="success">✅ Found ${data.signals?.length || 0} signals</div>`;
+                html += `<pre>${JSON.stringify(data, null, 2).substring(0, 500)}...</pre>`;
+            } catch (error) {
+                html += `<div class="error">❌ Best bets failed: ${error.message}</div>`;
+            }
+
+            // Test 3: Markets
+            html += '<h3>3. Markets</h3>';
+            try {
+                const response = await fetch(`${API_URL}/api/markets?limit=5`);
+                const data = await response.json();
+                html += `<div class="success">✅ Found ${data.total || 0} total markets</div>`;
+                html += `<pre>${JSON.stringify(data.data?.slice(0, 2), null, 2)}</pre>`;
+            } catch (error) {
+                html += `<div class="error">❌ Markets failed: ${error.message}</div>`;
+            }
+
+            // Test 4: Elite Traders
+            html += '<h3>4. Elite Traders</h3>';
+            try {
+                const response = await fetch(`${API_URL}/api/elite-traders?limit=5`);
+                const data = await response.json();
+                html += `<div class="success">✅ Found ${data.traders?.length || 0} traders</div>`;
+            } catch (error) {
+                html += `<div class="error">❌ Elite traders failed: ${error.message}</div>`;
+            }
+
+            // Test 5: Check CORS
+            html += '<h3>5. CORS Headers</h3>';
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const corsHeader = response.headers.get('access-control-allow-origin');
+                html += `<div class="success">✅ CORS: ${corsHeader || 'Not set'}</div>`;
+            } catch (error) {
+                html += `<div class="error">❌ CORS check failed: ${error.message}</div>`;
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        testAPI();
+    </script>
+</body>
+</html>

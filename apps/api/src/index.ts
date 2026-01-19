@@ -117,15 +117,22 @@ async function buildApp() {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  // Security
-  await app.register(helmet);
+  // CORS - must be registered BEFORE helmet
   await app.register(cors, {
-    // Allow all origins in production for easier sharing
-    // In a real production app, you'd want to restrict this
-    origin: env.CORS_ORIGIN?.split(",") || true,
+    // Allow all origins for public API access
+    origin: true,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Cache-Control", "Pragma"],
+    exposedHeaders: ["Content-Length", "X-Request-Id"],
+    maxAge: 86400, // Cache preflight for 24 hours
+  });
+
+  // Security - configured to allow cross-origin API access
+  await app.register(helmet, {
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "unsafe-none" },
+    contentSecurityPolicy: false, // Disable CSP for API
   });
   
   // Cookie secret - required in production

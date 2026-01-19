@@ -444,66 +444,14 @@ async function calculateTradeMetrics(trades: PolymarketTrade[]): Promise<Map<str
 }
 
 /**
- * Insert trades into database - handles real Polymarket data
- * Note: This function is disabled until wallet_trades table is properly set up
+ * Insert trades into database - DISABLED
+ * wallet_trades table not required for MVP functionality
  */
 async function storeTrades(trades: PolymarketTrade[]): Promise<void> {
-  if (trades.length === 0) return;
-
-  // Skip storing trades - table may not exist and we don't need it for core functionality
-  logger.info(`💾 Skipping trade storage (${trades.length} trades) - feature disabled`);
-  return;
-
-  /* DISABLED - wallet_trades table not required for MVP
-  logger.info(`💾 Storing ${trades.length} trades...`);
-
-  let stored = 0;
-  let skipped = 0;
-
-  for (const trade of trades) {
-    try {
-      // Check if trade already exists by transaction hash
-      if (trade.transaction_hash) {
-        const existing = await db
-          .select()
-          .from(walletTrades)
-          .where(eq(walletTrades.txHash, trade.transaction_hash))
-          .limit(1);
-
-        if (existing.length > 0) {
-          skipped++;
-          continue; // Skip duplicate
-        }
-      }
-
-      // Convert timestamp to ISO string for proper database insertion
-      const tradeTimestamp = new Date(trade.timestamp);
-
-      // Insert trade
-      await db.insert(walletTrades).values({
-        walletAddress: trade.maker_address,
-        marketId: trade.market,
-        side: trade.side.toLowerCase(),
-        outcome: trade.outcome.toLowerCase(),
-        entryPrice: trade.price || "0",
-        exitPrice: null,
-        size: trade.size || "0",
-        profit: null,
-        timestamp: tradeTimestamp,
-        txHash: trade.transaction_hash || `auto-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      });
-      
-      stored++;
-    } catch (error) {
-      // Log but don't fail on individual trade errors
-      if (error instanceof Error && !error.message.includes("duplicate")) {
-        logger.error({ error: error.message, tradeId: trade.id }, "Failed to store trade");
-      }
-    }
+  // Feature disabled - trade storage not needed for core app
+  if (trades.length > 0) {
+    logger.info(`💾 Trade storage disabled (${trades.length} trades skipped)`);
   }
-
-  logger.info(`💾 Trades stored: ${stored} new, ${skipped} skipped (duplicates)`);
-  */
 }
 
 /**

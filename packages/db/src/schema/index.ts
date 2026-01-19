@@ -960,6 +960,12 @@ export const walletPerformance = pgTable("wallet_performance", {
   rank: integer("rank"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   
+  // User Profile Fields (from Polymarket leaderboard)
+  userName: text("user_name"),
+  xUsername: text("x_username"), // Twitter/X handle
+  profileImage: text("profile_image"),
+  verifiedBadge: boolean("verified_badge").default(false),
+  
   // Elite Trader Scoring Columns
   eliteScore: decimal("elite_score", { precision: 5, scale: 2 }),
   traderTier: text("trader_tier"), // 'elite' | 'strong' | 'moderate' | 'developing' | 'limited'

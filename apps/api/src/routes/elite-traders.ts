@@ -17,6 +17,12 @@ const eliteTraderSchema = z.object({
   traderTier: z.enum(["elite", "strong", "moderate", "developing", "limited"]),
   riskProfile: z.enum(["conservative", "moderate", "aggressive"]),
   
+  // User profile (from Polymarket)
+  userName: z.string().nullable(),
+  xUsername: z.string().nullable(),
+  profileImage: z.string().nullable(),
+  verifiedBadge: z.boolean(),
+  
   // Performance metrics
   winRate: z.number(),
   profitFactor: z.number(),
@@ -128,7 +134,11 @@ export async function eliteTraderRoutes(app: FastifyInstance) {
             secondary_category,
             category_specialization,
             longest_win_streak,
-            consecutive_wins
+            consecutive_wins,
+            user_name,
+            x_username,
+            profile_image,
+            verified_badge
           FROM wallet_performance
           WHERE elite_score IS NOT NULL
           ${tier ? sql`AND trader_tier = ${tier}` : sql``}
@@ -154,6 +164,12 @@ export async function eliteTraderRoutes(app: FastifyInstance) {
           eliteScore: parseFloat(row.elite_score || 0),
           traderTier: row.trader_tier || 'limited',
           riskProfile: row.risk_profile || 'moderate',
+          // User profile fields
+          userName: row.user_name || null,
+          xUsername: row.x_username || null,
+          profileImage: row.profile_image || null,
+          verifiedBadge: row.verified_badge || false,
+          // Performance metrics
           winRate: parseFloat(row.win_rate || 0),
           profitFactor: parseFloat(row.profit_factor || 0),
           sharpeRatio: parseFloat(row.sharpe_ratio || 0),

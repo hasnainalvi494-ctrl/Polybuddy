@@ -10,6 +10,12 @@ interface EliteTrader {
   eliteScore: number;
   traderTier: string;
   riskProfile: string;
+  // User profile fields
+  userName: string | null;
+  xUsername: string | null;
+  profileImage: string | null;
+  verifiedBadge: boolean;
+  // Performance metrics
   winRate: number;
   profitFactor: number;
   sharpeRatio: number;
@@ -34,6 +40,7 @@ interface EliteTradersResponse {
 
 export default function EliteTradersPage() {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<EliteTradersResponse>({
     queryKey: ["elite-traders", selectedTier],
@@ -62,7 +69,17 @@ export default function EliteTradersPage() {
 
   const formatAddress = (address: string) => {
     if (!address) return "-";
-    return `${address.slice(0, 8)}...${address.slice(-6)}`;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const copyAddress = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(address);
+      setTimeout(() => setCopiedAddress(null), 2000);
+    } catch (e) {
+      console.error("Failed to copy:", e);
+    }
   };
 
   const getTierColor = (tier: string) => {
@@ -100,7 +117,7 @@ export default function EliteTradersPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-bold mb-2 text-white">Elite Traders</h1>
           <p className="text-gray-400">
-            Top performing traders on Polymarket identified by our AI scoring system
+            Real top performing traders from Polymarket's leaderboard
           </p>
 
           {/* Stats Bar */}
@@ -169,98 +186,145 @@ export default function EliteTradersPage() {
           </div>
         )}
 
-        {/* Traders Table */}
+        {/* Traders Grid */}
         {data && data.traders && data.traders.length > 0 && (
-          <div className="bg-[#14142b] rounded-xl border border-[#252545] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#252545] text-gray-400 text-sm">
-                    <th className="text-left py-4 px-4 font-medium">Rank</th>
-                    <th className="text-left py-4 px-4 font-medium">Trader</th>
-                    <th className="text-center py-4 px-4 font-medium">Tier</th>
-                    <th className="text-right py-4 px-4 font-medium">Elite Score</th>
-                    <th className="text-right py-4 px-4 font-medium">Win Rate</th>
-                    <th className="text-right py-4 px-4 font-medium">Total Profit</th>
-                    <th className="text-right py-4 px-4 font-medium">Sharpe Ratio</th>
-                    <th className="text-right py-4 px-4 font-medium">Max Drawdown</th>
-                    <th className="text-right py-4 px-4 font-medium">Trades</th>
-                    <th className="text-center py-4 px-4 font-medium">Risk</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.traders.map((trader, index) => (
-                    <tr
-                      key={trader.walletAddress}
-                      className="border-b border-[#252545]/50 hover:bg-[#1a1a3e] transition-colors"
-                    >
-                      <td className="py-4 px-4">
-                        <span className={`text-lg font-bold ${
-                          index < 3 ? "text-yellow-400" : "text-gray-500"
-                        }`}>
-                          #{trader.rank || index + 1}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {data.traders.map((trader, index) => (
+              <div
+                key={trader.walletAddress}
+                className="bg-[#14142b] rounded-xl border border-[#252545] p-5 hover:border-primary-500/50 transition-all"
+              >
+                {/* Header with rank and tier */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {/* Rank badge */}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                      index < 3 
+                        ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/50" 
+                        : "bg-gray-800 text-gray-400"
+                    }`}>
+                      #{trader.rank || index + 1}
+                    </div>
+                    
+                    {/* Name and badges */}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white text-lg">
+                          {trader.userName || formatAddress(trader.walletAddress)}
                         </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div>
-                          <span className="font-mono text-sm text-gray-200">
-                            {formatAddress(trader.walletAddress)}
-                          </span>
-                          {trader.primaryCategory && (
-                            <span className="ml-2 px-2 py-0.5 text-xs rounded bg-[#252545] text-gray-400">
-                              {trader.primaryCategory}
-                            </span>
-                          )}
-                        </div>
-                        {trader.isRecommended && (
-                          <span className="text-xs text-yellow-400 flex items-center gap-1 mt-1">
-                            ⭐ Recommended
-                          </span>
+                        {trader.verifiedBadge && (
+                          <span className="text-blue-400" title="Verified on Polymarket">✓</span>
                         )}
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(trader.traderTier)}`}>
-                          {trader.traderTier?.toUpperCase() || "N/A"}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className="text-lg font-bold text-primary-400">
-                          {trader.eliteScore?.toFixed(1) || "-"}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className="font-semibold text-emerald-400">
-                          {formatPercentage(trader.winRate || 0)}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className={`font-mono font-semibold ${
-                          (trader.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-red-400"
-                        }`}>
-                          {formatCurrency(trader.totalProfit || 0)}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right text-gray-300">
-                        {(trader.sharpeRatio || 0).toFixed(2)}
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className="text-red-400">
-                          {formatPercentage(trader.maxDrawdown || 0)}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right text-gray-400">
-                        {(trader.tradeCount || 0).toLocaleString()}
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className={`text-sm font-medium capitalize ${getRiskColor(trader.riskProfile)}`}>
-                          {trader.riskProfile || "N/A"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                      {trader.xUsername && (
+                        <a
+                          href={`https://x.com/${trader.xUsername.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-gray-400 hover:text-primary-400 transition-colors"
+                        >
+                          @{trader.xUsername.replace('@', '')}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Tier badge */}
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(trader.traderTier)}`}>
+                    {trader.traderTier?.toUpperCase() || "N/A"}
+                  </span>
+                </div>
+
+                {/* Wallet address with copy and links */}
+                <div className="flex items-center gap-2 mb-4 p-2 bg-[#0a0a1a] rounded-lg">
+                  <span className="font-mono text-sm text-gray-400 flex-1">
+                    {formatAddress(trader.walletAddress)}
+                  </span>
+                  <button
+                    onClick={() => copyAddress(trader.walletAddress)}
+                    className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white"
+                    title="Copy address"
+                  >
+                    {copiedAddress === trader.walletAddress ? (
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </button>
+                  <a
+                    href={`https://polymarket.com/profile/${trader.walletAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-primary-400"
+                    title="View on Polymarket"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  <a
+                    href={`https://polygonscan.com/address/${trader.walletAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-purple-400"
+                    title="View on PolygonScan"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                    </svg>
+                  </a>
+                </div>
+
+                {/* Key metrics */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                    <p className="text-xs text-gray-500">Elite Score</p>
+                    <p className="text-lg font-bold text-primary-400">{trader.eliteScore?.toFixed(1) || "-"}</p>
+                  </div>
+                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                    <p className="text-xs text-gray-500">Win Rate</p>
+                    <p className="text-lg font-bold text-emerald-400">{formatPercentage(trader.winRate || 0)}</p>
+                  </div>
+                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                    <p className="text-xs text-gray-500">Total Profit</p>
+                    <p className={`text-lg font-bold ${(trader.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {formatCurrency(trader.totalProfit || 0)}
+                    </p>
+                  </div>
+                  <div className="p-2 bg-[#0a0a1a] rounded-lg">
+                    <p className="text-xs text-gray-500">Volume</p>
+                    <p className="text-lg font-bold text-white">{formatCurrency(trader.totalVolume || 0)}</p>
+                  </div>
+                </div>
+
+                {/* Additional stats */}
+                <div className="flex items-center justify-between text-sm border-t border-[#252545] pt-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400">
+                      <span className="text-gray-500">Sharpe:</span> {(trader.sharpeRatio || 0).toFixed(2)}
+                    </span>
+                    <span className="text-gray-400">
+                      <span className="text-gray-500">DD:</span> <span className="text-red-400">{formatPercentage(trader.maxDrawdown || 0)}</span>
+                    </span>
+                  </div>
+                  <span className={`font-medium capitalize ${getRiskColor(trader.riskProfile)}`}>
+                    {trader.riskProfile || "N/A"}
+                  </span>
+                </div>
+
+                {/* Recommended badge */}
+                {trader.isRecommended && (
+                  <div className="mt-3 py-2 px-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2">
+                    <span className="text-yellow-400">⭐</span>
+                    <span className="text-sm text-yellow-300">Recommended for copy trading</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -298,6 +362,10 @@ export default function EliteTradersPage() {
               <p className="text-gray-400">Traders building their track record with limited data.</p>
             </div>
           </div>
+          
+          <p className="mt-4 text-xs text-gray-500">
+            Data sourced from Polymarket's official leaderboard API. Traders shown have real verified performance on the platform.
+          </p>
         </section>
       </div>
     </main>

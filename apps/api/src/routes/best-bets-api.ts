@@ -175,7 +175,18 @@ export async function bestBetsApiRoutes(app: FastifyInstance) {
           strongCount,
           avgConfidence,
         };
-      } catch (error) {
+      } catch (error: any) {
+        // Handle missing table gracefully
+        if (error.code === '42P01') { // undefined_table
+          request.log.warn("best_bet_signals table does not exist yet");
+          return {
+            signals: [],
+            total: 0,
+            eliteCount: 0,
+            strongCount: 0,
+            avgConfidence: 0,
+          };
+        }
         request.log.error(error);
         return reply.status(500).send({ error: "Failed to fetch best bets signals" });
       }

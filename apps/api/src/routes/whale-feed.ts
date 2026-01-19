@@ -120,23 +120,36 @@ export const whaleFeedRoutes: FastifyPluginAsync = async (app) => {
       // Cache for 30 seconds
       reply.header("Cache-Control", "public, max-age=30");
 
-      // Get recent whale trades
-      const whaleTrades = await db
-        .select({
-          id: whaleActivity.id,
-          walletAddress: whaleActivity.walletAddress,
-          marketId: whaleActivity.marketId,
-          action: whaleActivity.action,
-          outcome: whaleActivity.outcome,
-          amountUsd: whaleActivity.amountUsd,
-          price: whaleActivity.price,
-          priceBefore: whaleActivity.priceBefore,
-          priceAfter: whaleActivity.priceAfter,
-          timestamp: whaleActivity.timestamp,
-        })
-        .from(whaleActivity)
-        .orderBy(desc(whaleActivity.timestamp))
-        .limit(limit);
+      // Get recent whale trades - handle table not existing gracefully
+      let whaleTrades: any[] = [];
+      try {
+        whaleTrades = await db
+          .select({
+            id: whaleActivity.id,
+            walletAddress: whaleActivity.walletAddress,
+            marketId: whaleActivity.marketId,
+            action: whaleActivity.action,
+            outcome: whaleActivity.outcome,
+            amountUsd: whaleActivity.amountUsd,
+            price: whaleActivity.price,
+            priceBefore: whaleActivity.priceBefore,
+            priceAfter: whaleActivity.priceAfter,
+            timestamp: whaleActivity.timestamp,
+          })
+          .from(whaleActivity)
+          .orderBy(desc(whaleActivity.timestamp))
+          .limit(limit);
+      } catch (error: any) {
+        // If table doesn't exist, return empty array
+        if (error.code === '42P01') { // undefined_table
+          request.log.warn("whale_activity table does not exist yet");
+          return {
+            trades: [],
+            lastUpdated: new Date().toISOString(),
+          };
+        }
+        throw error;
+      }
 
       // Get market names for all trades
       const marketIds = [...new Set(whaleTrades.map(t => t.marketId))];

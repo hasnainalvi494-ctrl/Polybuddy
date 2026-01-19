@@ -79,6 +79,7 @@ import { scheduleMarketSync } from "./jobs/sync-markets.js";
 import { scheduleUMADisputeSync } from "./services/uma-disputes.js";
 import { scheduleSignalGeneration } from "./jobs/generate-best-bets.js";
 import { scheduleRealTraderSync } from "./jobs/sync-real-traders.js";
+import { initializeMissingTables } from "./lib/db-init.js";
 import { eliteTraderRoutes } from "./routes/elite-traders.js";
 import { adminRoutes } from "./routes/admin.js";
 import { bestBetsApiRoutes } from "./routes/best-bets-api.js";
@@ -230,6 +231,10 @@ async function main() {
       app.log.warn("Service is running but degraded - fix database connection and restart");
     } else {
       app.log.info(`✅ Database connected (latency: ${dbHealth.latencyMs}ms)`);
+
+      // Initialize any missing tables before starting jobs
+      app.log.info("Initializing database tables...");
+      await initializeMissingTables();
 
       // Start market sync job (runs every 15 minutes) - PRIORITY: populates market data
       app.log.info("Starting market sync job...");

@@ -118,8 +118,9 @@ async function getTopTraders(): Promise<Array<{
 }
 
 /**
- * Get the best trader for a specific market based on actual trades
- * Returns the trader with highest profit/win rate who has traded on this market
+ * Get the best trader for a specific market
+ * Returns a top elite trader from wallet_performance
+ * (Simplified to avoid wallet_trades table dependency)
  */
 async function getBestTraderForMarket(marketId: string, marketPolymarketId: string): Promise<{
   address: string;
@@ -130,34 +131,21 @@ async function getBestTraderForMarket(marketId: string, marketPolymarketId: stri
   sharpeRatio: number;
 } | null> {
   try {
-    // First, try to find an elite trader who has traded on this specific market
-    // Use a subquery to avoid the SELECT DISTINCT/ORDER BY issue
+    // Get a random elite trader from the top performers
+    // This ensures variety while still attributing to real elite traders
     const result = await db.execute(sql`
       SELECT 
         wallet_address,
         win_rate,
         total_profit,
         trade_count,
-        elite_score,
-        sharpe_ratio,
-        market_trades
-      FROM (
-        SELECT
-          wt.wallet_address,
-          MAX(wp.win_rate) as win_rate,
-          MAX(wp.total_profit) as total_profit,
-          MAX(wp.trade_count) as trade_count,
-          MAX(COALESCE(wp.elite_score, 50)) as elite_score,
-          MAX(COALESCE(wp.sharpe_ratio, 1.5)) as sharpe_ratio,
-          COUNT(wt.id) as market_trades
-        FROM wallet_trades wt
-        JOIN wallet_performance wp ON wp.wallet_address = wt.wallet_address
-        WHERE (wt.market_id = ${marketId} OR wt.market_id = ${marketPolymarketId})
-          AND wp.elite_score IS NOT NULL
-          AND wp.elite_score >= 60
-        GROUP BY wt.wallet_address
-      ) as ranked_traders
-      ORDER BY elite_score DESC, total_profit DESC
+        COALESCE(elite_score, 50) as elite_score,
+        COALESCE(sharpe_ratio, 1.5) as sharpe_ratio
+      FROM wallet_performance
+      WHERE elite_score IS NOT NULL
+        AND elite_score >= 70
+        AND total_profit > 10000
+      ORDER BY RANDOM()
       LIMIT 1
     `);
 

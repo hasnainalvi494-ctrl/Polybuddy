@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { db, walletPerformance, walletTrades, whaleActivity } from "@polybuddy/db";
+import { db, walletPerformance, whaleActivity } from "@polybuddy/db";
 import { desc, asc, eq, sql, and, gte } from "drizzle-orm";
 
 // ============================================================================
@@ -185,74 +185,12 @@ export const leaderboardRoutes: FastifyPluginAsync = async (app) => {
 
       const trader = performance[0]!;
 
-      // Get recent trades (last 50)
-      const recentTrades = await db
-        .select()
-        .from(walletTrades)
-        .where(eq(walletTrades.walletAddress, walletAddress))
-        .orderBy(desc(walletTrades.timestamp))
-        .limit(50);
-
-      // Calculate category breakdown
-      const categoryBreakdownRaw = await db
-        .select({
-          category: sql<string>`COALESCE(${walletTrades.marketId}, 'unknown')`,
-          tradeCount: sql<number>`count(*)::int`,
-          profit: sql<number>`COALESCE(sum(${walletTrades.profit}), 0)`,
-          wins: sql<number>`count(*) FILTER (WHERE ${walletTrades.profit} > 0)::int`,
-        })
-        .from(walletTrades)
-        .where(eq(walletTrades.walletAddress, walletAddress))
-        .groupBy(sql`COALESCE(${walletTrades.marketId}, 'unknown')`);
-
-      const categoryBreakdown = categoryBreakdownRaw.map((cat) => ({
-        category: cat.category,
-        tradeCount: cat.tradeCount,
-        profit: Number(cat.profit),
-        winRate: cat.tradeCount > 0 ? (Number(cat.wins) / cat.tradeCount) * 100 : 0,
-      }));
-
-      // Calculate performance over time (last 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const performanceOverTimeRaw = await db
-        .select({
-          date: sql<string>`DATE(${walletTrades.timestamp})`,
-          profit: sql<number>`COALESCE(sum(${walletTrades.profit}), 0)`,
-          trades: sql<number>`count(*)::int`,
-        })
-        .from(walletTrades)
-        .where(
-          and(
-            eq(walletTrades.walletAddress, walletAddress),
-            gte(walletTrades.timestamp, thirtyDaysAgo)
-          )
-        )
-        .groupBy(sql`DATE(${walletTrades.timestamp})`)
-        .orderBy(sql`DATE(${walletTrades.timestamp})`);
-
-      const performanceOverTime = performanceOverTimeRaw.map((perf) => ({
-        date: perf.date,
-        profit: Number(perf.profit),
-        trades: perf.trades,
-      }));
-
-      // Calculate win/loss distribution
-      const winLossRaw = await db
-        .select({
-          wins: sql<number>`count(*) FILTER (WHERE ${walletTrades.profit} > 0)::int`,
-          losses: sql<number>`count(*) FILTER (WHERE ${walletTrades.profit} < 0)::int`,
-          breakeven: sql<number>`count(*) FILTER (WHERE ${walletTrades.profit} = 0)::int`,
-        })
-        .from(walletTrades)
-        .where(eq(walletTrades.walletAddress, walletAddress));
-
-      const winLossDistribution = {
-        wins: winLossRaw[0]?.wins || 0,
-        losses: winLossRaw[0]?.losses || 0,
-        breakeven: winLossRaw[0]?.breakeven || 0,
-      };
+      // Trade details are disabled - wallet_trades table not in use
+      // Return empty arrays for trade-related fields
+      const recentTrades: any[] = [];
+      const categoryBreakdown: any[] = [];
+      const performanceOverTime: any[] = [];
+      const winLossDistribution = { wins: 0, losses: 0, breakeven: 0 };
 
       return {
         walletAddress: trader.walletAddress,

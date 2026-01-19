@@ -1,4 +1,4 @@
-import { db, walletPerformance, walletTrades, whaleActivity } from "@polybuddy/db";
+import { db, walletPerformance, whaleActivity } from "@polybuddy/db";
 import { sql, desc, eq } from "drizzle-orm";
 
 // Simple logger for sync jobs
@@ -445,10 +445,16 @@ async function calculateTradeMetrics(trades: PolymarketTrade[]): Promise<Map<str
 
 /**
  * Insert trades into database - handles real Polymarket data
+ * Note: This function is disabled until wallet_trades table is properly set up
  */
 async function storeTrades(trades: PolymarketTrade[]): Promise<void> {
   if (trades.length === 0) return;
 
+  // Skip storing trades - table may not exist and we don't need it for core functionality
+  logger.info(`💾 Skipping trade storage (${trades.length} trades) - feature disabled`);
+  return;
+
+  /* DISABLED - wallet_trades table not required for MVP
   logger.info(`💾 Storing ${trades.length} trades...`);
 
   let stored = 0;
@@ -497,6 +503,7 @@ async function storeTrades(trades: PolymarketTrade[]): Promise<void> {
   }
 
   logger.info(`💾 Trades stored: ${stored} new, ${skipped} skipped (duplicates)`);
+  */
 }
 
 /**

@@ -1289,3 +1289,257 @@ export const crossPlatformPricesRelations = relations(crossPlatformPrices, ({ on
     references: [crossPlatformMarkets.id],
   }),
 }));
+
+// ============================================
+// FEATURE: AI Pattern Recognition System
+// ============================================
+
+// Pattern type enum
+export const patternTypeEnum = pgEnum("pattern_type", [
+  "momentum",
+  "reversal", 
+  "breakout",
+  "consolidation",
+  "accumulation",
+  "distribution",
+  "elite_follow",
+  "whale_accumulation",
+]);
+
+// Trading patterns discovered by AI analysis
+export const tradingPatterns = pgTable("trading_patterns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  patternType: patternTypeEnum("pattern_type").notNull(),
+  patternName: varchar("pattern_name", { length: 200 }).notNull(),
+  patternSignature: jsonb("pattern_signature"), // Unique pattern characteristics
+  confidenceScore: decimal("confidence_score", { precision: 5, scale: 2 }).notNull(),
+  
+  // Entry/Exit conditions
+  entryPriceRange: jsonb("entry_price_range"), // {min, max, optimal}
+  positionSizeRange: jsonb("position_size_range"), // {min, max, avg}
+  holdingPeriodHours: jsonb("holding_period_hours"), // {min, max, avg}
+  exitConditions: jsonb("exit_conditions"), // Array of exit triggers
+  
+  // Performance metrics
+  occurrences: integer("occurrences").default(0),
+  successfulOutcomes: integer("successful_outcomes").default(0),
+  failedOutcomes: integer("failed_outcomes").default(0),
+  winRate: decimal("win_rate", { precision: 5, scale: 2 }).default("0"),
+  avgRoi: decimal("avg_roi", { precision: 10, scale: 2 }).default("0"),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 10, scale: 4 }).default("0"),
+  
+  // Market context
+  marketCategory: varchar("market_category", { length: 100 }),
+  marketPhase: varchar("market_phase", { length: 50 }), // early, mid, late
+  volatilityRange: jsonb("volatility_range"), // {min, max}
+  
+  // Elite trader association
+  eliteTradersUsing: integer("elite_traders_using").default(0),
+  avgTraderEliteScore: decimal("avg_trader_elite_score", { precision: 5, scale: 2 }),
+  
+  // Timestamps
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  lastOccurrenceAt: timestamp("last_occurrence_at", { withTimezone: true }),
+});
+
+// Pattern match records - when patterns are detected
+export const patternMatches = pgTable("pattern_matches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  patternId: uuid("pattern_id")
+    .notNull()
+    .references(() => tradingPatterns.id, { onDelete: "cascade" }),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  traderAddress: varchar("trader_address", { length: 42 }),
+  
+  // Match details
+  matchScore: decimal("match_score", { precision: 5, scale: 2 }).notNull(),
+  matchedFeatures: jsonb("matched_features"), // Array of matched features
+  
+  // Trade details
+  entryPrice: decimal("entry_price", { precision: 10, scale: 4 }),
+  exitPrice: decimal("exit_price", { precision: 10, scale: 4 }),
+  positionSize: decimal("position_size", { precision: 18, scale: 2 }),
+  
+  // Outcome tracking
+  actualOutcome: varchar("actual_outcome", { length: 10 }), // win, loss, pending
+  actualRoi: decimal("actual_roi", { precision: 10, scale: 2 }),
+  
+  // Timestamps
+  matchedAt: timestamp("matched_at", { withTimezone: true }).defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+// Trader behavior clusters - grouping traders by behavior
+export const traderBehaviorClusters = pgTable("trader_behavior_clusters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clusterName: varchar("cluster_name", { length: 200 }).notNull(),
+  clusterType: varchar("cluster_type", { length: 100 }).notNull(), // aggressive, conservative, momentum, contrarian
+  
+  // Behavior characteristics
+  avgPositionSize: decimal("avg_position_size", { precision: 18, scale: 2 }),
+  avgHoldingHours: decimal("avg_holding_hours", { precision: 10, scale: 2 }),
+  avgWinRate: decimal("avg_win_rate", { precision: 5, scale: 2 }),
+  avgRoi: decimal("avg_roi", { precision: 10, scale: 2 }),
+  
+  // Trading style
+  entryPattern: jsonb("entry_pattern"), // Common entry behaviors
+  exitPattern: jsonb("exit_pattern"), // Common exit behaviors
+  riskProfile: varchar("risk_profile", { length: 50 }), // low, medium, high
+  
+  // Cluster stats
+  traderCount: integer("trader_count").default(0),
+  eliteTraderPercentage: decimal("elite_trader_percentage", { precision: 5, scale: 2 }),
+  
+  // Performance
+  clusterWinRate: decimal("cluster_win_rate", { precision: 5, scale: 2 }),
+  clusterAvgRoi: decimal("cluster_avg_roi", { precision: 10, scale: 2 }),
+  clusterSharpeRatio: decimal("cluster_sharpe_ratio", { precision: 10, scale: 4 }),
+  
+  // Timestamps
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Trader cluster assignments
+export const traderClusterAssignments = pgTable("trader_cluster_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clusterId: uuid("cluster_id")
+    .notNull()
+    .references(() => traderBehaviorClusters.id, { onDelete: "cascade" }),
+  traderAddress: varchar("trader_address", { length: 42 }).notNull(),
+  
+  // Assignment details
+  assignmentScore: decimal("assignment_score", { precision: 5, scale: 2 }),
+  eliteScore: decimal("elite_score", { precision: 5, scale: 2 }),
+  
+  // Timestamps
+  assignedAt: timestamp("assigned_at", { withTimezone: true }).defaultNow(),
+});
+
+// Market sentiment analysis
+export const marketSentiment = pgTable("market_sentiment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  
+  // Sentiment metrics
+  sentimentScore: decimal("sentiment_score", { precision: 5, scale: 2 }).notNull(), // -100 to 100
+  sentimentLabel: varchar("sentiment_label", { length: 50 }).notNull(), // bullish, bearish, neutral
+  sentimentMomentum: varchar("sentiment_momentum", { length: 50 }), // increasing, decreasing, stable
+  
+  // Volume-weighted sentiment
+  volumeWeightedScore: decimal("volume_weighted_score", { precision: 5, scale: 2 }),
+  
+  // Timestamps
+  measuredAt: timestamp("measured_at", { withTimezone: true }).defaultNow(),
+});
+
+// Order book analysis
+export const orderBookAnalysis = pgTable("order_book_analysis", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: uuid("market_id")
+    .notNull()
+    .references(() => markets.id),
+  
+  // Imbalance metrics
+  orderImbalance: decimal("order_imbalance", { precision: 10, scale: 2 }).notNull(), // % imbalance
+  imbalanceDirection: varchar("imbalance_direction", { length: 10 }).notNull(), // buy, sell
+  
+  // Whale detection
+  whaleActivity: boolean("whale_activity").default(false),
+  largeOrderCount: integer("large_order_count").default(0),
+  largeOrderVolume: decimal("large_order_volume", { precision: 18, scale: 2 }),
+  
+  // Liquidity metrics
+  liquidityScore: decimal("liquidity_score", { precision: 5, scale: 2 }),
+  spreadBps: decimal("spread_bps", { precision: 10, scale: 2 }), // Spread in basis points
+  
+  // HFT detection
+  hftScore: decimal("hft_score", { precision: 5, scale: 2 }),
+  
+  // Timestamps
+  snapshotAt: timestamp("snapshot_at", { withTimezone: true }).defaultNow(),
+});
+
+// Market correlations
+export const marketCorrelations = pgTable("market_correlations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketAId: uuid("market_a_id")
+    .notNull()
+    .references(() => markets.id),
+  marketBId: uuid("market_b_id")
+    .notNull()
+    .references(() => markets.id),
+  
+  // Correlation metrics
+  correlationCoefficient: decimal("correlation_coefficient", { precision: 5, scale: 4 }).notNull(),
+  correlationStrength: varchar("correlation_strength", { length: 50 }), // strong, moderate, weak
+  
+  // Lag analysis
+  optimalLagHours: integer("optimal_lag_hours"),
+  lagCorrelation: decimal("lag_correlation", { precision: 5, scale: 4 }),
+  
+  // Statistical significance
+  sampleSize: integer("sample_size"),
+  pValue: decimal("p_value", { precision: 10, scale: 6 }),
+  isSignificant: boolean("is_significant").default(false),
+  
+  // Timestamps
+  calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Relations for pattern recognition
+export const tradingPatternsRelations = relations(tradingPatterns, ({ many }) => ({
+  matches: many(patternMatches),
+}));
+
+export const patternMatchesRelations = relations(patternMatches, ({ one }) => ({
+  pattern: one(tradingPatterns, {
+    fields: [patternMatches.patternId],
+    references: [tradingPatterns.id],
+  }),
+  market: one(markets, {
+    fields: [patternMatches.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const traderBehaviorClustersRelations = relations(traderBehaviorClusters, ({ many }) => ({
+  assignments: many(traderClusterAssignments),
+}));
+
+export const traderClusterAssignmentsRelations = relations(traderClusterAssignments, ({ one }) => ({
+  cluster: one(traderBehaviorClusters, {
+    fields: [traderClusterAssignments.clusterId],
+    references: [traderBehaviorClusters.id],
+  }),
+}));
+
+export const marketSentimentRelations = relations(marketSentiment, ({ one }) => ({
+  market: one(markets, {
+    fields: [marketSentiment.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const orderBookAnalysisRelations = relations(orderBookAnalysis, ({ one }) => ({
+  market: one(markets, {
+    fields: [orderBookAnalysis.marketId],
+    references: [markets.id],
+  }),
+}));
+
+export const marketCorrelationsRelations = relations(marketCorrelations, ({ one }) => ({
+  marketA: one(markets, {
+    fields: [marketCorrelations.marketAId],
+    references: [markets.id],
+  }),
+  marketB: one(markets, {
+    fields: [marketCorrelations.marketBId],
+    references: [markets.id],
+  }),
+}));

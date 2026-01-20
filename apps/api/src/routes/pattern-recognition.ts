@@ -129,9 +129,17 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
             category: market.category,
           },
         });
-      } catch (error) {
+      } catch (error: any) {
         fastify.log.error(error);
-        return reply.code(500).send({ error: "Failed to fetch patterns" });
+        // Check if it's a missing table error
+        if (error.message?.includes("does not exist") || error.message?.includes("relation")) {
+          return reply.code(500).send({ 
+            error: "Database table not found. The pattern recognition tables may need to be created.",
+            details: "Restart the API to auto-create missing tables.",
+            patterns: [],
+          });
+        }
+        return reply.code(500).send({ error: "Failed to fetch patterns", patterns: [] });
       }
     }
   );
@@ -343,8 +351,15 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           marketSentiment,
           orderBookAnalysis,
         });
-      } catch (error) {
+      } catch (error: any) {
         fastify.log.error(error);
+        if (error.message?.includes("does not exist") || error.message?.includes("relation")) {
+          return reply.code(500).send({ 
+            error: "Database table not found. Restart the API to auto-create missing tables.",
+            prediction: null,
+            matchingPatterns: [],
+          });
+        }
         return reply.code(500).send({ error: "Failed to analyze pattern" });
       }
     }
@@ -592,9 +607,15 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
         }));
 
         return reply.send({ clusters });
-      } catch (error) {
+      } catch (error: any) {
         fastify.log.error(error);
-        return reply.code(500).send({ error: "Failed to fetch trader clusters" });
+        if (error.message?.includes("does not exist") || error.message?.includes("relation")) {
+          return reply.code(500).send({ 
+            error: "Database table not found. Restart the API to auto-create missing tables.",
+            clusters: [],
+          });
+        }
+        return reply.code(500).send({ error: "Failed to fetch trader clusters", clusters: [] });
       }
     }
   );

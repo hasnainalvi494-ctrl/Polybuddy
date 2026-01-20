@@ -127,3 +127,4 @@ BEGIN
     RAISE NOTICE 'wallet_performance elite columns: Added/Verified';
     RAISE NOTICE 'best_bet_signals table: Created/Verified';
 END $$;
+`

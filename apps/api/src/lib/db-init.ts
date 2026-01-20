@@ -1,13 +1,25 @@
 import { logger } from "./logger.js";
 import { db } from "@polybuddy/db";
 import { sql } from "drizzle-orm";
+import { validateDatabaseTables, logDatabaseStatus, tableExists } from "./db-validator.js";
 
 /**
  * Initialize database tables that may be missing
  * Creates pattern recognition tables if they don't exist
+ * 
+ * IMPORTANT: When adding new features that require database tables:
+ * 1. Add the table definition to packages/db/src/schema/index.ts
+ * 2. Add the table name to REQUIRED_TABLES in db-validator.ts
+ * 3. Add the CREATE TABLE statement below
+ * 4. Add any seed data in seedPatternRecognitionData()
  */
 export async function initializeMissingTables(): Promise<void> {
-  logger.info("Checking for missing database tables...");
+  logger.info("=".repeat(60));
+  logger.info("DATABASE INITIALIZATION STARTING");
+  logger.info("=".repeat(60));
+  
+  // First, validate and log current database status
+  await logDatabaseStatus();
   
   try {
     // Create pattern type enum if not exists
@@ -161,9 +173,24 @@ export async function initializeMissingTables(): Promise<void> {
     // Insert sample data if tables are empty
     await seedPatternRecognitionData();
 
-    logger.info("Database initialization complete");
+    // Final validation
+    const { valid, missingTables } = await validateDatabaseTables();
+    
+    logger.info("=".repeat(60));
+    if (valid) {
+      logger.info("✅ DATABASE INITIALIZATION COMPLETE - ALL TABLES READY");
+    } else {
+      logger.warn(`⚠️ DATABASE INITIALIZATION COMPLETE - ${missingTables.length} TABLES STILL MISSING`);
+      logger.warn("Missing tables: " + missingTables.join(", "));
+      logger.warn("Some features may not work until these tables are created");
+    }
+    logger.info("=".repeat(60));
   } catch (error) {
     logger.error({ error }, "Failed to initialize database tables");
+    logger.error("=".repeat(60));
+    logger.error("❌ DATABASE INITIALIZATION FAILED");
+    logger.error("The API will continue but some features may not work");
+    logger.error("=".repeat(60));
     // Don't throw - allow API to continue even if some tables fail
   }
 }

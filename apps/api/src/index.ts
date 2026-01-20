@@ -85,7 +85,7 @@ import { adminRoutes } from "./routes/admin.js";
 import { bestBetsApiRoutes } from "./routes/best-bets-api.js";
 import { riskManagementRoutes } from "./routes/risk-management.js";
 import { copyTradingRoutes } from "./routes/copy-trading.js";
-// import { patternRecognitionRoutes } from "./routes/pattern-recognition.js"; // File deleted
+import { patternRecognitionRoutes } from "./routes/pattern-recognition.js";
 // import { alertsSystemRoutes } from "./routes/alerts-system.js"; // File deleted
 // import { realtimeRoutes } from "./routes/realtime.js"; // File deleted
 // import { realtimePolymarket } from "./services/realtime-polymarket.js"; // File deleted
@@ -199,7 +199,7 @@ async function buildApp() {
   await app.register(bestBetsApiRoutes); // Best Bets API with copy trade
   await app.register(riskManagementRoutes); // Risk management & portfolio analytics
   await app.register(copyTradingRoutes); // Copy trading system
-  // await app.register(patternRecognitionRoutes); // AI pattern recognition - File deleted
+  await app.register(patternRecognitionRoutes); // AI pattern recognition
   // await app.register(alertsSystemRoutes); // Comprehensive notification system - File deleted
   // await app.register(realtimeRoutes, { prefix: "/api/realtime" }); // Real-time WebSocket data - File deleted
 

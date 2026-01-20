@@ -70,11 +70,12 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           WHERE id = ${marketId}
         `);
 
-        if (marketResult.rows.length === 0) {
+        const marketRows = Array.isArray(marketResult) ? marketResult : (marketResult as any).rows || [];
+        if (marketRows.length === 0) {
           return reply.code(404).send({ error: "Market not found" });
         }
 
-        const market = marketResult.rows[0] as any;
+        const market = marketRows[0] as any;
 
         // Get patterns for this market category
         const patternsResult = await db.execute(sql`
@@ -91,7 +92,8 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           LIMIT ${limit}
         `);
 
-        const patterns = patternsResult.rows.map((row: any) => ({
+        const patternsRows = Array.isArray(patternsResult) ? patternsResult : (patternsResult as any).rows || [];
+        const patterns = patternsRows.map((row: any) => ({
           id: row.id,
           patternType: row.pattern_type,
           patternName: row.pattern_name,
@@ -176,7 +178,8 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           LIMIT 20
         `);
 
-        const patterns = patternsResult.rows.map((row: any) => ({
+        const patternsRows2 = Array.isArray(patternsResult) ? patternsResult : (patternsResult as any).rows || [];
+        const patterns = patternsRows2.map((row: any) => ({
           id: row.id,
           patternType: row.pattern_type,
           patternName: row.pattern_name,
@@ -292,11 +295,12 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           LIMIT 1
         `);
 
-        const marketSentiment = sentimentResult.rows.length > 0 ? {
-          sentimentScore: parseFloat(sentimentResult.rows[0].sentiment_score as string),
-          sentimentLabel: sentimentResult.rows[0].sentiment_label,
-          sentimentMomentum: sentimentResult.rows[0].sentiment_momentum,
-          measuredAt: sentimentResult.rows[0].measured_at,
+        const sentimentRows = Array.isArray(sentimentResult) ? sentimentResult : (sentimentResult as any).rows || [];
+        const marketSentiment = sentimentRows.length > 0 ? {
+          sentimentScore: parseFloat(sentimentRows[0].sentiment_score as string),
+          sentimentLabel: sentimentRows[0].sentiment_label,
+          sentimentMomentum: sentimentRows[0].sentiment_momentum,
+          measuredAt: sentimentRows[0].measured_at,
         } : undefined;
 
         if (marketSentiment) {
@@ -312,12 +316,13 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           LIMIT 1
         `);
 
-        const orderBookAnalysis = orderBookResult.rows.length > 0 ? {
-          orderImbalance: parseFloat(orderBookResult.rows[0].order_imbalance as string),
-          imbalanceDirection: orderBookResult.rows[0].imbalance_direction,
-          whaleActivity: orderBookResult.rows[0].whale_activity,
-          liquidityScore: parseFloat(orderBookResult.rows[0].liquidity_score as string),
-          hftScore: parseFloat(orderBookResult.rows[0].hft_score as string),
+        const orderBookRows = Array.isArray(orderBookResult) ? orderBookResult : (orderBookResult as any).rows || [];
+        const orderBookAnalysis = orderBookRows.length > 0 ? {
+          orderImbalance: parseFloat(orderBookRows[0].order_imbalance as string),
+          imbalanceDirection: orderBookRows[0].imbalance_direction,
+          whaleActivity: orderBookRows[0].whale_activity,
+          liquidityScore: parseFloat(orderBookRows[0].liquidity_score as string),
+          hftScore: parseFloat(orderBookRows[0].hft_score as string),
         } : undefined;
 
         if (orderBookAnalysis) {
@@ -379,8 +384,9 @@ export async function patternRecognitionRoutes(fastify: FastifyInstance) {
           const marketResult = await db.execute(sql`
             SELECT category FROM markets WHERE id = ${marketId}
           `);
-          if (marketResult.rows.length > 0) {
-            category = marketResult.rows[0].category as string;
+          const marketRows = Array.isArray(marketResult) ? marketResult : (marketResult as any).rows || [];
+          if (marketRows.length > 0) {
+            category = marketRows[0].category as string;
           }
         }
 

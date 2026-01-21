@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL = "https://polybuddy-api-production.up.railway.app";
+const SEEN_IDS_KEY = "polybuddy_whale_seen_ids";
+const LAST_CHECK_KEY = "polybuddy_whale_last_check";
 
 interface WhaleActivity {
   id: string;
@@ -36,23 +38,70 @@ function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+// Load seen IDs from localStorage
+function loadSeenIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const stored = localStorage.getItem(SEEN_IDS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Only keep IDs from last 24 hours
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const filtered = parsed.filter((item: { id: string; time: number }) => item.time > oneDayAgo);
+      return new Set(filtered.map((item: { id: string }) => item.id));
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return new Set();
+}
+
+// Save seen IDs to localStorage
+function saveSeenIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    const items = Array.from(ids).map(id => ({ id, time: Date.now() }));
+    localStorage.setItem(SEEN_IDS_KEY, JSON.stringify(items.slice(-50))); // Keep last 50
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Check if this is first load (to avoid showing old notifications)
+function isFirstLoad(): boolean {
+  if (typeof window === "undefined") return true;
+  const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
+  const now = Date.now();
+  localStorage.setItem(LAST_CHECK_KEY, String(now));
+  
+  if (!lastCheck) return true;
+  // If last check was more than 5 minutes ago, treat as first load
+  return (now - parseInt(lastCheck)) > 5 * 60 * 1000;
+}
+
 export function WhaleToastProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => loadSeenIds());
   const [isEnabled, setIsEnabled] = useState(true);
+  const isFirstLoadRef = useRef(true);
+  const hasInitializedRef = useRef(false);
+
+  // Initialize on mount - mark all current trades as seen on first load
+  useEffect(() => {
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+    isFirstLoadRef.current = isFirstLoad();
+  }, []);
 
   // Navigate to market when toast is clicked
   const navigateToMarket = useCallback((activity: WhaleActivity) => {
     if (activity.internalMarketId) {
       // Use internal market ID for direct navigation
       router.push(`/markets/${activity.internalMarketId}`);
-    } else if (activity.marketName && activity.marketName !== `Market #${activity.marketId.slice(0, 8)}`) {
-      // Search by market name if we have it
-      router.push(`/markets?search=${encodeURIComponent(activity.marketName.slice(0, 50))}`);
     } else {
-      // Fallback to whale activity page
-      router.push(`/whale-activity`);
+      // Go to signals page which shows whale activity
+      router.push(`/signals`);
     }
   }, [router]);
 
@@ -74,10 +123,28 @@ export function WhaleToastProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!data?.trades || !isEnabled) return;
 
+    // On first load, just mark all current trades as seen (don't show notifications)
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      const allIds = new Set(data.trades.map((t: WhaleActivity) => t.id));
+      setSeenIds(prev => {
+        const merged = new Set([...prev, ...allIds]);
+        saveSeenIds(merged);
+        return merged;
+      });
+      return;
+    }
+
+    // Only show trades that are:
+    // 1. Not already seen
+    // 2. >= $10K
+    // 3. Happened in the last 10 minutes (to avoid showing old data)
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
     const newActivities = data.trades.filter(
       (activity: WhaleActivity) => 
         !seenIds.has(activity.id) && 
-        activity.amountUsd >= 10000 // Only show trades >= $10K
+        activity.amountUsd >= 10000 &&
+        new Date(activity.timestamp).getTime() > tenMinutesAgo
     );
 
     if (newActivities.length > 0) {
@@ -92,6 +159,7 @@ export function WhaleToastProvider({ children }: { children: React.ReactNode }) 
       setSeenIds((prev) => {
         const next = new Set(prev);
         newActivities.forEach((a: WhaleActivity) => next.add(a.id));
+        saveSeenIds(next);
         return next;
       });
 

@@ -279,7 +279,13 @@ export default function BestBetsPage() {
                   <div className="flex items-center gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Top Trader</p>
-                      <p className="font-mono text-sm text-gray-300">{formatAddress(signal.traderAddress)}</p>
+                      <Link 
+                        href={`/elite-traders/${signal.traderAddress}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-mono text-sm text-gray-300 hover:text-teal-400 transition-colors underline decoration-gray-600 hover:decoration-teal-400"
+                      >
+                        {formatAddress(signal.traderAddress)}
+                      </Link>
                     </div>
                     <div className="border-l border-[#243040] pl-4">
                       <p className="text-sm text-gray-500">Win Rate</p>

@@ -63,6 +63,8 @@ type AmountFilter = "all" | "10k" | "50k" | "100k";
 export default function WhaleActivityPage() {
   const [actionFilter, setActionFilter] = useState<FilterType>("all");
   const [amountFilter, setAmountFilter] = useState<AmountFilter>("all");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery<WhaleResponse>({
     queryKey: ["whale-activity-page"],
@@ -75,6 +77,40 @@ export default function WhaleActivityPage() {
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Sync from Polymarket and then refresh
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+
+    try {
+      // First, trigger sync from Polymarket
+      const syncRes = await fetch(`${API_URL}/api/whale-activity/sync`, {
+        method: "POST",
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (syncRes.status === 429) {
+        const data = await syncRes.json();
+        setSyncMessage(`Please wait ${data.retryAfter}s before syncing again`);
+        setTimeout(() => setSyncMessage(null), 3000);
+      } else if (syncRes.ok) {
+        const data = await syncRes.json();
+        setSyncMessage(`Synced! Found ${data.tradesFound || 0} whale trades`);
+        setTimeout(() => setSyncMessage(null), 3000);
+        // Refetch the data after sync
+        await refetch();
+      } else {
+        setSyncMessage("Sync failed - try again");
+        setTimeout(() => setSyncMessage(null), 3000);
+      }
+    } catch (err) {
+      setSyncMessage("Sync failed - network error");
+      setTimeout(() => setSyncMessage(null), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Filter trades
   const filteredTrades = data?.trades?.filter((trade) => {
@@ -109,26 +145,31 @@ export default function WhaleActivityPage() {
                 Track big money moves in real-time. See what whales are betting on.
               </p>
             </div>
-            <button
-              onClick={() => refetch()}
-              disabled={isLoading}
-              className="px-4 py-2 bg-[#243040] hover:bg-[#2d3a4d] text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              <svg
-                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={handleSync}
+                disabled={isLoading || isSyncing}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Refresh
-            </button>
+                <svg
+                  className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {isSyncing ? "Syncing..." : "Sync from Polymarket"}
+              </button>
+              {syncMessage && (
+                <span className="text-sm text-teal-400">{syncMessage}</span>
+              )}
+            </div>
           </div>
         </div>
       </div>

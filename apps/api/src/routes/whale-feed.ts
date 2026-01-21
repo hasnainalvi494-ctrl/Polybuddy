@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { db, whaleActivity, markets } from "@polybuddy/db";
 import { desc, eq, sql, inArray } from "drizzle-orm";
+import { syncWalletData } from "../jobs/sync-wallets.js";
 
 // ============================================================================
 // TYPES & SCHEMAS
@@ -209,6 +210,74 @@ export const whaleFeedRoutes: FastifyPluginAsync = async (app) => {
         trades,
         lastUpdated: new Date().toISOString(),
       };
+    }
+  );
+
+  // POST /api/whale-activity/sync - Manually trigger whale sync from Polymarket
+  typedApp.post(
+    "/sync",
+    {
+      schema: {
+        response: {
+          200: z.object({
+            success: z.boolean(),
+            message: z.string(),
+            tradesFound: z.number().optional(),
+          }),
+          429: z.object({
+            error: z.string(),
+            retryAfter: z.number(),
+          }),
+          500: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      // Simple rate limiting - check last sync time
+      const lastSyncKey = "whale_last_manual_sync";
+      const cooldownMs = 60 * 1000; // 1 minute cooldown
+
+      try {
+        // Check cooldown (using a simple in-memory approach for now)
+        const lastSync = (global as any)[lastSyncKey] as number | undefined;
+        const now = Date.now();
+
+        if (lastSync && now - lastSync < cooldownMs) {
+          const retryAfter = Math.ceil((cooldownMs - (now - lastSync)) / 1000);
+          return reply.code(429).send({
+            error: "Please wait before syncing again",
+            retryAfter,
+          });
+        }
+
+        // Update last sync time
+        (global as any)[lastSyncKey] = now;
+
+        request.log.info("Manual whale sync triggered");
+
+        // Run the sync
+        await syncWalletData();
+
+        // Get count of recent trades
+        const recentTrades = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(whaleActivity);
+
+        const count = recentTrades[0]?.count || 0;
+
+        return {
+          success: true,
+          message: "Whale activity synced from Polymarket",
+          tradesFound: Number(count),
+        };
+      } catch (error: any) {
+        request.log.error(error, "Failed to sync whale activity");
+        return reply.code(500).send({
+          error: "Failed to sync whale activity: " + (error.message || "Unknown error"),
+        });
+      }
     }
   );
 };

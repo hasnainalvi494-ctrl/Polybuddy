@@ -100,8 +100,8 @@ export function WhaleToastProvider({ children }: { children: React.ReactNode }) 
       // Use internal market ID for direct navigation
       router.push(`/markets/${activity.internalMarketId}`);
     } else {
-      // Go to signals page which shows whale activity
-      router.push(`/signals`);
+      // Go to whale activity page
+      router.push(`/whales`);
     }
   }, [router]);
 

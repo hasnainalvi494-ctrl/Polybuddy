@@ -225,27 +225,29 @@ export default function HomePage() {
             </div>
           </Link>
 
-          {/* Daily Signals Card */}
-          <Link href="/signals" className="group block">
-            <div className="h-full p-5 rounded-xl bg-[#111820] border border-[#243040] hover:border-emerald-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(16,185,129,0.15)]">
+          {/* Whale Activity Card */}
+          <Link href="/whales" className="group block">
+            <div className="h-full p-5 rounded-xl bg-[#111820] border border-[#243040] hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)]">
               <div className="flex items-center justify-between mb-3">
-                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                  <span className="text-xl">🐋</span>
                 </div>
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Daily
+                <span className="relative flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                  </span>
+                  Live
                 </span>
               </div>
-              <h2 className="text-lg font-semibold text-white mb-1 group-hover:text-emerald-400 transition-colors">
-                Daily Signals
+              <h2 className="text-lg font-semibold text-white mb-1 group-hover:text-cyan-400 transition-colors">
+                Whale Activity
               </h2>
               <p className="text-gray-500 text-sm mb-3">
-                Curated picks with entry points, targets, and risk levels.
+                Track big money moves. See what whales are betting on.
               </p>
-              <div className="flex items-center text-emerald-400 text-sm font-medium">
-                View picks
+              <div className="flex items-center text-cyan-400 text-sm font-medium">
+                Follow whales
                 <svg className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>

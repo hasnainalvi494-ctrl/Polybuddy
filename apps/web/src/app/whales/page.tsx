@@ -11,6 +11,7 @@ interface WhaleActivity {
   walletAddress: string;
   marketId: string;
   internalMarketId: string | null;
+  polymarketSlug: string | null;
   marketName: string;
   action: string;
   outcome: string;
@@ -369,9 +370,13 @@ export default function WhaleActivityPage() {
                       </svg>
                     </a>
 
-                    {/* View on Polymarket */}
+                    {/* View on Polymarket - Direct link to prediction */}
                     <a
-                      href={`https://polymarket.com/markets?_q=${encodeURIComponent(trade.marketName?.slice(0, 50) || "")}`}
+                      href={
+                        trade.polymarketSlug
+                          ? `https://polymarket.com/event/${trade.polymarketSlug}`
+                          : `https://polymarket.com/markets?_q=${encodeURIComponent(trade.marketName?.slice(0, 50) || "")}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-sm transition-colors border border-purple-500/30"

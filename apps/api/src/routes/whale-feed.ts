@@ -14,6 +14,7 @@ const WhaleTradeSchema = z.object({
   walletAddress: z.string(),
   marketId: z.string(),
   internalMarketId: z.string().nullable(),
+  polymarketSlug: z.string().nullable(),
   marketName: z.string(),
   action: z.string(),
   outcome: z.string(),
@@ -35,6 +36,7 @@ const WhaleFeedResponseSchema = z.object({
 interface MarketInfo {
   name: string;
   internalId: string | null;
+  slug: string | null;
 }
 const marketInfoCache = new Map<string, MarketInfo>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -72,19 +74,20 @@ async function getMarketInfo(marketIds: string[]): Promise<Map<string, MarketInf
       .where(inArray(markets.polymarketId, marketIds));
     
     for (const m of localMarkets) {
-      const marketInfo = { name: m.question, internalId: m.id };
+      // For DB markets, we don't have slug stored, will get from Gamma API
+      const marketInfo = { name: m.question, internalId: m.id, slug: null };
       info.set(m.polymarketId, marketInfo);
-      marketInfoCache.set(m.polymarketId, marketInfo);
+      // Don't cache yet - we'll update with slug from Gamma API
     }
   } catch {
     // Ignore DB errors
   }
 
-  // For any missing, try Gamma API to fetch specific markets
-  const missing = marketIds.filter(id => !info.has(id));
-  if (missing.length > 0) {
-    // Try to fetch each missing market individually from Gamma API
-    for (const marketId of missing) {
+  // For all markets, try Gamma API to get slug (and name for missing ones)
+  const needsSlug = marketIds.filter(id => !info.has(id) || !info.get(id)?.slug);
+  if (needsSlug.length > 0) {
+    // Try to fetch each market from Gamma API
+    for (const marketId of needsSlug) {
       try {
         const response = await fetch(`https://gamma-api.polymarket.com/markets/${marketId}`, {
           headers: { "Accept": "application/json" },
@@ -92,14 +95,23 @@ async function getMarketInfo(marketIds: string[]): Promise<Map<string, MarketInf
         });
         if (response.ok) {
           const market = await response.json();
-          if (market && market.question) {
-            const marketInfo = { name: market.question, internalId: null };
+          if (market) {
+            const existingInfo = info.get(marketId);
+            const marketInfo: MarketInfo = { 
+              name: market.question || existingInfo?.name || `Market #${marketId.slice(0, 8)}`,
+              internalId: existingInfo?.internalId || null,
+              slug: market.slug || null,
+            };
             info.set(marketId, marketInfo);
             marketInfoCache.set(marketId, marketInfo);
           }
         }
       } catch {
-        // Ignore individual API errors
+        // If API fails but we have DB info, keep it
+        const existingInfo = info.get(marketId);
+        if (existingInfo && !marketInfoCache.has(marketId)) {
+          marketInfoCache.set(marketId, existingInfo);
+        }
       }
     }
   }
@@ -193,6 +205,7 @@ export const whaleFeedRoutes: FastifyPluginAsync = async (app) => {
           walletAddress: trade.walletAddress,
           marketId: trade.marketId,
           internalMarketId: info?.internalId || null,
+          polymarketSlug: info?.slug || null,
           marketName,
           action: trade.action,
           outcome: trade.outcome,

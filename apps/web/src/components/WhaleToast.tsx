@@ -2,12 +2,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 const API_URL = "https://polybuddy-api-production.up.railway.app";
 
 interface WhaleActivity {
   id: string;
   walletAddress: string;
+  marketId: string;
+  internalMarketId: string | null;
   marketName: string;
   action: string;
   outcome: string;
@@ -34,9 +37,24 @@ function formatAddress(address: string): string {
 }
 
 export function WhaleToastProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
   const [isEnabled, setIsEnabled] = useState(true);
+
+  // Navigate to market when toast is clicked
+  const navigateToMarket = useCallback((activity: WhaleActivity) => {
+    if (activity.internalMarketId) {
+      // Use internal market ID for direct navigation
+      router.push(`/markets/${activity.internalMarketId}`);
+    } else if (activity.marketName && activity.marketName !== `Market #${activity.marketId.slice(0, 8)}`) {
+      // Search by market name if we have it
+      router.push(`/markets?search=${encodeURIComponent(activity.marketName.slice(0, 50))}`);
+    } else {
+      // Fallback to whale activity page
+      router.push(`/whale-activity`);
+    }
+  }, [router]);
 
   // Fetch whale activity
   const { data } = useQuery({
@@ -115,11 +133,14 @@ export function WhaleToastProvider({ children }: { children: React.ReactNode }) 
                 : "translate-x-full opacity-0"
             }`}
           >
-            <div className={`p-4 rounded-xl border shadow-2xl backdrop-blur-sm ${
-              toast.activity.action === "buy" 
-                ? "bg-emerald-900/90 border-emerald-500/50" 
-                : "bg-red-900/90 border-red-500/50"
-            }`}>
+            <div 
+              onClick={() => navigateToMarket(toast.activity)}
+              className={`p-4 rounded-xl border shadow-2xl backdrop-blur-sm cursor-pointer hover:scale-[1.02] transition-transform ${
+                toast.activity.action === "buy" 
+                  ? "bg-emerald-900/90 border-emerald-500/50 hover:border-emerald-400" 
+                  : "bg-red-900/90 border-red-500/50 hover:border-red-400"
+              }`}
+            >
               <div className="flex items-start gap-3">
                 {/* Whale Icon */}
                 <div className={`p-2 rounded-lg ${
@@ -154,14 +175,25 @@ export function WhaleToastProvider({ children }: { children: React.ReactNode }) 
                     {toast.activity.marketName || "Unknown Market"}
                   </p>
                   
-                  <p className="text-gray-500 text-xs font-mono">
-                    {formatAddress(toast.activity.walletAddress)}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-500 text-xs font-mono">
+                      {formatAddress(toast.activity.walletAddress)}
+                    </p>
+                    <span className="text-xs text-gray-500 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      View
+                    </span>
+                  </div>
                 </div>
                 
                 {/* Close Button */}
                 <button
-                  onClick={() => dismissToast(toast.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissToast(toast.id);
+                  }}
                   className="text-gray-400 hover:text-white p-1"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

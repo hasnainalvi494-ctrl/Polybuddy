@@ -244,9 +244,9 @@ async function main() {
       app.log.info("Starting market sync job...");
       marketSyncInterval = scheduleMarketSync(15 * 60 * 1000); // 15 minutes
 
-      // Start wallet sync job (runs every hour)
+      // Start wallet sync job (runs every 10 minutes for fresh whale data)
       app.log.info("Starting wallet sync job...");
-      walletSyncInterval = scheduleWalletSync(60 * 60 * 1000); // 1 hour
+      walletSyncInterval = scheduleWalletSync(10 * 60 * 1000); // 10 minutes
 
       // Start UMA dispute sync job (runs every 5 minutes)
       app.log.info("Starting UMA dispute sync job...");

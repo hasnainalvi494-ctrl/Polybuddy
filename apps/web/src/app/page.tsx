@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { ResolvingSoon } from "@/components/ResolvingSoon";
 
 const API_URL = "https://polybuddy-api-production.up.railway.app";
 
@@ -281,6 +282,11 @@ export default function HomePage() {
           </Link>
 
         </div>
+      </section>
+
+      {/* Resolving Soon Section */}
+      <section className="max-w-5xl mx-auto px-4 pb-12">
+        <ResolvingSoon limit={5} />
       </section>
 
       {/* Footer */}

@@ -104,6 +104,24 @@ export default function MarketsPage() {
     return `$${liquidity.toFixed(0)}`;
   };
 
+  // Quality grade badge colors and labels
+  const getGradeStyle = (grade: string | null) => {
+    switch (grade?.toUpperCase()) {
+      case "A":
+        return { bg: "bg-emerald-500/20", text: "text-emerald-400", border: "border-emerald-500/30", label: "Excellent" };
+      case "B":
+        return { bg: "bg-teal-500/20", text: "text-teal-400", border: "border-teal-500/30", label: "Good" };
+      case "C":
+        return { bg: "bg-yellow-500/20", text: "text-yellow-400", border: "border-yellow-500/30", label: "Fair" };
+      case "D":
+        return { bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/30", label: "Poor" };
+      case "F":
+        return { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30", label: "Risky" };
+      default:
+        return { bg: "bg-gray-500/20", text: "text-gray-400", border: "border-gray-500/30", label: "-" };
+    }
+  };
+
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
@@ -199,6 +217,7 @@ export default function MarketsPage() {
                 <thead>
                   <tr className="border-b dark:border-gray-700">
                     <th className="text-left py-3 px-4 font-medium">Market</th>
+                    <th className="text-center py-3 px-4 font-medium w-20">Grade</th>
                     <th className="text-center py-3 px-4 font-medium w-32">YES / NO</th>
                     <th className="text-right py-3 px-4 font-medium w-24">Volume</th>
                     <th className="text-right py-3 px-4 font-medium w-24">Liquidity</th>
@@ -226,6 +245,21 @@ export default function MarketsPage() {
                               {market.category}
                             </span>
                           )}
+                        </td>
+                        <td className="text-center py-3 px-4">
+                          {(() => {
+                            const style = getGradeStyle(market.qualityGrade);
+                            return market.qualityGrade ? (
+                              <span 
+                                className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${style.bg} ${style.text} border ${style.border}`}
+                                title={`Quality: ${style.label}`}
+                              >
+                                {market.qualityGrade.toUpperCase()}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            );
+                          })()}
                         </td>
                         <td className="text-center py-3 px-4 font-mono">
                           <span className="text-green-600 dark:text-green-400">{formatPrice(yesPrice)}</span>

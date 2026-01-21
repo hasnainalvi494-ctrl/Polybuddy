@@ -77,8 +77,12 @@ export default function BestBetsPage() {
     return `${(price * 100).toFixed(0)}¢`;
   };
 
-  const formatPercent = (value: number | null | undefined) => {
+  const formatPercent = (value: number | null | undefined, alreadyPercent = false) => {
     if (value === null || value === undefined) return "-";
+    // If value is already a percentage (> 1), don't multiply by 100
+    if (alreadyPercent || value > 1) {
+      return `${value.toFixed(0)}%`;
+    }
     return `${(value * 100).toFixed(0)}%`;
   };
 
@@ -134,7 +138,7 @@ export default function BestBetsPage() {
               <div className="border-l border-[#243040] pl-4">
                 <p className="text-sm text-gray-400">Avg Confidence</p>
                 <p className="text-2xl font-bold text-cyan-400">
-                  {(data.avgConfidence * 100).toFixed(0)}%
+                  {data.avgConfidence > 1 ? data.avgConfidence.toFixed(0) : (data.avgConfidence * 100).toFixed(0)}%
                 </p>
               </div>
             </div>
@@ -292,9 +296,31 @@ export default function BestBetsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Generated</p>
-                    <p className="text-sm text-gray-400">{formatTime(signal.generatedAt)}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">Generated</p>
+                      <p className="text-sm text-gray-400">{formatTime(signal.generatedAt)}</p>
+                    </div>
+                    {/* Share Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const confidence = signal.confidence > 1 ? signal.confidence.toFixed(0) : (signal.confidence * 100).toFixed(0);
+                        const text = `🎯 ${signal.signalStrength.toUpperCase()} Signal: ${signal.outcome.toUpperCase()} on "${signal.marketQuestion}"\n\n📊 ${confidence}% confidence | Entry: ${(signal.entryPrice * 100).toFixed(0)}¢\n\nGet AI trading signals at @polybuddy_app`;
+                        const url = `https://polybuddy-web-iags.vercel.app/markets/${signal.marketId}`;
+                        window.open(
+                          `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+                          '_blank',
+                          'width=550,height=420'
+                        );
+                      }}
+                      className="p-2 bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 border border-[#1DA1F2]/30 rounded-lg text-[#1DA1F2] transition-colors"
+                      title="Share on X"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>

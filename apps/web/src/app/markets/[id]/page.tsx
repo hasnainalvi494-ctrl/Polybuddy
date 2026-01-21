@@ -105,14 +105,24 @@ export default function MarketDetailPage() {
               {market.question || "Market Details"}
             </h1>
             {market.qualityGrade && (
-              <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                market.qualityGrade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
-                market.qualityGrade === 'B' ? 'bg-blue-500/20 text-blue-400' :
-                market.qualityGrade === 'C' ? 'bg-yellow-500/20 text-yellow-400' :
-                'bg-red-500/20 text-red-400'
-              }`}>
-                Grade {market.qualityGrade}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-lg text-sm font-bold ${
+                  market.qualityGrade === 'A' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                  market.qualityGrade === 'B' ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30' :
+                  market.qualityGrade === 'C' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                  market.qualityGrade === 'D' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                  'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}>
+                  Grade {market.qualityGrade}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {market.qualityGrade === 'A' ? 'Excellent Liquidity' :
+                   market.qualityGrade === 'B' ? 'Good Liquidity' :
+                   market.qualityGrade === 'C' ? 'Fair Liquidity' :
+                   market.qualityGrade === 'D' ? 'Poor Liquidity' :
+                   'Risky - Low Liquidity'}
+                </span>
+              </div>
             )}
           </div>
 
@@ -120,17 +130,40 @@ export default function MarketDetailPage() {
             <p className="text-gray-400 text-sm mb-4">{market.description}</p>
           )}
 
-          <div className="flex flex-wrap gap-2">
-            {market.category && (
-              <span className="text-xs px-3 py-1.5 bg-gray-800 rounded-lg text-gray-400">
-                {market.category}
-              </span>
-            )}
-            {market.clusterLabel && (
-              <span className="text-xs px-3 py-1.5 bg-purple-500/20 rounded-lg text-purple-400">
-                {market.clusterLabel}
-              </span>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {market.category && (
+                <span className="text-xs px-3 py-1.5 bg-gray-800 rounded-lg text-gray-400">
+                  {market.category}
+                </span>
+              )}
+              {market.clusterLabel && (
+                <span className="text-xs px-3 py-1.5 bg-purple-500/20 rounded-lg text-purple-400">
+                  {market.clusterLabel}
+                </span>
+              )}
+            </div>
+            
+            {/* Share Button */}
+            <button
+              onClick={() => {
+                const price = market.currentPrice !== null ? `${(market.currentPrice * 100).toFixed(0)}¢` : '';
+                const prediction = market.currentPrice !== null ? (market.currentPrice > 0.5 ? 'YES' : 'NO') : '';
+                const text = `🎯 Watching "${market.question}" at ${price} ${prediction ? `| Leaning ${prediction}` : ''}\n\nTrack prediction markets smarter with @polybuddy_app`;
+                const url = `https://polybuddy-web-iags.vercel.app/markets/${market.id}`;
+                window.open(
+                  `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+                  '_blank',
+                  'width=550,height=420'
+                );
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 border border-[#1DA1F2]/30 rounded-lg text-[#1DA1F2] text-sm font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              Share
+            </button>
           </div>
         </div>
 

@@ -676,6 +676,7 @@ async function trackWhaleActivity(trades: PolymarketTrade[]): Promise<void> {
       await db.insert(whaleActivity).values({
         walletAddress: trade.maker_address,
         marketId: trade.market,
+        marketQuestion: trade.marketQuestion || null,
         action: trade.side.toLowerCase(),
         outcome: trade.outcome.toLowerCase(),
         amountUsd: trade.size,

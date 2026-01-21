@@ -170,6 +170,18 @@ export async function initializeMissingTables(): Promise<void> {
     `);
     logger.info("✅ market_correlations table ready");
 
+    // Add market_question column to whale_activity if missing
+    try {
+      await db.execute(sql`
+        ALTER TABLE whale_activity 
+        ADD COLUMN IF NOT EXISTS market_question TEXT
+      `);
+      logger.info("✅ whale_activity.market_question column ready");
+    } catch (error) {
+      // Column might already exist or table doesn't exist
+      logger.debug("market_question column check completed");
+    }
+
     // Insert sample data if tables are empty
     await seedPatternRecognitionData();
 

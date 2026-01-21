@@ -1015,6 +1015,7 @@ export const whaleActivity = pgTable("whale_activity", {
   id: uuid("id").primaryKey().defaultRandom(),
   walletAddress: text("wallet_address").notNull(),
   marketId: text("market_id").notNull(),
+  marketQuestion: text("market_question"), // Store market question for display
   action: text("action").notNull(), // 'buy' or 'sell'
   outcome: text("outcome").notNull(), // 'yes' or 'no'
   amountUsd: decimal("amount_usd", { precision: 18, scale: 2 }).notNull(),

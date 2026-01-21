@@ -141,6 +141,7 @@ export const whaleFeedRoutes: FastifyPluginAsync = async (app) => {
             id: whaleActivity.id,
             walletAddress: whaleActivity.walletAddress,
             marketId: whaleActivity.marketId,
+            marketQuestion: whaleActivity.marketQuestion,
             action: whaleActivity.action,
             outcome: whaleActivity.outcome,
             amountUsd: whaleActivity.amountUsd,
@@ -182,13 +183,16 @@ export const whaleFeedRoutes: FastifyPluginAsync = async (app) => {
 
         const isHot = !!(trade.timestamp && trade.timestamp >= fiveMinutesAgo);
         const info = marketInfo.get(trade.marketId);
+        
+        // Use stored marketQuestion first, then API lookup, then fallback
+        const marketName = trade.marketQuestion || info?.name || `Market #${trade.marketId.slice(0, 8)}`;
 
         return {
           id: trade.id,
           walletAddress: trade.walletAddress,
           marketId: trade.marketId,
           internalMarketId: info?.internalId || null,
-          marketName: info?.name || `Market #${trade.marketId.slice(0, 8)}`,
+          marketName,
           action: trade.action,
           outcome: trade.outcome,
           amountUsd: Number(trade.amountUsd),

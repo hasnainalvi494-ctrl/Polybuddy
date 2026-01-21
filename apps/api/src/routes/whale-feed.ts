@@ -79,25 +79,27 @@ async function getMarketInfo(marketIds: string[]): Promise<Map<string, MarketInf
     // Ignore DB errors
   }
 
-  // For any missing, try Gamma API (won't have internal ID)
+  // For any missing, try Gamma API to fetch specific markets
   const missing = marketIds.filter(id => !info.has(id));
   if (missing.length > 0) {
-    try {
-      const response = await fetch(`https://gamma-api.polymarket.com/markets?limit=100`, {
-        headers: { "Accept": "application/json" },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        for (const market of data) {
-          if (missing.includes(market.id)) {
-            const marketInfo = { name: market.question || `Market ${market.id}`, internalId: null };
-            info.set(market.id, marketInfo);
-            marketInfoCache.set(market.id, marketInfo);
+    // Try to fetch each missing market individually from Gamma API
+    for (const marketId of missing) {
+      try {
+        const response = await fetch(`https://gamma-api.polymarket.com/markets/${marketId}`, {
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (response.ok) {
+          const market = await response.json();
+          if (market && market.question) {
+            const marketInfo = { name: market.question, internalId: null };
+            info.set(marketId, marketInfo);
+            marketInfoCache.set(marketId, marketInfo);
           }
         }
+      } catch {
+        // Ignore individual API errors
       }
-    } catch {
-      // Ignore API errors
     }
   }
 

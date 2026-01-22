@@ -78,12 +78,12 @@ export default function HomePage() {
           </div>
           
           {/* Main heading */}
-          <h1 className="text-4xl md:text-6xl font-bold mb-2">
+          <h1 className="text-4xl md:text-6xl font-bold mb-2 text-center w-full">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-300 drop-shadow-[0_0_25px_rgba(20,184,166,0.5)]">
               PolyBuddy
             </span>
           </h1>
-          <p className="text-xl md:text-2xl font-semibold text-white mb-4">
+          <p className="text-xl md:text-2xl font-semibold text-white mb-4 text-center w-full">
             Trade <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Smarter</span>
           </p>
           <p className="text-lg text-gray-400 max-w-xl mx-auto mb-10">

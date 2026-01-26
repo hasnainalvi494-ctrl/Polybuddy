@@ -69,10 +69,10 @@ export default function LaunchPage() {
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-8">
         {/* Logo with glitch effect */}
-        <div className="mb-12 text-center">
-          <h1 className="text-8xl lg:text-9xl font-black mb-4 relative group cursor-default">
+        <div className="mb-8 md:mb-12 text-center">
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-9xl font-black mb-3 md:mb-4 relative group cursor-default">
             <span className="relative z-10 bg-gradient-to-r from-cyan-400 via-indigo-400 to-magenta-400 bg-clip-text text-transparent">
               POLYBUDDY
             </span>
@@ -85,31 +85,31 @@ export default function LaunchPage() {
             </span>
           </h1>
           
-          <p className="text-xl text-gray-400 font-light tracking-[0.3em] uppercase">
+          <p className="text-xs sm:text-sm md:text-lg lg:text-xl text-gray-400 font-light tracking-[0.2em] md:tracking-[0.3em] uppercase">
             Real-time Market Intelligence
           </p>
         </div>
 
         {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-8 md:mb-12">
           <div className="text-center">
-            <div className="text-3xl font-bold text-cyan-400 mb-1 font-mono">3,970</div>
-            <div className="text-xs text-gray-600 uppercase tracking-widest">Markets</div>
+            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-cyan-400 mb-1 font-mono">3,970</div>
+            <div className="text-[10px] sm:text-xs text-gray-600 uppercase tracking-wider md:tracking-widest">Markets</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-indigo-400 mb-1 font-mono">75.7%</div>
-            <div className="text-xs text-gray-600 uppercase tracking-widest">Win Rate</div>
+            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-indigo-400 mb-1 font-mono">75.7%</div>
+            <div className="text-[10px] sm:text-xs text-gray-600 uppercase tracking-wider md:tracking-widest">Win Rate</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-magenta-400 mb-1 font-mono animate-pulse">LIVE</div>
-            <div className="text-xs text-gray-600 uppercase tracking-widest">Status</div>
+            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-magenta-400 mb-1 font-mono animate-pulse">LIVE</div>
+            <div className="text-[10px] sm:text-xs text-gray-600 uppercase tracking-wider md:tracking-widest">Status</div>
           </div>
         </div>
 
         {/* Enter button - Goes to /home (dashboard with all features) */}
         <Link
           href="/home"
-          className="group relative px-16 py-6 text-xl font-bold uppercase tracking-wider overflow-hidden"
+          className="group relative px-8 sm:px-12 md:px-16 py-4 sm:py-5 md:py-6 text-base sm:text-lg md:text-xl font-bold uppercase tracking-wider overflow-hidden"
         >
           {/* Button background */}
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-indigo-500 to-magenta-500 opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -120,9 +120,9 @@ export default function LaunchPage() {
           </div>
 
           {/* Button text */}
-          <span className="relative z-10 flex items-center gap-3 text-white group-hover:text-cyan-400 transition-colors">
+          <span className="relative z-10 flex items-center gap-2 sm:gap-3 text-white group-hover:text-cyan-400 transition-colors">
             Enter Platform
-            <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-2 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </span>
@@ -132,7 +132,7 @@ export default function LaunchPage() {
         </Link>
 
         {/* Additional features in grid */}
-        <div className="grid grid-cols-2 gap-4 mt-16 text-sm">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-10 sm:mt-12 md:mt-16 text-xs sm:text-sm">
           <div className="flex items-center gap-2 text-cyan-400">
             <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
             <span className="font-mono">AI SIGNALS</span>
@@ -154,11 +154,11 @@ export default function LaunchPage() {
 
       {/* Live feed at bottom */}
       {mounted && (
-        <div className="absolute bottom-0 left-0 right-0 bg-black/80 border-t border-cyan-500/30 py-4 overflow-hidden">
-          <div className="flex animate-scroll-left whitespace-nowrap text-sm font-mono">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/80 border-t border-cyan-500/30 py-3 sm:py-4 overflow-hidden">
+          <div className="flex animate-scroll-left whitespace-nowrap text-xs sm:text-sm font-mono">
             {[...feedItems, ...feedItems, ...feedItems].map((item, i) => (
-              <div key={i} className="inline-flex items-center mx-8">
-                <div className="w-2 h-2 bg-green-400 rounded-full mr-3 animate-pulse" />
+              <div key={i} className="inline-flex items-center mx-4 sm:mx-8">
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-2 sm:mr-3 animate-pulse" />
                 <span className="text-gray-400">{item}</span>
               </div>
             ))}

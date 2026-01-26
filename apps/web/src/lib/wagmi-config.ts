@@ -8,5 +8,5 @@ export const config = getDefaultConfig({
   appName: "PolyBuddy",
   projectId: "polybuddy-wallet-connect", // WalletConnect Cloud project ID (placeholder)
   chains: [polygon], // Polymarket uses Polygon
-  ssr: true, // Enable server-side rendering support for Next.js
+  ssr: false, // Disable SSR to fix indexedDB errors
 });

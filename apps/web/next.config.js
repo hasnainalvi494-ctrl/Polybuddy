@@ -27,6 +27,20 @@ const nextConfig = {
   // Output standalone for deployment
   output: 'standalone',
 
+  // Webpack configuration to handle missing packages
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        encoding: false,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
+  },
+
   // Disable caching for API routes and dynamic pages
   async headers() {
     return [

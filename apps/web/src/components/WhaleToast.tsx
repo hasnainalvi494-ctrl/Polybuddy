@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 const API_URL = "https://polybuddy-api-production.up.railway.app";
 const SEEN_IDS_KEY = "polybuddy_whale_seen_ids";
@@ -81,11 +81,15 @@ function isFirstLoad(): boolean {
 
 export function WhaleToastProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [seenIds, setSeenIds] = useState<Set<string>>(() => loadSeenIds());
   const [isEnabled, setIsEnabled] = useState(true);
   const isFirstLoadRef = useRef(true);
   const hasInitializedRef = useRef(false);
+  
+  // Check if we're on the launch page
+  const isLaunchPage = pathname === "/";
 
   // Initialize on mount - mark all current trades as seen on first load
   useEffect(() => {
@@ -274,18 +278,20 @@ export function WhaleToastProvider({ children }: { children: React.ReactNode }) 
         ))}
       </div>
 
-      {/* Toggle Button (fixed bottom left) */}
-      <button
-        onClick={() => setIsEnabled((prev) => !prev)}
-        className={`fixed bottom-4 left-4 z-50 p-3 rounded-full shadow-lg transition-all ${
-          isEnabled 
-            ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-400" 
-            : "bg-gray-800 border border-gray-700 text-gray-500"
-        }`}
-        title={isEnabled ? "Whale alerts ON" : "Whale alerts OFF"}
-      >
-        <span className="text-lg">🐋</span>
-      </button>
+      {/* Toggle Button (fixed bottom left) - Hidden on launch page */}
+      {!isLaunchPage && (
+        <button
+          onClick={() => setIsEnabled((prev) => !prev)}
+          className={`fixed bottom-4 left-4 z-50 p-3 rounded-full shadow-lg transition-all ${
+            isEnabled 
+              ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-400" 
+              : "bg-gray-800 border border-gray-700 text-gray-500"
+          }`}
+          title={isEnabled ? "Whale alerts ON" : "Whale alerts OFF"}
+        >
+          <span className="text-lg">🐋</span>
+        </button>
+      )}
     </>
   );
 }

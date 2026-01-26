@@ -7,6 +7,7 @@ import { eq, sql } from "drizzle-orm";
 
 interface GammaMarket {
   id: string;
+  slug?: string; // URL slug for direct linking
   question: string;
   description?: string;
   category?: string;
@@ -319,6 +320,7 @@ async function upsertMarket(market: GammaMarket): Promise<string | null> {
 
     const marketData = {
       polymarketId: market.id,
+      slug: market.slug || null, // Store slug for direct Polymarket links
       question: market.question,
       description: market.description || null,
       category: detectedCategory,

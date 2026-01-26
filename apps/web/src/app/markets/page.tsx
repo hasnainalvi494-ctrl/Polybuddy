@@ -9,6 +9,7 @@ import { StructurallyInterestingCarousel } from "@/components/StructurallyIntere
 interface Market {
   id: string;
   polymarketId: string;
+  slug: string | null;
   question: string;
   category: string | null;
   endDate: string | null;

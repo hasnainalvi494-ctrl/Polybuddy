@@ -133,6 +133,7 @@ export const consistencyLabel = pgEnum("consistency_label", [
 export const markets = pgTable("markets", {
   id: uuid("id").primaryKey().defaultRandom(),
   polymarketId: varchar("polymarket_id", { length: 255 }).notNull().unique(),
+  slug: varchar("slug", { length: 500 }), // Polymarket URL slug for direct linking
   question: text("question").notNull(),
   description: text("description"),
   category: varchar("category", { length: 100 }),

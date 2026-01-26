@@ -182,6 +182,17 @@ export async function initializeMissingTables(): Promise<void> {
       logger.debug("market_question column check completed");
     }
 
+    // Add slug column to markets table for direct Polymarket links
+    try {
+      await db.execute(sql`
+        ALTER TABLE markets 
+        ADD COLUMN IF NOT EXISTS slug VARCHAR(500)
+      `);
+      logger.info("✅ markets.slug column ready");
+    } catch (error) {
+      logger.debug("markets.slug column check completed");
+    }
+
     // Add enhanced model columns to best_bet_signals if missing
     try {
       await db.execute(sql`

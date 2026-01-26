@@ -8,6 +8,7 @@ import { getMarket } from "@/lib/api";
 interface MarketDetail {
   id: string;
   polymarketId: string;
+  slug: string | null;
   question: string;
   description: string | null;
   category: string | null;
@@ -255,15 +256,18 @@ export default function MarketDetailPage() {
         <div className="bg-gradient-to-r from-primary-500/20 to-purple-500/20 border border-primary-500/30 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-2">Ready to Trade?</h3>
           <p className="text-gray-400 text-sm mb-4">
-            Search for this market on Polymarket to trade
+            {market.slug ? "Trade this market directly on Polymarket" : "Find this market on Polymarket"}
           </p>
           <a 
-            href={`https://polymarket.com/markets?_q=${encodeURIComponent((market.question || '').slice(0, 50))}`}
+            href={market.slug 
+              ? `https://polymarket.com/event/${market.slug}`
+              : `https://polymarket.com/markets?_q=${encodeURIComponent((market.question || '').slice(0, 50))}`
+            }
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
-            Find on Polymarket
+            {market.slug ? "Trade on Polymarket" : "Find on Polymarket"}
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>

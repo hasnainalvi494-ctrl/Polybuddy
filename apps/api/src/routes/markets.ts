@@ -149,6 +149,7 @@ const MarketQuerySchema = z.object({
 const MarketResponseSchema = z.object({
   id: z.string(),
   polymarketId: z.string(),
+  slug: z.string().nullable(), // For direct Polymarket links
   question: z.string(),
   category: z.string().nullable(),
   endDate: z.string().nullable(),
@@ -425,6 +426,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
       let marketRows: {
         id: string;
         polymarketId: string;
+        slug: string | null;
         question: string;
         category: string | null;
         endDate: Date | null;
@@ -470,6 +472,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
               .select({
                 id: markets.id,
                 polymarketId: markets.polymarketId,
+                slug: markets.slug,
                 question: markets.question,
                 category: markets.category,
                 endDate: markets.endDate,
@@ -492,6 +495,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
             .select({
               id: markets.id,
               polymarketId: markets.polymarketId,
+              slug: markets.slug,
               question: markets.question,
               category: markets.category,
               endDate: markets.endDate,
@@ -517,6 +521,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
           .select({
             id: markets.id,
             polymarketId: markets.polymarketId,
+            slug: markets.slug,
             question: markets.question,
             category: markets.category,
             endDate: markets.endDate,
@@ -584,6 +589,7 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         return {
           id: m.id,
           polymarketId: m.polymarketId,
+          slug: m.slug || null,
           question: m.question,
           category: m.category,
           endDate: m.endDate?.toISOString() ?? null,
@@ -737,9 +743,13 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         } : null,
       } : null;
 
+      // Fallback to metadata if no snapshot
+      const metadata = market.metadata as { currentPrice?: number; volume24h?: number; liquidity?: number; spread?: number } | undefined;
+      
       return {
         id: market.id,
         polymarketId: market.polymarketId,
+        slug: market.slug || null,
         question: market.question,
         description: market.description,
         category: market.category,
@@ -747,10 +757,10 @@ export const marketsRoutes: FastifyPluginAsync = async (app) => {
         qualityGrade: market.qualityGrade,
         qualityScore: market.qualityScore ? Number(market.qualityScore) : null,
         clusterLabel: market.clusterLabel,
-        currentPrice: snapshot?.price ? Number(snapshot.price) : null,
-        volume24h: snapshot?.volume24h ? Number(snapshot.volume24h) : null,
-        liquidity: snapshot?.liquidity ? Number(snapshot.liquidity) : null,
-        spread: snapshot?.spread ? Number(snapshot.spread) : null,
+        currentPrice: snapshot?.price ? Number(snapshot.price) : (metadata?.currentPrice ?? null),
+        volume24h: snapshot?.volume24h ? Number(snapshot.volume24h) : (metadata?.volume24h ?? null),
+        liquidity: snapshot?.liquidity ? Number(snapshot.liquidity) : (metadata?.liquidity ?? null),
+        spread: snapshot?.spread ? Number(snapshot.spread) : (metadata?.spread ?? null),
         depth: snapshot?.depth ? Number(snapshot.depth) : null,
         staleness: snapshot?.snapshotAt
           ? Math.floor((Date.now() - snapshot.snapshotAt.getTime()) / 1000 / 60)

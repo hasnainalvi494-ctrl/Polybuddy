@@ -160,8 +160,197 @@ const MarketResponseSchema = z.object({
   liquidity: z.number().nullable(),
 });
 
+// Gamma API for live prices
+const GAMMA_API_BASE = "https://gamma-api.polymarket.com";
+
+async function fetchLivePriceFromGamma(polymarketId: string): Promise<{ price: number; volume24h: number; liquidity: number } | null> {
+  try {
+    const response = await fetch(`${GAMMA_API_BASE}/markets/${polymarketId}`, {
+      headers: { "Accept": "application/json", "User-Agent": "PolyBuddy/1.0" },
+      signal: AbortSignal.timeout(5000),
+    });
+    
+    if (!response.ok) return null;
+    
+    const market = await response.json() as any;
+    const prices = typeof market.outcomePrices === "string" 
+      ? JSON.parse(market.outcomePrices) 
+      : market.outcomePrices || [];
+    
+    return {
+      price: parseFloat(prices[0] || "0.5"),
+      volume24h: market.volume24hr || 0,
+      liquidity: market.liquidityNum || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchLivePricesFromGamma(polymarketIds: string[]): Promise<Map<string, { price: number; volume24h: number; liquidity: number }>> {
+  const results = new Map<string, { price: number; volume24h: number; liquidity: number }>();
+  
+  // Fetch in batches of 10 to avoid rate limiting
+  const batchSize = 10;
+  for (let i = 0; i < polymarketIds.length; i += batchSize) {
+    const batch = polymarketIds.slice(i, i + batchSize);
+    const promises = batch.map(async (id) => {
+      const data = await fetchLivePriceFromGamma(id);
+      if (data) results.set(id, data);
+    });
+    await Promise.all(promises);
+    
+    // Small delay between batches
+    if (i + batchSize < polymarketIds.length) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+  
+  return results;
+}
+
 export const marketsRoutes: FastifyPluginAsync = async (app) => {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  // ============================================
+  // LIVE PRICE ENDPOINTS
+  // ============================================
+
+  // Get live price for a single market (bypasses cache)
+  typedApp.get(
+    "/:id/live-price",
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: z.object({
+            marketId: z.string(),
+            polymarketId: z.string(),
+            price: z.number(),
+            volume24h: z.number(),
+            liquidity: z.number(),
+            fetchedAt: z.string(),
+          }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        return reply.status(404).send({ error: `Market ${id} not found` });
+      }
+
+      const liveData = await fetchLivePriceFromGamma(market.polymarketId);
+      
+      if (!liveData) {
+        // Fall back to cached data
+        const metadata = market.metadata as { currentPrice?: number; volume24h?: number; liquidity?: number } | undefined;
+        return {
+          marketId: id,
+          polymarketId: market.polymarketId,
+          price: metadata?.currentPrice ?? 0.5,
+          volume24h: metadata?.volume24h ?? 0,
+          liquidity: metadata?.liquidity ?? 0,
+          fetchedAt: new Date().toISOString(),
+        };
+      }
+
+      // Update cached data in background
+      db.update(markets)
+        .set({
+          metadata: {
+            ...(market.metadata as object || {}),
+            currentPrice: liveData.price,
+            volume24h: liveData.volume24h,
+            liquidity: liveData.liquidity,
+            lastSync: new Date().toISOString(),
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(markets.id, id))
+        .catch(() => {}); // Don't wait, don't fail
+
+      return {
+        marketId: id,
+        polymarketId: market.polymarketId,
+        price: liveData.price,
+        volume24h: liveData.volume24h,
+        liquidity: liveData.liquidity,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+  );
+
+  // Batch refresh live prices for multiple markets
+  typedApp.post(
+    "/refresh-prices",
+    {
+      schema: {
+        body: z.object({
+          marketIds: z.array(z.string().uuid()).max(50),
+        }),
+        response: {
+          200: z.object({
+            refreshed: z.number(),
+            prices: z.array(z.object({
+              marketId: z.string(),
+              polymarketId: z.string(),
+              price: z.number(),
+              volume24h: z.number(),
+              liquidity: z.number(),
+            })),
+            fetchedAt: z.string(),
+          }),
+        },
+      },
+    },
+    async (request) => {
+      const { marketIds } = request.body;
+
+      if (marketIds.length === 0) {
+        return { refreshed: 0, prices: [], fetchedAt: new Date().toISOString() };
+      }
+
+      // Get market polymarket IDs
+      const marketsData = await db
+        .select({ id: markets.id, polymarketId: markets.polymarketId })
+        .from(markets)
+        .where(sql`${markets.id} IN (${sql.join(marketIds.map(id => sql`${id}::uuid`), sql`, `)})`);
+
+      const polymarketIds = marketsData.map(m => m.polymarketId);
+      const idMap = new Map(marketsData.map(m => [m.polymarketId, m.id]));
+
+      // Fetch live prices
+      const livePrices = await fetchLivePricesFromGamma(polymarketIds);
+
+      const prices = marketsData.map(m => {
+        const liveData = livePrices.get(m.polymarketId);
+        return {
+          marketId: m.id,
+          polymarketId: m.polymarketId,
+          price: liveData?.price ?? 0.5,
+          volume24h: liveData?.volume24h ?? 0,
+          liquidity: liveData?.liquidity ?? 0,
+        };
+      });
+
+      return {
+        refreshed: livePrices.size,
+        prices,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+  );
 
   // Get available categories
   typedApp.get(

@@ -242,9 +242,9 @@ async function main() {
         app.log.warn("Table initialization failed - continuing with existing schema");
       }
 
-      // Start market sync job (runs every 15 minutes) - PRIORITY: populates market data
+      // Start market sync job (runs every 5 minutes) - PRIORITY: populates market data
       app.log.info("Starting market sync job...");
-      marketSyncInterval = scheduleMarketSync(15 * 60 * 1000); // 15 minutes
+      marketSyncInterval = scheduleMarketSync(5 * 60 * 1000); // 5 minutes for fresher data
 
       // Start wallet sync job (runs every 10 minutes for fresh whale data)
       app.log.info("Starting wallet sync job...");

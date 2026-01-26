@@ -1202,3 +1202,64 @@ export async function disconnectTelegram() {
 
   return response.json();
 }
+
+// ==========================================
+// Live Price API - Real-time data from Polymarket
+// ==========================================
+
+export interface LivePriceData {
+  marketId: string;
+  polymarketId: string;
+  price: number;
+  volume24h: number;
+  liquidity: number;
+  fetchedAt: string;
+}
+
+export interface RefreshPricesResponse {
+  refreshed: number;
+  prices: Array<{
+    marketId: string;
+    polymarketId: string;
+    price: number;
+    volume24h: number;
+    liquidity: number;
+  }>;
+  fetchedAt: string;
+}
+
+// Get live price for a single market (bypasses cache)
+export async function getLivePrice(marketId: string): Promise<LivePriceData | null> {
+  const url = `${API_URL}/api/markets/${marketId}/live-price`;
+
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}
+
+// Batch refresh live prices for multiple markets
+export async function refreshMarketPrices(marketIds: string[]): Promise<RefreshPricesResponse> {
+  const url = `${API_URL}/api/markets/refresh-prices`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ marketIds }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to refresh prices");
+  }
+
+  return response.json();
+}

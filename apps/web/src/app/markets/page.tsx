@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { getMarkets, getCategories } from "@/lib/api";
+import { getMarkets, getCategories, refreshMarketPrices } from "@/lib/api";
 import { StructurallyInterestingCarousel } from "@/components/StructurallyInterestingCarousel";
 
 interface Market {
@@ -40,7 +40,27 @@ export default function MarketsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("volume");
   const [page, setPage] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const limit = 20;
+  const queryClient = useQueryClient();
+
+  // Manual refresh live prices
+  const handleRefreshPrices = useCallback(async (marketIds: string[]) => {
+    if (isRefreshing || marketIds.length === 0) return;
+    
+    setIsRefreshing(true);
+    try {
+      await refreshMarketPrices(marketIds);
+      setLastRefresh(new Date());
+      // Invalidate the markets query to refetch with new prices
+      queryClient.invalidateQueries({ queryKey: ["markets"] });
+    } catch (error) {
+      console.error("Failed to refresh prices:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, queryClient]);
 
   // Fetch categories
   const { data: categories } = useQuery({
@@ -126,10 +146,45 @@ export default function MarketsPage() {
     <main className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Market Explorer</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Browse {data?.total?.toLocaleString() ?? "..."} markets from Polymarket
-          </p>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Market Explorer</h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Browse {data?.total?.toLocaleString() ?? "..."} markets from Polymarket
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {lastRefresh && (
+                <span className="text-xs text-gray-500">
+                  Updated {lastRefresh.toLocaleTimeString()}
+                </span>
+              )}
+              <button
+                onClick={() => data?.data && handleRefreshPrices(data.data.map(m => m.id))}
+                disabled={isRefreshing || !data?.data}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isRefreshing
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-teal-600 hover:bg-teal-700 text-white"
+                }`}
+              >
+                <svg
+                  className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {isRefreshing ? "Refreshing..." : "Refresh Prices"}
+              </button>
+            </div>
+          </div>
         </header>
 
         {/* Structurally Interesting Markets Carousel */}

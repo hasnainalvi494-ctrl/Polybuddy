@@ -1,3 +1,5 @@
+"use client";
+
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -5,6 +7,7 @@ import { Providers } from "./providers";
 import { Navigation } from "@/components/Navigation";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { usePathname } from "next/navigation";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -12,18 +15,19 @@ const inter = Inter({
   preload: true,
 });
 
-export const metadata: Metadata = {
-  title: "PolyBuddy - Prediction Market Signals",
-  description: "Live structural signals across prediction markets. See where retail traders can compete — and where hidden risks quietly punish late or crowded entries.",
-  keywords: ["prediction markets", "polymarket", "trading signals", "market analysis"],
-  authors: [{ name: "PolyBuddy" }],
-};
+function LayoutContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLaunchPage = pathname === "/";
 
-export const viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 5,
-};
+  return (
+    <>
+      <ServiceWorkerRegistration />
+      {!isLaunchPage && <Navigation />}
+      <div className={isLaunchPage ? "" : "pb-16 md:pb-0"}>{children}</div>
+      {!isLaunchPage && <MobileBottomNav />}
+    </>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -34,10 +38,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-[#0a0f14] text-white`}>
         <Providers>
-          <ServiceWorkerRegistration />
-          <Navigation />
-          <div className="pb-16 md:pb-0">{children}</div>
-          <MobileBottomNav />
+          <LayoutContent>{children}</LayoutContent>
         </Providers>
       </body>
     </html>

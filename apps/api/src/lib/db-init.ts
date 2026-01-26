@@ -182,6 +182,34 @@ export async function initializeMissingTables(): Promise<void> {
       logger.debug("market_question column check completed");
     }
 
+    // Add enhanced model columns to best_bet_signals if missing
+    try {
+      await db.execute(sql`
+        ALTER TABLE best_bet_signals 
+        ADD COLUMN IF NOT EXISTS signal_source TEXT,
+        ADD COLUMN IF NOT EXISTS whale_consensus TEXT,
+        ADD COLUMN IF NOT EXISTS whale_volume_24h DECIMAL(18, 2),
+        ADD COLUMN IF NOT EXISTS whale_count INTEGER,
+        ADD COLUMN IF NOT EXISTS avg_whale_elite_score DECIMAL(5, 2),
+        ADD COLUMN IF NOT EXISTS momentum_score DECIMAL(5, 2),
+        ADD COLUMN IF NOT EXISTS price_change_24h DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS price_change_7d DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS volume_trend TEXT,
+        ADD COLUMN IF NOT EXISTS ai_analysis JSONB,
+        ADD COLUMN IF NOT EXISTS ai_confidence DECIMAL(5, 2),
+        ADD COLUMN IF NOT EXISTS smart_money_score DECIMAL(5, 2),
+        ADD COLUMN IF NOT EXISTS technical_score DECIMAL(5, 2),
+        ADD COLUMN IF NOT EXISTS fundamental_score DECIMAL(5, 2),
+        ADD COLUMN IF NOT EXISTS was_correct BOOLEAN,
+        ADD COLUMN IF NOT EXISTS price_at_resolution DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ
+      `);
+      logger.info("✅ best_bet_signals enhanced model columns ready");
+    } catch (error) {
+      // Handle column already exists gracefully
+      logger.debug("best_bet_signals enhanced columns check completed");
+    }
+
     // Insert sample data if tables are empty
     await seedPatternRecognitionData();
 

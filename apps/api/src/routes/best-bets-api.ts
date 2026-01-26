@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { db } from "@polybuddy/db";
 import { sql } from "drizzle-orm";
+import { getAccuracyStats } from "../jobs/track-signal-accuracy.js";
 import { 
   calculateKellyPosition, 
   calculateAdvancedKelly,
@@ -679,6 +680,72 @@ export async function bestBetsApiRoutes(app: FastifyInstance) {
       } catch (error) {
         request.log.error(error);
         return reply.status(500).send({ error: "Failed to calculate position" });
+      }
+    }
+  );
+
+  // =============================================
+  // GET /api/best-bets/accuracy
+  // Get signal accuracy statistics
+  // =============================================
+  typedApp.get(
+    "/api/best-bets/accuracy",
+    {
+      schema: {
+        response: {
+          200: z.object({
+            totalSignals: z.number(),
+            resolvedSignals: z.number(),
+            correctPredictions: z.number(),
+            accuracyRate: z.number(),
+            bySource: z.object({
+              whale: z.object({
+                total: z.number(),
+                correct: z.number(),
+                accuracy: z.number(),
+              }),
+              momentum: z.object({
+                total: z.number(),
+                correct: z.number(),
+                accuracy: z.number(),
+              }),
+              combined: z.object({
+                total: z.number(),
+                correct: z.number(),
+                accuracy: z.number(),
+              }),
+            }),
+            byStrength: z.object({
+              elite: z.object({
+                total: z.number(),
+                correct: z.number(),
+                accuracy: z.number(),
+              }),
+              strong: z.object({
+                total: z.number(),
+                correct: z.number(),
+                accuracy: z.number(),
+              }),
+              moderate: z.object({
+                total: z.number(),
+                correct: z.number(),
+                accuracy: z.number(),
+              }),
+            }),
+            avgProfitOnCorrect: z.number(),
+            avgLossOnIncorrect: z.number(),
+          }),
+          500: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const stats = await getAccuracyStats();
+        return stats;
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({ error: "Failed to fetch accuracy stats" });
       }
     }
   );

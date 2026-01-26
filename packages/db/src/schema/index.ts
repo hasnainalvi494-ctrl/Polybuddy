@@ -1077,6 +1077,31 @@ export const bestBetSignals = pgTable("best_bet_signals", {
   timeHorizon: text("time_horizon"),
   outcome: text("outcome"), // 'yes' | 'no'
   
+  // === ENHANCED MODEL FIELDS ===
+  // Signal Source - what triggered this signal
+  signalSource: text("signal_source"), // 'whale' | 'momentum' | 'ai' | 'combined'
+  
+  // Whale/Smart Money Analysis
+  whaleConsensus: text("whale_consensus"), // 'strong_yes' | 'lean_yes' | 'neutral' | 'lean_no' | 'strong_no'
+  whaleVolume24h: decimal("whale_volume_24h", { precision: 18, scale: 2 }), // Total whale $ in 24h
+  whaleCount: integer("whale_count"), // Number of whales active on this market
+  avgWhaleEliteScore: decimal("avg_whale_elite_score", { precision: 5, scale: 2 }), // Avg score of whales
+  
+  // Momentum/Trend Analysis
+  momentumScore: decimal("momentum_score", { precision: 5, scale: 2 }), // -100 to +100
+  priceChange24h: decimal("price_change_24h", { precision: 10, scale: 4 }), // % change
+  priceChange7d: decimal("price_change_7d", { precision: 10, scale: 4 }), // % change
+  volumeTrend: text("volume_trend"), // 'surging' | 'increasing' | 'stable' | 'declining'
+  
+  // AI Analysis (Claude-generated)
+  aiAnalysis: jsonb("ai_analysis"), // { thesis, counterThesis, keyFactors, risks, sentiment }
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }), // AI's confidence 0-100
+  
+  // Composite Scores
+  smartMoneyScore: decimal("smart_money_score", { precision: 5, scale: 2 }), // Combined whale+elite signal
+  technicalScore: decimal("technical_score", { precision: 5, scale: 2 }), // Price/volume technicals
+  fundamentalScore: decimal("fundamental_score", { precision: 5, scale: 2 }), // Market quality + timing
+  
   // Metadata
   generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -1085,6 +1110,9 @@ export const bestBetSignals = pgTable("best_bet_signals", {
   // Performance Tracking
   actualOutcome: text("actual_outcome"),
   actualProfit: decimal("actual_profit", { precision: 18, scale: 2 }),
+  wasCorrect: boolean("was_correct"), // Did signal predict correctly?
+  priceAtResolution: decimal("price_at_resolution", { precision: 10, scale: 4 }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

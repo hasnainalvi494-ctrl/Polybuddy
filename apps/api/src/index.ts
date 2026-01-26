@@ -78,6 +78,7 @@ import { scheduleWalletSync } from "./jobs/sync-wallets.js";
 import { scheduleMarketSync } from "./jobs/sync-markets.js";
 import { scheduleUMADisputeSync } from "./services/uma-disputes.js";
 import { scheduleSignalGeneration } from "./jobs/generate-best-bets.js";
+import { scheduleAccuracyTracking } from "./jobs/track-signal-accuracy.js";
 import { scheduleRealTraderSync } from "./jobs/sync-real-traders.js";
 import { initializeMissingTables } from "./lib/db-init.js";
 import { eliteTraderRoutes } from "./routes/elite-traders.js";
@@ -214,6 +215,7 @@ async function main() {
   let marketSyncInterval: NodeJS.Timeout;
   let umaSyncInterval: NodeJS.Timeout;
   let signalGenInterval: NodeJS.Timeout;
+  let accuracyTrackInterval: NodeJS.Timeout;
   let realTraderSyncInterval: NodeJS.Timeout;
 
   try {
@@ -256,6 +258,10 @@ async function main() {
       app.log.info("Starting best bets signal generation...");
       signalGenInterval = scheduleSignalGeneration(10 * 60 * 1000); // 10 minutes
 
+      // Start signal accuracy tracking (runs every hour)
+      app.log.info("Starting signal accuracy tracking...");
+      accuracyTrackInterval = scheduleAccuracyTracking(60 * 60 * 1000); // 1 hour
+
       // Start real Polymarket trader sync (runs every 30 minutes)
       app.log.info("Starting real Polymarket trader sync...");
       realTraderSyncInterval = scheduleRealTraderSync(30 * 60 * 1000); // 30 minutes
@@ -286,6 +292,7 @@ async function main() {
       if (walletSyncInterval) clearInterval(walletSyncInterval);
       if (umaSyncInterval) clearInterval(umaSyncInterval);
       if (signalGenInterval) clearInterval(signalGenInterval);
+      if (accuracyTrackInterval) clearInterval(accuracyTrackInterval);
       if (realTraderSyncInterval) clearInterval(realTraderSyncInterval);
       
       // Close server (stop accepting new connections)

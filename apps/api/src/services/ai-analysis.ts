@@ -15,12 +15,11 @@ export interface AIAnalysisResult {
 }
 
 // ============================================================================
-// MOCK AI ANALYSIS GENERATOR
+// REAL CLAUDE AI ANALYSIS GENERATOR
 // ============================================================================
 
 /**
- * Generate AI-powered market analysis
- * In production, this would call Claude API or OpenAI
+ * Generate AI-powered market analysis using Claude API
  */
 export async function generateAIAnalysis(
   marketId: string,
@@ -29,18 +28,108 @@ export async function generateAIAnalysis(
 ): Promise<AIAnalysisResult> {
   console.log(`[AI] Generating analysis for market: ${marketQuestion}`);
 
-  // In production, you would:
-  // 1. Fetch recent news via web scraping or news API
-  // 2. Call Claude/OpenAI API with market context
-  // 3. Parse structured response
+  const price = currentPrice || 0.5;
   
-  // For now, generate intelligent mock analysis based on market data
+  // Try real Claude API first, fallback to mock if no API key or error
+  if (process.env.CLAUDE_API_KEY) {
+    try {
+      const analysis = await callClaudeAPI(marketQuestion, price);
+      return {
+        marketId,
+        generatedAt: new Date().toISOString(),
+        ...analysis,
+      };
+    } catch (error) {
+      console.error("[AI] Claude API error, falling back to mock:", error);
+    }
+  } else {
+    console.warn("[AI] CLAUDE_API_KEY not set, using mock analysis");
+  }
+  
+  // Fallback to mock analysis
   const analysis = generateMockAnalysis(marketQuestion, currentPrice);
-
   return {
     marketId,
     generatedAt: new Date().toISOString(),
     ...analysis,
+  };
+}
+
+/**
+ * Call Claude API for real AI analysis
+ */
+async function callClaudeAPI(
+  marketQuestion: string,
+  currentPrice: number
+): Promise<Omit<AIAnalysisResult, "marketId" | "generatedAt">> {
+  const pricePercent = (currentPrice * 100).toFixed(1);
+  
+  const prompt = `You are a prediction market analyst. Analyze this prediction market question and provide a structured analysis.
+
+Market Question: "${marketQuestion}"
+Current Market Price: ${pricePercent}% (implied probability of YES)
+
+Provide your analysis in the following JSON format:
+{
+  "probability_estimate": <number between 0 and 1>,
+  "confidence": "<Low|Medium|High>",
+  "thesis": "<2-3 sentences on why YES might happen>",
+  "counter_thesis": "<2-3 sentences on why NO might happen>",
+  "key_factors": ["<factor 1>", "<factor 2>", "<factor 3>", "<factor 4>", "<factor 5>"],
+  "what_could_go_wrong": ["<risk 1>", "<risk 2>", "<risk 3>", "<risk 4>", "<risk 5>"]
+}
+
+Be concise, data-driven, and objective. Focus on concrete factors that traders should monitor.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.CLAUDE_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.content[0].text;
+  
+  // Extract JSON from response (Claude might wrap it in markdown)
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("Failed to parse Claude response");
+  }
+  
+  const analysis = JSON.parse(jsonMatch[0]);
+  
+  // Validate and normalize response
+  return {
+    probability_estimate: Math.max(0.1, Math.min(0.9, analysis.probability_estimate)),
+    confidence: ["Low", "Medium", "High"].includes(analysis.confidence) 
+      ? analysis.confidence 
+      : "Medium",
+    thesis: analysis.thesis || "Analysis unavailable",
+    counter_thesis: analysis.counter_thesis || "Analysis unavailable",
+    key_factors: Array.isArray(analysis.key_factors) 
+      ? analysis.key_factors.slice(0, 5) 
+      : [],
+    what_could_go_wrong: Array.isArray(analysis.what_could_go_wrong) 
+      ? analysis.what_could_go_wrong.slice(0, 5) 
+      : [],
   };
 }
 
@@ -220,47 +309,6 @@ function generateRisks(question: string): string[] {
 }
 
 // ============================================================================
-// PRODUCTION INTEGRATION (Future Enhancement)
+// FALLBACK MOCK ANALYSIS (Used when Claude API is unavailable)
 // ============================================================================
-
-/*
-// Example Claude API integration
-async function callClaudeAPI(marketQuestion: string, context: any): Promise<string> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.CLAUDE_API_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: `Analyze this prediction market: "${marketQuestion}". 
-          Current price: ${context.price}. 
-          Provide: thesis, counter-thesis, key factors, and risks.
-          Format as JSON.`,
-        },
-      ],
-    }),
-  });
-  
-  const data = await response.json();
-  return data.content[0].text;
-}
-
-// Example news scraping
-async function fetchRecentNews(topic: string): Promise<string[]> {
-  // Use news API or web scraping
-  const response = await fetch(
-    `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&apiKey=${process.env.NEWS_API_KEY}`
-  );
-  const data = await response.json();
-  return data.articles.map((a: any) => a.title);
-}
-*/
-
 

@@ -80,6 +80,7 @@ import { scheduleUMADisputeSync } from "./services/uma-disputes.js";
 import { scheduleSignalGeneration } from "./jobs/generate-best-bets.js";
 import { scheduleAccuracyTracking } from "./jobs/track-signal-accuracy.js";
 import { scheduleRealTraderSync } from "./jobs/sync-real-traders.js";
+import { scheduleSnapshotCleanup } from "./jobs/cleanup-snapshots.js";
 import { initializeMissingTables } from "./lib/db-init.js";
 import { eliteTraderRoutes } from "./routes/elite-traders.js";
 import { adminRoutes } from "./routes/admin.js";
@@ -217,6 +218,7 @@ async function main() {
   let signalGenInterval: NodeJS.Timeout;
   let accuracyTrackInterval: NodeJS.Timeout;
   let realTraderSyncInterval: NodeJS.Timeout;
+  let cleanupInterval: NodeJS.Timeout;
 
   try {
     await app.listen({ port: PORT, host: HOST });
@@ -266,6 +268,10 @@ async function main() {
       app.log.info("Starting real Polymarket trader sync...");
       realTraderSyncInterval = scheduleRealTraderSync(30 * 60 * 1000); // 30 minutes
 
+      // Start database cleanup job (runs daily)
+      app.log.info("Starting snapshot cleanup job...");
+      cleanupInterval = scheduleSnapshotCleanup(24 * 60 * 60 * 1000); // Daily
+
       // Start real-time WebSocket service - DISABLED (service file deleted)
       // app.log.info("Starting real-time WebSocket service...");
       // try {
@@ -294,6 +300,7 @@ async function main() {
       if (signalGenInterval) clearInterval(signalGenInterval);
       if (accuracyTrackInterval) clearInterval(accuracyTrackInterval);
       if (realTraderSyncInterval) clearInterval(realTraderSyncInterval);
+      if (cleanupInterval) clearInterval(cleanupInterval);
       
       // Close server (stop accepting new connections)
       try {

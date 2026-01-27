@@ -98,8 +98,17 @@ export const similarHistoryRoutes: FastifyPluginAsync = async (app) => {
       });
 
       if (!marketBehavior) {
-        // No cluster data, return mock data
-        return generateMockHistory(id);
+        // No cluster data available - return empty result
+        return {
+          marketId: id,
+          clusterType: "uncategorized",
+          history: [],
+          totalWins: 0,
+          totalLosses: 0,
+          totalPending: 0,
+          winRate: 0,
+          averageROI: 0,
+        };
       }
 
       const clusterType = marketBehavior.clusterType;

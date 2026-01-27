@@ -2,84 +2,137 @@
 
 import { useState, useEffect } from "react";
 
-interface Win {
+interface RecentTrade {
   id: string;
-  name: string;
+  wallet: string;
   amount: number;
   market: string;
+  outcome: string;
   timestamp: number;
 }
 
-// Mock data generator for recent wins
-function generateMockWins(): Win[] {
-  const names = ["John", "Sarah", "Mike", "Emma", "Alex", "Lisa", "David", "Maria", "Chris", "Anna"];
-  const markets = [
-    "Trump 2024",
-    "Fed Rate Cut",
-    "Bitcoin $100K",
-    "NBA Finals",
-    "Recession 2024",
-    "AI Regulation",
-  ];
+const API_URL = "https://polybuddy-api-production.up.railway.app";
 
-  return Array.from({ length: 20 }, (_, i) => ({
-    id: `win-${i}`,
-    name: names[Math.floor(Math.random() * names.length)],
-    amount: Math.floor(Math.random() * 5000) + 100,
-    market: markets[Math.floor(Math.random() * markets.length)],
-    timestamp: Date.now() - Math.random() * 3600000, // Last hour
-  }));
+// Fetch real whale activity from API
+async function fetchRecentWhaleActivity(): Promise<RecentTrade[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/whale-activity?limit=20`, {
+      headers: { "Accept": "application/json" },
+    });
+    
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    
+    if (!data.trades || !Array.isArray(data.trades)) return [];
+    
+    return data.trades.map((trade: any) => ({
+      id: trade.id,
+      wallet: trade.walletAddress?.slice(0, 6) + "..." + trade.walletAddress?.slice(-4) || "Whale",
+      amount: Math.round(trade.amountUsd || 0),
+      market: trade.marketName?.slice(0, 30) || "Unknown Market",
+      outcome: trade.outcome?.toUpperCase() || "YES",
+      timestamp: new Date(trade.timestamp).getTime(),
+    }));
+  } catch (error) {
+    console.error("Failed to fetch whale activity:", error);
+    return [];
+  }
 }
 
 export function RecentWinsTicker() {
-  const [wins, setWins] = useState<Win[]>([]);
+  const [trades, setTrades] = useState<RecentTrade[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setWins(generateMockWins());
+    // Fetch initial data
+    fetchRecentWhaleActivity().then((data) => {
+      setTrades(data);
+      setIsLoading(false);
+    });
+
+    // Refresh every 2 minutes
+    const refreshInterval = setInterval(() => {
+      fetchRecentWhaleActivity().then(setTrades);
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   useEffect(() => {
-    if (wins.length === 0) return;
+    if (trades.length === 0) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % wins.length);
+      setCurrentIndex((prev) => (prev + 1) % trades.length);
     }, 4000); // Change every 4 seconds
 
     return () => clearInterval(interval);
-  }, [wins.length]);
+  }, [trades.length]);
 
-  if (wins.length === 0) return null;
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-r from-cyan-500/10 via-cyan-500/5 to-transparent border border-cyan-500/20 rounded-lg px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center animate-pulse">
+            <span className="text-lg">🐋</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-gray-400">Loading whale activity...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const currentWin = wins[currentIndex];
+  if (trades.length === 0) {
+    return (
+      <div className="bg-gradient-to-r from-cyan-500/10 via-cyan-500/5 to-transparent border border-cyan-500/20 rounded-lg px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
+            <span className="text-lg">🐋</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-gray-400">Monitoring whale activity...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const currentTrade = trades[currentIndex];
+  if (!currentTrade) return null;
+
+  const timeAgo = Math.floor((Date.now() - currentTrade.timestamp) / 60000);
+  const timeLabel = timeAgo < 1 ? "just now" : timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
 
   return (
-    <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 rounded-lg px-4 py-3 overflow-hidden">
+    <div className="bg-gradient-to-r from-cyan-500/10 via-cyan-500/5 to-transparent border border-cyan-500/20 rounded-lg px-4 py-3 overflow-hidden">
       <div className="flex items-center gap-3">
-        {/* Trophy Icon */}
-        <div className="flex-shrink-0 w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center">
-          <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
+        {/* Whale Icon */}
+        <div className="flex-shrink-0 w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
+          <span className="text-lg">🐋</span>
         </div>
 
-        {/* Win Message */}
+        {/* Trade Message */}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-gray-200 truncate animate-fade-in-up">
-            <span className="font-semibold text-emerald-400">{currentWin.name}</span> won{" "}
-            <span className="font-bold text-emerald-400">${currentWin.amount.toLocaleString()}</span> on{" "}
-            <span className="text-gray-300">{currentWin.market}</span>
+            <span className="font-semibold text-cyan-400">{currentTrade.wallet}</span> placed{" "}
+            <span className="font-bold text-cyan-400">${currentTrade.amount.toLocaleString()}</span> on{" "}
+            <span className={currentTrade.outcome === "YES" ? "text-green-400" : "text-red-400"}>
+              {currentTrade.outcome}
+            </span>{" "}
+            <span className="text-gray-400">"{currentTrade.market}"</span>
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {Math.floor((Date.now() - currentWin.timestamp) / 60000)} minutes ago
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">{timeLabel}</p>
         </div>
 
-        {/* Pulse indicator */}
-        <div className="flex-shrink-0">
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        {/* Live indicator */}
+        <div className="flex-shrink-0 flex items-center gap-1">
+          <span className="text-xs text-cyan-400 uppercase font-medium">Live</span>
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
           </span>
         </div>
       </div>
@@ -89,38 +142,51 @@ export function RecentWinsTicker() {
 
 // Compact version for sidebar/small spaces
 export function RecentWinsTickerCompact() {
-  const [wins, setWins] = useState<Win[]>([]);
+  const [trades, setTrades] = useState<RecentTrade[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    setWins(generateMockWins());
+    fetchRecentWhaleActivity().then(setTrades);
+    
+    const refreshInterval = setInterval(() => {
+      fetchRecentWhaleActivity().then(setTrades);
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   useEffect(() => {
-    if (wins.length === 0) return;
+    if (trades.length === 0) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % wins.length);
+      setCurrentIndex((prev) => (prev + 1) % trades.length);
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [wins.length]);
+  }, [trades.length]);
 
-  if (wins.length === 0) return null;
+  if (trades.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-lg">🐋</span>
+        <span className="text-gray-400">Loading...</span>
+      </div>
+    );
+  }
 
-  const currentWin = wins[currentIndex];
+  const currentTrade = trades[currentIndex];
+  if (!currentTrade) return null;
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <svg className="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-      </svg>
+      <span className="text-lg">🐋</span>
       <span className="text-gray-400 animate-fade-in-up">
-        <span className="font-semibold text-emerald-400">{currentWin.name}</span> won{" "}
-        <span className="font-bold text-emerald-400">${currentWin.amount.toLocaleString()}</span>
+        <span className="font-semibold text-cyan-400">{currentTrade.wallet}</span>{" "}
+        <span className="font-bold text-cyan-400">${currentTrade.amount.toLocaleString()}</span>{" "}
+        <span className={currentTrade.outcome === "YES" ? "text-green-400" : "text-red-400"}>
+          {currentTrade.outcome}
+        </span>
       </span>
     </div>
   );
 }
-
-

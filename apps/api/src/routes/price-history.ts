@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { db, marketSnapshots, markets } from "@polybuddy/db";
-import { desc, eq, gte, sql } from "drizzle-orm";
+import { desc, eq, gte, sql, and } from "drizzle-orm";
 
 // ============================================================================
 // TYPES & SCHEMAS
@@ -24,6 +24,7 @@ const PriceHistoryResponseSchema = z.object({
   currentPrice: z.number().nullable(),
   priceChange: z.number().nullable(),
   priceChangePercent: z.number().nullable(),
+  dataSource: z.enum(["live", "limited"]),
 });
 
 // ============================================================================
@@ -40,22 +41,25 @@ function getTimeframeMs(timeframe: string): number {
   return map[timeframe] || map["24h"]!;
 }
 
-function getCandleInterval(timeframe: string): number {
-  // Return interval in minutes
+function getCandleIntervalMs(timeframe: string): number {
+  // Return interval in milliseconds
   const map: Record<string, number> = {
-    "1h": 5,      // 5-minute candles for 1h
-    "4h": 15,     // 15-minute candles for 4h
-    "24h": 60,    // 1-hour candles for 24h
-    "7d": 360,    // 6-hour candles for 7d
+    "1h": 5 * 60 * 1000,      // 5-minute candles for 1h
+    "4h": 15 * 60 * 1000,     // 15-minute candles for 4h
+    "24h": 60 * 60 * 1000,    // 1-hour candles for 24h
+    "7d": 6 * 60 * 60 * 1000, // 6-hour candles for 7d
   };
   return map[timeframe] || map["24h"]!;
 }
 
 /**
- * Generate mock OHLCV data for demonstration
- * In production, this would aggregate real price data from snapshots
+ * Aggregate snapshots into OHLCV candles
  */
-function generateMockCandles(timeframe: string, currentPrice: number = 0.65): Array<{
+function aggregateToCandles(
+  snapshots: Array<{ price: string | null; volume24h: string | null; snapshotAt: Date | null }>,
+  timeframe: string,
+  currentPrice: number
+): Array<{
   timestamp: string;
   open: number;
   high: number;
@@ -63,45 +67,106 @@ function generateMockCandles(timeframe: string, currentPrice: number = 0.65): Ar
   close: number;
   volume: number;
 }> {
-  const now = new Date();
-  const intervalMs = getTimeframeMs(timeframe);
-  const candleCount = timeframe === "1h" ? 12 : timeframe === "4h" ? 16 : timeframe === "24h" ? 24 : 28;
-  const candleIntervalMs = intervalMs / candleCount;
-  
-  const candles = [];
-  let price = currentPrice - (Math.random() * 0.1 - 0.05); // Start slightly off current
+  if (snapshots.length === 0) {
+    // Return single candle with current price if no history
+    return [{
+      timestamp: new Date().toISOString(),
+      open: currentPrice,
+      high: currentPrice,
+      low: currentPrice,
+      close: currentPrice,
+      volume: 0,
+    }];
+  }
 
-  for (let i = 0; i < candleCount; i++) {
-    const timestamp = new Date(now.getTime() - intervalMs + (i * candleIntervalMs));
+  const candleIntervalMs = getCandleIntervalMs(timeframe);
+  const now = Date.now();
+  const startTime = now - getTimeframeMs(timeframe);
+  
+  // Group snapshots by candle interval
+  const candleMap = new Map<number, {
+    prices: number[];
+    volumes: number[];
+    timestamp: number;
+  }>();
+
+  for (const snapshot of snapshots) {
+    if (!snapshot.snapshotAt || !snapshot.price) continue;
     
-    // Generate OHLC with some volatility
-    const volatility = 0.02; // 2% volatility
-    const open = price;
-    const change = (Math.random() - 0.5) * volatility;
-    const close = Math.max(0.01, price + change);
+    const snapshotTime = snapshot.snapshotAt.getTime();
+    if (snapshotTime < startTime) continue;
     
-    const high = Math.max(open, close) + Math.random() * volatility * 0.5;
-    const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+    // Calculate which candle this belongs to
+    const candleIndex = Math.floor((snapshotTime - startTime) / candleIntervalMs);
+    const candleTimestamp = startTime + (candleIndex * candleIntervalMs);
     
-    const volume = Math.floor(Math.random() * 50000 + 10000);
+    if (!candleMap.has(candleTimestamp)) {
+      candleMap.set(candleTimestamp, {
+        prices: [],
+        volumes: [],
+        timestamp: candleTimestamp,
+      });
+    }
+    
+    const candle = candleMap.get(candleTimestamp)!;
+    candle.prices.push(Number(snapshot.price));
+    if (snapshot.volume24h) {
+      candle.volumes.push(Number(snapshot.volume24h));
+    }
+  }
+
+  // Convert grouped data to OHLCV candles
+  const candles: Array<{
+    timestamp: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }> = [];
+
+  const sortedTimestamps = Array.from(candleMap.keys()).sort((a, b) => a - b);
+  let lastClose = snapshots[snapshots.length - 1]?.price 
+    ? Number(snapshots[snapshots.length - 1].price) 
+    : currentPrice;
+
+  for (const timestamp of sortedTimestamps) {
+    const data = candleMap.get(timestamp)!;
+    
+    if (data.prices.length === 0) continue;
+    
+    const open = data.prices[0] || lastClose;
+    const close = data.prices[data.prices.length - 1] || lastClose;
+    const high = Math.max(...data.prices);
+    const low = Math.min(...data.prices);
+    const volume = data.volumes.length > 0 
+      ? Math.max(...data.volumes) 
+      : 0;
     
     candles.push({
-      timestamp: timestamp.toISOString(),
-      open: Math.max(0.01, open),
-      high: Math.max(0.01, high),
-      low: Math.max(0.01, low),
-      close: Math.max(0.01, close),
+      timestamp: new Date(timestamp).toISOString(),
+      open,
+      high,
+      low,
+      close,
       volume,
     });
     
-    price = close;
+    lastClose = close;
   }
-  
-  // Ensure last candle close matches current price
-  if (candles.length > 0) {
-    candles[candles.length - 1]!.close = currentPrice;
+
+  // Ensure we have at least one candle
+  if (candles.length === 0) {
+    candles.push({
+      timestamp: new Date().toISOString(),
+      open: currentPrice,
+      high: currentPrice,
+      low: currentPrice,
+      close: currentPrice,
+      volume: 0,
+    });
   }
-  
+
   return candles;
 }
 
@@ -112,7 +177,7 @@ function generateMockCandles(timeframe: string, currentPrice: number = 0.65): Ar
 export const priceHistoryRoutes: FastifyPluginAsync = async (app) => {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-  // GET /api/markets/:id/price-history - Get candlestick data
+  // GET /api/markets/:id/price-history - Get candlestick data from REAL snapshots
   typedApp.get(
     "/:id/price-history",
     {
@@ -144,6 +209,28 @@ export const priceHistoryRoutes: FastifyPluginAsync = async (app) => {
         return { error: "Market not found" };
       }
 
+      const marketData = market[0]!;
+      const metadata = marketData.metadata as { currentPrice?: number } | null;
+
+      // Get snapshots for the requested timeframe
+      const timeframeMs = getTimeframeMs(timeframe);
+      const since = new Date(Date.now() - timeframeMs);
+
+      const snapshots = await db
+        .select({
+          price: marketSnapshots.price,
+          volume24h: marketSnapshots.volume24h,
+          snapshotAt: marketSnapshots.snapshotAt,
+        })
+        .from(marketSnapshots)
+        .where(
+          and(
+            eq(marketSnapshots.marketId, id),
+            gte(marketSnapshots.snapshotAt, since)
+          )
+        )
+        .orderBy(marketSnapshots.snapshotAt);
+
       // Get latest snapshot for current price
       const latestSnapshot = await db
         .select()
@@ -152,13 +239,16 @@ export const priceHistoryRoutes: FastifyPluginAsync = async (app) => {
         .orderBy(desc(marketSnapshots.snapshotAt))
         .limit(1);
 
+      // Use live price from snapshot, or metadata, or default
       const currentPrice = latestSnapshot[0]?.price 
         ? Number(latestSnapshot[0].price) 
-        : 0.5; // Default to 50% if no snapshots
+        : (metadata?.currentPrice ?? 0.5);
 
-      // Generate mock candles
-      // In production, this would aggregate real snapshot data into OHLCV candles
-      const candles = generateMockCandles(timeframe, currentPrice);
+      // Aggregate snapshots into OHLCV candles
+      const candles = aggregateToCandles(snapshots, timeframe, currentPrice);
+
+      // Determine data source quality
+      const dataSource = snapshots.length >= 3 ? "live" as const : "limited" as const;
 
       // Calculate price change
       const firstCandle = candles[0];
@@ -168,7 +258,7 @@ export const priceHistoryRoutes: FastifyPluginAsync = async (app) => {
         ? lastCandle.close - firstCandle.open
         : null;
       
-      const priceChangePercent = firstCandle && priceChange !== null
+      const priceChangePercent = firstCandle && priceChange !== null && firstCandle.open > 0
         ? (priceChange / firstCandle.open) * 100
         : null;
 
@@ -177,8 +267,8 @@ export const priceHistoryRoutes: FastifyPluginAsync = async (app) => {
         currentPrice,
         priceChange,
         priceChangePercent,
+        dataSource,
       };
     }
   );
 };
-

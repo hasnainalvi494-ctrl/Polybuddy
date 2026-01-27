@@ -1,6 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
+import { db, markets, marketSnapshots } from "@polybuddy/db";
+import { eq, desc } from "drizzle-orm";
+
+// CLOB API base URL
+const CLOB_API = "https://clob.polymarket.com";
 
 // ============================================================================
 // TYPES & SCHEMAS
@@ -22,20 +27,67 @@ const SlippageResponseSchema = z.object({
   priceImpact: z.enum(["Low", "Medium", "High"]),
   warning: z.string(),
   breakdown: z.array(OrderBookLevel),
+  dataSource: z.enum(["live", "estimated"]),
 });
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-function generateMockOrderBook(
+/**
+ * Fetch real order book from Polymarket CLOB API
+ */
+async function fetchRealOrderBook(tokenId: string): Promise<{
+  bids: Array<{ price: number; size: number }>;
+  asks: Array<{ price: number; size: number }>;
+  midPrice: number;
+} | null> {
+  try {
+    const response = await fetch(`${CLOB_API}/book?token_id=${tokenId}`, {
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "PolyBuddy/1.0",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json() as any;
+    
+    if (!data.bids && !data.asks) return null;
+
+    const bids = (data.bids || []).map((bid: any) => ({
+      price: parseFloat(bid.price || bid.p || 0),
+      size: parseFloat(bid.size || bid.s || 0),
+    }));
+
+    const asks = (data.asks || []).map((ask: any) => ({
+      price: parseFloat(ask.price || ask.p || 0),
+      size: parseFloat(ask.size || ask.s || 0),
+    }));
+
+    const bestBid = bids[0]?.price || 0.49;
+    const bestAsk = asks[0]?.price || 0.51;
+    const midPrice = (bestBid + bestAsk) / 2;
+
+    return { bids, asks, midPrice };
+  } catch (error) {
+    console.error("[SLIPPAGE] Failed to fetch from CLOB API:", error);
+    return null;
+  }
+}
+
+/**
+ * Generate estimated order book based on market liquidity
+ */
+function generateEstimatedOrderBook(
   midPrice: number,
-  side: "buy" | "sell",
-  outcome: "YES" | "NO"
+  liquidity: number,
+  side: "buy" | "sell"
 ): Array<{ price: number; size: number }> {
-  // Generate realistic order book levels
   const levels: Array<{ price: number; size: number }> = [];
-  const baseSize = 100 + Math.random() * 200;
+  const baseSize = Math.max(50, Math.min(500, liquidity / 1000));
   
   // For buy orders, we walk up the ask side (higher prices)
   // For sell orders, we walk down the bid side (lower prices)
@@ -43,7 +95,8 @@ function generateMockOrderBook(
   
   for (let i = 0; i < 10; i++) {
     const price = Math.max(0.01, Math.min(0.99, midPrice + priceStep * (i + 1)));
-    const size = baseSize * (1 + Math.random() * 0.5) * (1 - i * 0.1); // Decreasing liquidity
+    // Liquidity decreases away from mid price
+    const size = baseSize * Math.pow(0.85, i);
     levels.push({
       price: Math.round(price * 100) / 100,
       size: Math.round(size),
@@ -93,7 +146,9 @@ function calculateSlippage(
   
   // Calculate slippage
   const slippageDollars = Math.abs((executionPrice - midPrice) * sharesFilled);
-  const slippagePercent = Math.abs(((executionPrice - midPrice) / midPrice) * 100);
+  const slippagePercent = midPrice > 0 
+    ? Math.abs(((executionPrice - midPrice) / midPrice) * 100)
+    : 0;
   
   // Determine price impact
   let priceImpact: "Low" | "Medium" | "High";
@@ -148,6 +203,7 @@ export const slippageRoutes: FastifyPluginAsync = async (app) => {
         }),
         response: {
           200: SlippageResponseSchema,
+          404: z.object({ error: z.string() }),
         },
       },
     },
@@ -158,15 +214,55 @@ export const slippageRoutes: FastifyPluginAsync = async (app) => {
       // Cache for 30 seconds
       reply.header("Cache-Control", "public, max-age=30");
 
-      // In a real implementation, fetch from CLOB API
-      // For now, generate mock data based on market characteristics
-      
-      // Mock mid price (in reality, fetch from market data)
-      const midPrice = 0.5 + Math.random() * 0.3; // 0.5 - 0.8
-      
-      // Generate mock order book
-      const orderBook = generateMockOrderBook(midPrice, side, outcome);
-      
+      // Get market info
+      const market = await db.query.markets.findFirst({
+        where: eq(markets.id, id),
+      });
+
+      if (!market) {
+        reply.code(404);
+        return { error: "Market not found" };
+      }
+
+      // Get latest snapshot for current price and liquidity
+      const latestSnapshot = await db
+        .select()
+        .from(marketSnapshots)
+        .where(eq(marketSnapshots.marketId, id))
+        .orderBy(desc(marketSnapshots.snapshotAt))
+        .limit(1);
+
+      const metadata = market.metadata as { currentPrice?: number; liquidity?: number } | null;
+      let midPrice = latestSnapshot[0]?.price 
+        ? Number(latestSnapshot[0].price) 
+        : (metadata?.currentPrice ?? 0.5);
+      const liquidity = latestSnapshot[0]?.liquidity 
+        ? Number(latestSnapshot[0].liquidity) 
+        : (metadata?.liquidity ?? 10000);
+
+      // Try to fetch real order book from CLOB API
+      const realOrderBook = await fetchRealOrderBook(market.polymarketId);
+
+      let orderBook: Array<{ price: number; size: number }>;
+      let dataSource: "live" | "estimated";
+
+      if (realOrderBook) {
+        // Use real order book - pick appropriate side
+        orderBook = side === "buy" ? realOrderBook.asks : realOrderBook.bids;
+        midPrice = realOrderBook.midPrice;
+        dataSource = "live";
+      } else {
+        // Fall back to estimated order book
+        orderBook = generateEstimatedOrderBook(midPrice, liquidity, side);
+        dataSource = "estimated";
+      }
+
+      // Ensure we have some order book levels
+      if (orderBook.length === 0) {
+        orderBook = generateEstimatedOrderBook(midPrice, liquidity, side);
+        dataSource = "estimated";
+      }
+
       // Calculate slippage
       const slippageCalc = calculateSlippage(size, orderBook, midPrice, side);
       
@@ -180,33 +276,9 @@ export const slippageRoutes: FastifyPluginAsync = async (app) => {
         slippageDollars: Math.round(slippageCalc.slippageDollars * 100) / 100,
         priceImpact: slippageCalc.priceImpact,
         warning: slippageCalc.warning,
-        breakdown: orderBook,
+        breakdown: orderBook.slice(0, 10),
+        dataSource,
       };
     }
   );
 };
-
-// ============================================================================
-// CLOB API INTEGRATION (Future Enhancement)
-// ============================================================================
-
-/*
-async function fetchOrderBookFromCLOB(
-  marketId: string,
-  outcome: "YES" | "NO"
-): Promise<Array<{ price: number; size: number }>> {
-  // Example CLOB API endpoint
-  const response = await fetch(
-    `https://clob.polymarket.com/book?token_id=${marketId}&side=${outcome}`
-  );
-  
-  const data = await response.json();
-  
-  // Transform CLOB response to our format
-  return data.bids.map((bid: any) => ({
-    price: parseFloat(bid.price),
-    size: parseFloat(bid.size),
-  }));
-}
-*/
-

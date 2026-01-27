@@ -2,28 +2,78 @@
 
 import { useState, useEffect } from "react";
 
+const API_URL = "https://polybuddy-api-production.up.railway.app";
+
+interface LiveStats {
+  volume24h: number;
+  activeTraders: number;
+  topWinRate: number;
+  lastUpdated: string;
+}
+
 interface ActiveTradersCounterProps {
   count?: number;
   variant?: "default" | "compact" | "badge";
 }
 
+async function fetchLiveStats(): Promise<LiveStats | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/stats/live`, {
+      headers: { "Accept": "application/json" },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 export function ActiveTradersCounter({ count, variant = "default" }: ActiveTradersCounterProps) {
   const [displayCount, setDisplayCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  
-  // Generate realistic count with some variance
-  const baseCount = count || 1247;
-  const [actualCount, setActualCount] = useState(baseCount);
+  const [actualCount, setActualCount] = useState(count || 0);
+  const [isLoading, setIsLoading] = useState(!count);
 
   useEffect(() => {
-    // Animate initial count
-    let start = 0;
+    // Fetch real stats from API
+    fetchLiveStats().then((stats) => {
+      if (stats && stats.activeTraders > 0) {
+        setActualCount(stats.activeTraders);
+      } else if (count) {
+        setActualCount(count);
+      } else {
+        // Fallback to a reasonable default
+        setActualCount(1200);
+      }
+      setIsLoading(false);
+    });
+
+    // Refresh every 30 seconds
+    const refreshInterval = setInterval(() => {
+      fetchLiveStats().then((stats) => {
+        if (stats && stats.activeTraders > 0) {
+          setIsAnimating(true);
+          setActualCount(stats.activeTraders);
+          setTimeout(() => setIsAnimating(false), 500);
+        }
+      });
+    }, 30 * 1000);
+
+    return () => clearInterval(refreshInterval);
+  }, [count]);
+
+  useEffect(() => {
+    if (actualCount === 0) return;
+    
+    // Animate count change
+    let start = displayCount || 0;
     const duration = 1500;
-    const increment = actualCount / (duration / 16);
+    const diff = actualCount - start;
+    const increment = diff / (duration / 16);
 
     const timer = setInterval(() => {
       start += increment;
-      if (start >= actualCount) {
+      if ((increment > 0 && start >= actualCount) || (increment < 0 && start <= actualCount)) {
         setDisplayCount(actualCount);
         clearInterval(timer);
       } else {
@@ -34,17 +84,17 @@ export function ActiveTradersCounter({ count, variant = "default" }: ActiveTrade
     return () => clearInterval(timer);
   }, [actualCount]);
 
-  useEffect(() => {
-    // Simulate live updates - small changes every 10-30 seconds
-    const interval = setInterval(() => {
-      const change = Math.floor(Math.random() * 10) - 3; // -3 to +6
-      setActualCount((prev) => Math.max(100, prev + change));
-      setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 500);
-    }, Math.random() * 20000 + 10000); // 10-30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="inline-flex items-center gap-2 text-sm">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
+        </span>
+        <span className="text-gray-500">Loading...</span>
+      </div>
+    );
+  }
 
   if (variant === "compact") {
     return (
@@ -108,5 +158,3 @@ export function ActiveTradersCounter({ count, variant = "default" }: ActiveTrade
     </div>
   );
 }
-
-

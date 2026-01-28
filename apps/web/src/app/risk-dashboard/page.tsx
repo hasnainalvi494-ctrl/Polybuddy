@@ -41,25 +41,34 @@ export default function RiskDashboardPage() {
   const [timeframe, setTimeframe] = useState<"1D" | "1W" | "1M">("1W");
 
   // Fetch risk metrics
-  const { data: metrics, isLoading: metricsLoading } = useQuery<RiskMetrics>({
+  const { data: metrics, isLoading: metricsLoading } = useQuery<RiskMetrics | null>({
     queryKey: ["risk-metrics", timeframe],
     queryFn: async () => {
-      // TODO: Connect to real API
-      // const response = await fetch(`${API_URL}/api/risk/metrics?timeframe=${timeframe}`);
-      // return response.json();
-
-      // Mock data
-      return {
-        portfolioValue: 12547.23,
-        totalExposure: 8350.0,
-        availableCapital: 4197.23,
-        riskPercentage: 66.5,
-        valueAtRisk: 1256.0,
-        sharpeRatio: 1.82,
-        maxDrawdown: -12.4,
-        beta: 1.15,
-        volatility: 18.5,
-      };
+      try {
+        const response = await fetch(`${API_URL}/api/portfolio/metrics?timeframe=${timeframe}`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // Convert portfolio metrics to risk metrics
+          return {
+            portfolioValue: data.totalValue || 0,
+            totalExposure: 0,
+            availableCapital: data.totalValue || 0,
+            riskPercentage: 0,
+            valueAtRisk: 0,
+            sharpeRatio: data.sharpeRatio || 0,
+            maxDrawdown: data.maxDrawdown || 0,
+            beta: 1.0,
+            volatility: 0,
+          };
+        }
+      } catch (error) {
+        console.log("Risk API not available yet");
+      }
+      
+      // Return null to show empty state
+      return null;
     },
     staleTime: 30000,
   });
@@ -68,43 +77,19 @@ export default function RiskDashboardPage() {
   const { data: positions, isLoading: positionsLoading } = useQuery<PositionRisk[]>({
     queryKey: ["position-risks"],
     queryFn: async () => {
-      // TODO: Connect to real API
-      // const response = await fetch(`${API_URL}/api/risk/positions`);
-      // return response.json();
-
-      // Mock data
-      return [
-        {
-          marketId: "1",
-          marketQuestion: "Will Bitcoin hit $100K by end of 2026?",
-          exposure: 2500,
-          riskScore: 75,
-          kellyOptimal: 0.15,
-          currentSize: 0.20,
-          recommendedSize: 0.15,
-          correlations: ["2", "5"],
-        },
-        {
-          marketId: "2",
-          marketQuestion: "Will Ethereum reach $5K in 2026?",
-          exposure: 1800,
-          riskScore: 68,
-          kellyOptimal: 0.12,
-          currentSize: 0.14,
-          recommendedSize: 0.12,
-          correlations: ["1"],
-        },
-        {
-          marketId: "3",
-          marketQuestion: "Will Fed cut rates in Q1 2026?",
-          exposure: 3200,
-          riskScore: 85,
-          kellyOptimal: 0.08,
-          currentSize: 0.25,
-          recommendedSize: 0.10,
-          correlations: [],
-        },
-      ];
+      try {
+        const response = await fetch(`${API_URL}/api/portfolio/positions`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (error) {
+        console.log("Portfolio API not available yet");
+      }
+      
+      // Return empty array to show empty state
+      return [];
     },
     staleTime: 30000,
   });
@@ -113,30 +98,8 @@ export default function RiskDashboardPage() {
   const { data: alerts } = useQuery<RiskAlert[]>({
     queryKey: ["risk-alerts"],
     queryFn: async () => {
-      // Mock data
-      return [
-        {
-          id: "1",
-          type: "overexposed",
-          severity: "high",
-          message: "Portfolio exposure exceeds 65% of capital",
-          recommendation: "Consider reducing position sizes or taking profits",
-        },
-        {
-          id: "2",
-          type: "correlated",
-          severity: "medium",
-          message: "High correlation detected between crypto markets",
-          recommendation: "Diversify into uncorrelated categories",
-        },
-        {
-          id: "3",
-          type: "volatility",
-          severity: "low",
-          message: "Market volatility increased 15% this week",
-          recommendation: "Review stop losses and position limits",
-        },
-      ];
+      // Return empty array - no alerts when no portfolio
+      return [];
     },
     staleTime: 30000,
   });

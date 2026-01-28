@@ -216,6 +216,20 @@ export default function HomePage() {
             </div>
             <span className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-[10px] font-bold shrink-0">NEW</span>
           </Link>
+
+          {/* Advanced Charts */}
+          <Link href="/charts" className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600">
+            <div className="p-2 bg-white/20 rounded-lg shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-white">Advanced Charts</h3>
+              <p className="text-white/80 text-xs">Pro analysis</p>
+            </div>
+            <span className="px-2 py-1 bg-white/20 rounded-full text-white text-[10px] font-bold shrink-0">NEW</span>
+          </Link>
         </div>
 
         {/* TABLET/DESKTOP LAYOUT (>= 640px) - Bento grid */}
@@ -371,6 +385,22 @@ export default function HomePage() {
               </div>
             </div>
             <span className="px-2 py-1 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-bold rounded">NEW</span>
+          </Link>
+
+          {/* Advanced Charts */}
+          <Link href="/charts" className="col-span-3 row-span-1 group rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-4 hover:scale-[1.02] transition-all duration-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Charts</h3>
+                <p className="text-white/80 text-xs">Pro analysis</p>
+              </div>
+            </div>
+            <span className="px-2 py-1 bg-white/20 text-white text-[10px] font-bold rounded-full">NEW</span>
           </Link>
         </div>
       </div>

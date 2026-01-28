@@ -38,13 +38,23 @@ export default function CopyTradingPage() {
   const [showCopyModal, setShowCopyModal] = useState(false);
 
   // Fetch elite traders
-  const { data: traders, isLoading } = useQuery<EliteTrader[]>({
+  const { data: traders, isLoading, error } = useQuery<EliteTrader[]>({
     queryKey: ["elite-traders", sortBy],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/api/elite-traders?sort=${sortBy}`);
-      return response.json();
+      try {
+        const response = await fetch(`${API_URL}/api/elite-traders?sort=${sortBy}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch traders");
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Error fetching elite traders:", error);
+        return [];
+      }
     },
     staleTime: 30000,
+    retry: 2,
   });
 
   // Mock copy settings (would come from user's settings)
@@ -110,11 +120,11 @@ export default function CopyTradingPage() {
           <div className="bg-[#1a2332] border border-green-500/30 rounded-xl p-6">
             <div className="text-gray-400 text-sm mb-2">Avg Win Rate</div>
             <div className="text-3xl font-bold text-white">
-              {traders
+              {traders && traders.length > 0
                 ? (
                     traders.reduce((sum, t) => sum + t.win_rate, 0) / traders.length
                   ).toFixed(1)
-                : 0}
+                : "0.0"}
               %
             </div>
             <div className="text-sm text-gray-500 mt-1">Across all traders</div>
@@ -123,11 +133,11 @@ export default function CopyTradingPage() {
           <div className="bg-[#1a2332] border border-purple-500/30 rounded-xl p-6">
             <div className="text-gray-400 text-sm mb-2">Avg ROI</div>
             <div className="text-3xl font-bold text-white">
-              {traders
+              {traders && traders.length > 0
                 ? formatPercent(
                     traders.reduce((sum, t) => sum + t.roi, 0) / traders.length
                   )
-                : "+0%"}
+                : "+0.0%"}
             </div>
             <div className="text-sm text-gray-500 mt-1">Return on investment</div>
           </div>

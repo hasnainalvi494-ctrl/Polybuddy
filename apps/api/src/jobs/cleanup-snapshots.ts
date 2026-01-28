@@ -1,6 +1,7 @@
 /**
  * Database Cleanup Job - Prevents disk space issues
  * Runs daily to remove old snapshot data
+ * Force redeploy: 2026-01-18
  */
 
 import { db } from "@polybuddy/db";

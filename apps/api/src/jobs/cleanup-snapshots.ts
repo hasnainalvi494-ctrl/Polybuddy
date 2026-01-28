@@ -12,6 +12,7 @@ import { sql } from "drizzle-orm";
  */
 export async function cleanupOldSnapshots() {
   console.log("[CLEANUP] Starting snapshot cleanup...");
+  console.log("[CLEANUP] This will free up database space by removing old snapshots");
   
   try {
     // Count snapshots before cleanup

@@ -1,544 +1,372 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  getWallets,
-  addWallet,
-  deleteWallet,
-  getWalletPositions,
-  getPerformance,
-  getPortfolioSummary,
-  deletePosition,
-} from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
-import { HiddenExposureCard } from "@/components/HiddenExposureCard";
-import { HiddenExposureBadge } from "@/components/HiddenExposureWarning";
+import { useState } from "react";
 
-interface Wallet {
-  id: string;
-  address: string;
-  label: string | null;
-  createdAt: string;
+const API_URL = "https://polybuddy-api-production.up.railway.app";
+
+interface PortfolioMetrics {
+  totalValue: number;
+  totalPnL: number;
+  pnLPercentage: number;
+  winRate: number;
+  activePositions: number;
+  closedPositions: number;
+  sharpeRatio: number;
+  maxDrawdown: number;
+  roi: number;
 }
 
 interface Position {
   id: string;
   marketId: string;
   marketQuestion: string;
-  outcome: string;
+  outcome: "yes" | "no";
   shares: number;
-  avgEntryPrice: number | null;
-  currentPrice: number | null;
-  currentValue: number | null;
-  unrealizedPnl: number | null;
-  pnlPercent: number | null;
-}
-
-interface WalletPositions {
-  wallet: Wallet;
-  positions: Position[];
-  summary: {
-    totalValue: number;
-    totalUnrealizedPnl: number;
-    positionCount: number;
-  };
-}
-
-interface Performance {
-  totalValue: number;
-  totalPnl: number;
-  realizedPnl: number;
-  unrealizedPnl: number;
-  totalTrades: number;
-  winRate: number;
-  avgSlippage: number;
-  entryTimingScore: number;
-}
-
-interface PortfolioSummary {
-  walletCount: number;
-  totalPositions: number;
-  totalValue: number;
-  totalUnrealizedPnl: number;
-  topPositions: Position[];
+  avgPrice: number;
+  currentPrice: number;
+  value: number;
+  pnl: number;
+  pnlPercentage: number;
+  openedAt: string;
 }
 
 export default function PortfolioPage() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [showAddWallet, setShowAddWallet] = useState(false);
-  const [newWalletAddress, setNewWalletAddress] = useState("");
-  const [newWalletLabel, setNewWalletLabel] = useState("");
-  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
-  const [performancePeriod, setPerformancePeriod] = useState("30d");
+  const [timeframe, setTimeframe] = useState<"1D" | "1W" | "1M" | "ALL">("1M");
 
-  const queryClient = useQueryClient();
-
-  const { data: wallets, isLoading: walletsLoading } = useQuery<Wallet[]>({
-    queryKey: ["wallets"],
-    queryFn: () => getWallets() as Promise<Wallet[]>,
-    enabled: isAuthenticated,
-  });
-
-  const { data: summary } = useQuery<PortfolioSummary>({
-    queryKey: ["portfolio-summary"],
-    queryFn: () => getPortfolioSummary() as Promise<PortfolioSummary>,
-    enabled: isAuthenticated,
-  });
-
-  const { data: performance } = useQuery<Performance>({
-    queryKey: ["performance", performancePeriod],
-    queryFn: () => getPerformance({ period: performancePeriod }) as Promise<Performance>,
-    enabled: isAuthenticated,
-  });
-
-  const { data: walletPositions, isLoading: positionsLoading } = useQuery<WalletPositions>({
-    queryKey: ["wallet-positions", selectedWalletId],
-    queryFn: () => getWalletPositions(selectedWalletId!) as Promise<WalletPositions>,
-    enabled: !!selectedWalletId && isAuthenticated,
-  });
-
-  const addWalletMutation = useMutation({
-    mutationFn: () => addWallet(newWalletAddress, newWalletLabel || undefined),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wallets"] });
-      queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
-      setNewWalletAddress("");
-      setNewWalletLabel("");
-      setShowAddWallet(false);
+  // Fetch portfolio metrics
+  const { data: metrics, isLoading: metricsLoading } = useQuery<PortfolioMetrics>({
+    queryKey: ["portfolio-metrics", timeframe],
+    queryFn: async () => {
+      // TODO: Replace with real API call when backend is ready
+      // const response = await fetch(`${API_URL}/api/portfolio/metrics?timeframe=${timeframe}`);
+      // return response.json();
+      
+      // Mock data for now
+      return {
+        totalValue: 12547.23,
+        totalPnL: 2547.23,
+        pnLPercentage: 25.47,
+        winRate: 76.3,
+        activePositions: 8,
+        closedPositions: 47,
+        sharpeRatio: 1.82,
+        maxDrawdown: -12.4,
+        roi: 185.3,
+      };
     },
+    staleTime: 30000,
   });
 
-  // Redirect to login if not authenticated - use useEffect to avoid render-time side effects
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace("/login");
-    }
-  }, [authLoading, isAuthenticated, router]);
-
-  // Show loading while checking auth or if not authenticated (will redirect)
-  if (authLoading || !isAuthenticated) {
-    return (
-      <main className="min-h-screen p-8">
-        <div className="max-w-6xl mx-auto text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-500"></div>
-          <p className="mt-2 text-gray-500">Loading...</p>
-        </div>
-      </main>
-    );
-  }
-
-  const deleteWalletMutation = useMutation({
-    mutationFn: (walletId: string) => deleteWallet(walletId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wallets"] });
-      queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
-      if (selectedWalletId) {
-        setSelectedWalletId(null);
-      }
+  // Fetch active positions
+  const { data: positions, isLoading: positionsLoading } = useQuery<Position[]>({
+    queryKey: ["portfolio-positions"],
+    queryFn: async () => {
+      // TODO: Replace with real API call
+      // const response = await fetch(`${API_URL}/api/portfolio/positions`);
+      // return response.json();
+      
+      // Mock data
+      return [
+        {
+          id: "1",
+          marketId: "market-1",
+          marketQuestion: "Will Bitcoin hit $100K by end of 2026?",
+          outcome: "yes",
+          shares: 100,
+          avgPrice: 0.67,
+          currentPrice: 0.72,
+          value: 72,
+          pnl: 5,
+          pnlPercentage: 7.46,
+          openedAt: "2026-01-15T10:30:00Z",
+        },
+        {
+          id: "2",
+          marketId: "market-2",
+          marketQuestion: "Will Trump win 2026 midterms?",
+          outcome: "no",
+          shares: 200,
+          avgPrice: 0.45,
+          currentPrice: 0.38,
+          value: 76,
+          pnl: -14,
+          pnlPercentage: -15.56,
+          openedAt: "2026-01-10T14:20:00Z",
+        },
+        {
+          id: "3",
+          marketId: "market-3",
+          marketQuestion: "Will Fed cut rates in Q1 2026?",
+          outcome: "yes",
+          shares: 150,
+          avgPrice: 0.52,
+          currentPrice: 0.61,
+          value: 91.5,
+          pnl: 13.5,
+          pnlPercentage: 17.31,
+          openedAt: "2026-01-05T09:15:00Z",
+        },
+      ];
     },
+    staleTime: 30000,
   });
 
-  const deletePositionMutation = useMutation({
-    mutationFn: ({ walletId, positionId }: { walletId: string; positionId: string }) =>
-      deletePosition(walletId, positionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wallet-positions"] });
-      queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["performance"] });
-    },
-  });
-
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return "-";
-    return `$${value.toFixed(2)}`;
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(value);
   };
 
-  const formatPercent = (value: number | null) => {
-    if (value === null) return "-";
+  const formatPercent = (value: number) => {
     const sign = value >= 0 ? "+" : "";
-    return `${sign}${value.toFixed(1)}%`;
+    return `${sign}${value.toFixed(2)}%`;
   };
 
-  const formatPrice = (price: number | null) => {
-    if (price === null) return "-";
-    return `${(price * 100).toFixed(1)}%`;
-  };
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const isValidAddress = (address: string) => {
-    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Portfolio</h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Track your Polymarket positions and performance
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAddWallet(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+    <main className="min-h-screen bg-[#0a0f14] p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold text-white">
+              Portfolio <span className="text-teal-400">Analytics</span>
+            </h1>
+            <Link
+              href="/home"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
             >
-              Add Wallet
-            </button>
+              ← Back
+            </Link>
           </div>
-        </header>
+          <p className="text-gray-400">Professional-grade portfolio tracking and analytics</p>
+        </div>
 
-        {/* Portfolio Summary Cards */}
-        {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Value</p>
-              <p className="text-2xl font-bold">{formatCurrency(summary.totalValue)}</p>
-            </div>
-            <div className="p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Unrealized P&L</p>
-              <p className={`text-2xl font-bold ${summary.totalUnrealizedPnl >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {formatCurrency(summary.totalUnrealizedPnl)}
-              </p>
-            </div>
-            <div className="p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Wallets</p>
-              <p className="text-2xl font-bold">{summary.walletCount}</p>
-            </div>
-            <div className="p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Positions</p>
-              <p className="text-2xl font-bold">{summary.totalPositions}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Performance Metrics */}
-        {performance && (performance.totalTrades > 0 || wallets?.length === 0) && (
-          <div className="mb-8 p-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Performance Metrics</h2>
-              <div className="flex gap-2">
-                {["7d", "30d", "90d", "all"].map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => setPerformancePeriod(period)}
-                    className={`px-3 py-1 text-sm rounded transition-colors ${
-                      performancePeriod === period
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    {period === "all" ? "All Time" : period}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Win Rate</p>
-                <p className="text-xl font-semibold">{performance.winRate.toFixed(1)}%</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Trades</p>
-                <p className="text-xl font-semibold">{performance.totalTrades}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Entry Timing</p>
-                <p className="text-xl font-semibold">{performance.entryTimingScore.toFixed(0)}/100</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total P&L</p>
-                <p className={`text-xl font-semibold ${performance.totalPnl >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {formatCurrency(performance.totalPnl)}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Wallet Form */}
-        {showAddWallet && (
-          <div className="mb-8 p-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-            <h2 className="text-lg font-semibold mb-4">Add Wallet</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Track a Polygon wallet address to view its Polymarket positions. This is read-only tracking.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Wallet Address</label>
-                <input
-                  type="text"
-                  value={newWalletAddress}
-                  onChange={(e) => setNewWalletAddress(e.target.value)}
-                  placeholder="0x..."
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 font-mono"
-                />
-                {newWalletAddress && !isValidAddress(newWalletAddress) && (
-                  <p className="text-sm text-red-500 mt-1">Invalid Ethereum address format</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Label (optional)</label>
-                <input
-                  type="text"
-                  value={newWalletLabel}
-                  onChange={(e) => setNewWalletLabel(e.target.value)}
-                  placeholder="My Trading Wallet"
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddWallet(false);
-                  setNewWalletAddress("");
-                  setNewWalletLabel("");
-                }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => addWalletMutation.mutate()}
-                disabled={!isValidAddress(newWalletAddress) || addWalletMutation.isPending}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {addWalletMutation.isPending ? "Adding..." : "Add Wallet"}
-              </button>
-            </div>
-            {addWalletMutation.isError && (
-              <p className="mt-2 text-red-600 text-sm">
-                Error: {(addWalletMutation.error as Error).message}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Loading State */}
-        {(walletsLoading || authLoading) && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-500"></div>
-            <p className="mt-2 text-gray-500">Loading wallets...</p>
-          </div>
-        )}
-
-        {/* Wallets List */}
-        {wallets && wallets.length === 0 && !walletsLoading && (
-          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-            <p className="text-gray-500 mb-4">No wallets tracked yet.</p>
+        {/* Timeframe Selector */}
+        <div className="flex gap-2 mb-6">
+          {(["1D", "1W", "1M", "ALL"] as const).map((tf) => (
             <button
-              onClick={() => setShowAddWallet(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                timeframe === tf
+                  ? "bg-teal-500 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              }`}
             >
-              Add Your First Wallet
+              {tf}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
 
-        {wallets && wallets.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Wallets Sidebar */}
-            <div className="lg:col-span-1">
-              <h2 className="text-lg font-semibold mb-4">Tracked Wallets</h2>
-              <div className="space-y-2">
-                {wallets.map((wallet) => (
-                  <div
-                    key={wallet.id}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                      selectedWalletId === wallet.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700"
-                    }`}
-                    onClick={() => setSelectedWalletId(wallet.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">
-                          {wallet.label || formatAddress(wallet.address)}
-                        </p>
-                        <p className="text-sm text-gray-500 font-mono">
-                          {formatAddress(wallet.address)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("Delete this wallet?")) {
-                            deleteWalletMutation.mutate(wallet.id);
-                          }
-                        }}
-                        className="ml-2 p-1 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Delete wallet"
+        {/* Key Metrics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Total Value */}
+          <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-xl p-6">
+            <div className="text-white/80 text-sm mb-2">Total Value</div>
+            <div className="text-3xl font-bold text-white mb-1">
+              {formatCurrency(metrics?.totalValue || 0)}
+            </div>
+            <div
+              className={`text-sm font-medium ${
+                (metrics?.pnLPercentage || 0) >= 0 ? "text-green-300" : "text-red-300"
+              }`}
+            >
+              {formatPercent(metrics?.pnLPercentage || 0)}
+            </div>
+          </div>
+
+          {/* Win Rate */}
+          <div className="bg-[#1a2332] border border-purple-500/30 rounded-xl p-6">
+            <div className="text-gray-400 text-sm mb-2">Win Rate</div>
+            <div className="text-3xl font-bold text-white mb-1">
+              {metrics?.winRate.toFixed(1)}%
+            </div>
+            <div className="text-sm text-gray-500">
+              {metrics?.activePositions + (metrics?.closedPositions || 0)} total bets
+            </div>
+          </div>
+
+          {/* Sharpe Ratio */}
+          <div className="bg-[#1a2332] border border-amber-500/30 rounded-xl p-6">
+            <div className="text-gray-400 text-sm mb-2">Sharpe Ratio</div>
+            <div className="text-3xl font-bold text-white mb-1">
+              {metrics?.sharpeRatio.toFixed(2)}
+            </div>
+            <div className="text-sm text-gray-500">Risk-adjusted returns</div>
+          </div>
+
+          {/* Max Drawdown */}
+          <div className="bg-[#1a2332] border border-red-500/30 rounded-xl p-6">
+            <div className="text-gray-400 text-sm mb-2">Max Drawdown</div>
+            <div className="text-3xl font-bold text-white mb-1">
+              {metrics?.maxDrawdown.toFixed(1)}%
+            </div>
+            <div className="text-sm text-gray-500">Peak to trough</div>
+          </div>
+        </div>
+
+        {/* P&L Chart Placeholder */}
+        <div className="bg-[#1a2332] border border-gray-700 rounded-xl p-6 mb-6">
+          <h2 className="text-xl font-bold text-white mb-4">Portfolio Performance</h2>
+          <div className="h-64 flex items-center justify-center border border-gray-700 rounded-lg bg-gray-900/30">
+            <div className="text-center">
+              <svg
+                className="w-16 h-16 text-gray-600 mx-auto mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                />
+              </svg>
+              <p className="text-gray-400 text-sm">Interactive chart coming soon</p>
+              <p className="text-gray-500 text-xs mt-1">
+                Will show P&L over time with annotations
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Positions */}
+        <div className="bg-[#1a2332] border border-gray-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">Active Positions</h2>
+            <span className="px-3 py-1 bg-teal-500/20 text-teal-400 rounded-full text-sm">
+              {metrics?.activePositions || 0} open
+            </span>
+          </div>
+
+          {positionsLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-400 mx-auto"></div>
+              <p className="text-gray-400 mt-4">Loading positions...</p>
+            </div>
+          ) : positions && positions.length > 0 ? (
+            <div className="space-y-3">
+              {positions.map((position) => (
+                <div
+                  key={position.id}
+                  className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <Link
+                        href={`/markets/${position.marketId}`}
+                        className="text-white hover:text-teal-400 transition-colors font-medium"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Positions Panel */}
-            <div className="lg:col-span-2">
-              {!selectedWalletId && (
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                  <p className="text-gray-500">Select a wallet to view positions</p>
-                </div>
-              )}
-
-              {selectedWalletId && positionsLoading && (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-500"></div>
-                  <p className="mt-2 text-gray-500">Loading positions...</p>
-                </div>
-              )}
-
-              {walletPositions && (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">
-                      Positions ({walletPositions.summary.positionCount})
-                    </h2>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Total Value</p>
-                      <p className="font-semibold">{formatCurrency(walletPositions.summary.totalValue)}</p>
-                    </div>
-                  </div>
-
-                  {walletPositions.positions.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                      <p className="text-gray-500">No positions found for this wallet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {walletPositions.positions.map((position) => (
-                        <div
-                          key={position.id}
-                          className="p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg"
+                        {position.marketQuestion}
+                      </Link>
+                      <div className="flex items-center gap-3 mt-2 text-sm">
+                        <span
+                          className={`px-2 py-1 rounded ${
+                            position.outcome === "yes"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-red-500/20 text-red-400"
+                          }`}
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0 mr-4">
-                              <div className="flex items-start gap-2">
-                              <Link
-                                href={`/markets/${position.marketId}`}
-                                className="font-medium hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2"
-                              >
-                                {position.marketQuestion}
-                              </Link>
-                              <HiddenExposureBadge marketId={position.marketId} />
-                            </div>
-                              <p className="text-sm text-gray-500 mt-1">
-                                {position.outcome} &bull; {position.shares.toFixed(2)} shares
-                              </p>
-                            </div>
-                            <button
-                              onClick={() =>
-                                deletePositionMutation.mutate({
-                                  walletId: selectedWalletId!,
-                                  positionId: position.id,
-                                })
-                              }
-                              className="text-gray-400 hover:text-red-600 transition-colors"
-                              title="Delete position"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <p className="text-gray-500">Entry</p>
-                              <p className="font-mono">{formatPrice(position.avgEntryPrice)}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Current</p>
-                              <p className="font-mono">{formatPrice(position.currentPrice)}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Value</p>
-                              <p className="font-mono">{formatCurrency(position.currentValue)}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">P&L</p>
-                              <p className={`font-mono ${(position.unrealizedPnl ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {formatCurrency(position.unrealizedPnl)} ({formatPercent(position.pnlPercent)})
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          {position.outcome.toUpperCase()}
+                        </span>
+                        <span className="text-gray-500">
+                          {position.shares} shares @ {(position.avgPrice * 100).toFixed(0)}¢
+                        </span>
+                        <span className="text-gray-600">•</span>
+                        <span className="text-gray-500">{formatDate(position.openedAt)}</span>
+                      </div>
                     </div>
-                  )}
-
-                  {/* Hidden Exposure Analysis */}
-                  {walletPositions.positions.length > 0 && (
-                    <div className="mt-6">
-                      <HiddenExposureCard
-                        walletId={selectedWalletId!}
-                        walletLabel={walletPositions.wallet.label || undefined}
+                    <div className="text-right">
+                      <div className="text-white font-bold mb-1">
+                        {formatCurrency(position.value)}
+                      </div>
+                      <div
+                        className={`text-sm font-medium ${
+                          position.pnl >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {formatPercent(position.pnlPercentage)} ({formatCurrency(position.pnl)})
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-full ${
+                          position.pnl >= 0 ? "bg-green-500" : "bg-red-500"
+                        }`}
+                        style={{
+                          width: `${Math.min(Math.abs(position.pnlPercentage), 100)}%`,
+                        }}
                       />
                     </div>
-                  )}
+                    <span className="text-xs text-gray-500">
+                      Current: {(position.currentPrice * 100).toFixed(0)}¢
+                    </span>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-8 h-8 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-white font-medium mb-2">No Active Positions</h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Connect your wallet or place your first bet to see positions here
+              </p>
+              <Link
+                href="/best-bets"
+                className="inline-block px-6 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors"
+              >
+                Browse Best Bets
+              </Link>
+            </div>
+          )}
+        </div>
 
-        {/* Top Positions */}
-        {summary && summary.topPositions.length > 0 && (
-          <div className="mt-8 p-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-            <h2 className="text-lg font-semibold mb-4">Top Positions by Value</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left py-2 px-2 font-medium">Market</th>
-                    <th className="text-right py-2 px-2 font-medium">Outcome</th>
-                    <th className="text-right py-2 px-2 font-medium">Shares</th>
-                    <th className="text-right py-2 px-2 font-medium">Value</th>
-                    <th className="text-right py-2 px-2 font-medium">P&L</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.topPositions.map((position) => (
-                    <tr key={position.id} className="border-b dark:border-gray-800">
-                      <td className="py-2 px-2">
-                        <Link
-                          href={`/markets/${position.marketId}`}
-                          className="hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1"
-                        >
-                          {position.marketQuestion}
-                        </Link>
-                      </td>
-                      <td className="text-right py-2 px-2">{position.outcome}</td>
-                      <td className="text-right py-2 px-2 font-mono">{position.shares.toFixed(2)}</td>
-                      <td className="text-right py-2 px-2 font-mono">{formatCurrency(position.currentValue)}</td>
-                      <td className={`text-right py-2 px-2 font-mono ${(position.unrealizedPnl ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {formatPercent(position.pnlPercent)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* Coming Soon Banner */}
+        <div className="mt-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-white font-bold text-lg mb-2">
+                Premium Analytics Coming Soon 🚀
+              </h3>
+              <p className="text-white/80 text-sm">
+                Advanced charts, risk heatmaps, tax reporting, and more!
+              </p>
             </div>
+            <button className="px-6 py-3 bg-white text-purple-600 font-bold rounded-lg hover:bg-gray-100 transition-colors">
+              Notify Me
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </main>
   );

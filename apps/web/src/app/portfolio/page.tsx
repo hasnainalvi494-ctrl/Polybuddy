@@ -39,22 +39,19 @@ export default function PortfolioPage() {
   const { data: metrics, isLoading: metricsLoading } = useQuery<PortfolioMetrics>({
     queryKey: ["portfolio-metrics", timeframe],
     queryFn: async () => {
-      // TODO: Replace with real API call when backend is ready
-      // const response = await fetch(`${API_URL}/api/portfolio/metrics?timeframe=${timeframe}`);
-      // return response.json();
+      try {
+        const response = await fetch(`${API_URL}/api/portfolio/metrics?timeframe=${timeframe}`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (error) {
+        console.log("Portfolio API not available yet");
+      }
       
-      // Mock data for now
-      return {
-        totalValue: 12547.23,
-        totalPnL: 2547.23,
-        pnLPercentage: 25.47,
-        winRate: 76.3,
-        activePositions: 8,
-        closedPositions: 47,
-        sharpeRatio: 1.82,
-        maxDrawdown: -12.4,
-        roi: 185.3,
-      };
+      // Return null to show empty state
+      return null;
     },
     staleTime: 30000,
   });
@@ -63,52 +60,19 @@ export default function PortfolioPage() {
   const { data: positions, isLoading: positionsLoading } = useQuery<Position[]>({
     queryKey: ["portfolio-positions"],
     queryFn: async () => {
-      // TODO: Replace with real API call
-      // const response = await fetch(`${API_URL}/api/portfolio/positions`);
-      // return response.json();
+      try {
+        const response = await fetch(`${API_URL}/api/portfolio/positions`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (error) {
+        console.log("Portfolio API not available yet");
+      }
       
-      // Mock data
-      return [
-        {
-          id: "1",
-          marketId: "market-1",
-          marketQuestion: "Will Bitcoin hit $100K by end of 2026?",
-          outcome: "yes",
-          shares: 100,
-          avgPrice: 0.67,
-          currentPrice: 0.72,
-          value: 72,
-          pnl: 5,
-          pnlPercentage: 7.46,
-          openedAt: "2026-01-15T10:30:00Z",
-        },
-        {
-          id: "2",
-          marketId: "market-2",
-          marketQuestion: "Will Trump win 2026 midterms?",
-          outcome: "no",
-          shares: 200,
-          avgPrice: 0.45,
-          currentPrice: 0.38,
-          value: 76,
-          pnl: -14,
-          pnlPercentage: -15.56,
-          openedAt: "2026-01-10T14:20:00Z",
-        },
-        {
-          id: "3",
-          marketId: "market-3",
-          marketQuestion: "Will Fed cut rates in Q1 2026?",
-          outcome: "yes",
-          shares: 150,
-          avgPrice: 0.52,
-          currentPrice: 0.61,
-          value: 91.5,
-          pnl: 13.5,
-          pnlPercentage: 17.31,
-          openedAt: "2026-01-05T09:15:00Z",
-        },
-      ];
+      // Return empty array to show empty state
+      return [];
     },
     staleTime: 30000,
   });
@@ -183,7 +147,7 @@ export default function PortfolioPage() {
                 (metrics?.pnLPercentage || 0) >= 0 ? "text-green-300" : "text-red-300"
               }`}
             >
-              {formatPercent(metrics?.pnLPercentage || 0)}
+              {metrics ? formatPercent(metrics.pnLPercentage) : "Connect wallet"}
             </div>
           </div>
 
@@ -191,10 +155,10 @@ export default function PortfolioPage() {
           <div className="bg-[#1a2332] border border-purple-500/30 rounded-xl p-6">
             <div className="text-gray-400 text-sm mb-2">Win Rate</div>
             <div className="text-3xl font-bold text-white mb-1">
-              {metrics?.winRate.toFixed(1)}%
+              {metrics?.winRate.toFixed(1) || "0.0"}%
             </div>
             <div className="text-sm text-gray-500">
-              {metrics?.activePositions + (metrics?.closedPositions || 0)} total bets
+              {metrics ? `${metrics.activePositions + (metrics.closedPositions || 0)} total bets` : "No bets yet"}
             </div>
           </div>
 
@@ -202,7 +166,7 @@ export default function PortfolioPage() {
           <div className="bg-[#1a2332] border border-amber-500/30 rounded-xl p-6">
             <div className="text-gray-400 text-sm mb-2">Sharpe Ratio</div>
             <div className="text-3xl font-bold text-white mb-1">
-              {metrics?.sharpeRatio.toFixed(2)}
+              {metrics?.sharpeRatio.toFixed(2) || "0.00"}
             </div>
             <div className="text-sm text-gray-500">Risk-adjusted returns</div>
           </div>
@@ -211,7 +175,7 @@ export default function PortfolioPage() {
           <div className="bg-[#1a2332] border border-red-500/30 rounded-xl p-6">
             <div className="text-gray-400 text-sm mb-2">Max Drawdown</div>
             <div className="text-3xl font-bold text-white mb-1">
-              {metrics?.maxDrawdown.toFixed(1)}%
+              {metrics?.maxDrawdown.toFixed(1) || "0.0"}%
             </div>
             <div className="text-sm text-gray-500">Peak to trough</div>
           </div>

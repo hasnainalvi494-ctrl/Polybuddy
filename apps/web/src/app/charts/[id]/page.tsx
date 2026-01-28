@@ -33,25 +33,57 @@ export default function AdvancedChartPage() {
   const [indicator, setIndicator] = useState<Indicator>("none");
   const [showVolume, setShowVolume] = useState(true);
 
+  // Fetch market details first
+  const { data: market } = useQuery({
+    queryKey: ["market", marketId],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/markets/${marketId}`);
+        if (!response.ok) return null;
+        return response.json();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!marketId,
+  });
+
   // Fetch chart data
   const { data: chartData, isLoading } = useQuery<ChartData>({
     queryKey: ["chart-data", marketId, timeframe],
     queryFn: async () => {
-      // TODO: Connect to real API
-      // const response = await fetch(`${API_URL}/api/markets/${marketId}/chart?timeframe=${timeframe}`);
-      // return response.json();
+      try {
+        // Try to fetch real price history
+        const response = await fetch(`${API_URL}/api/markets/${marketId}/history?timeframe=${timeframe.toLowerCase()}`);
+        if (response.ok) {
+          const history = await response.json();
+          return {
+            marketId,
+            marketQuestion: market?.question || "Market",
+            currentPrice: market?.current_price || 0.5,
+            priceHistory: history.map((h: any) => ({
+              timestamp: h.timestamp,
+              price: h.price,
+              volume: h.volume || 0,
+            })),
+          };
+        }
+      } catch (error) {
+        console.warn("Failed to fetch real price history, using fallback");
+      }
 
-      // Mock data generator
+      // Fallback: generate sample data with market's current price
+      const currentPrice = market?.current_price || 0.5;
       const now = Date.now();
       const points = timeframe === "1H" ? 24 : timeframe === "4H" ? 42 : timeframe === "1D" ? 30 : timeframe === "1W" ? 12 : 6;
       const interval = timeframe === "1H" ? 3600000 : timeframe === "4H" ? 14400000 : timeframe === "1D" ? 86400000 : timeframe === "1W" ? 604800000 : 2592000000;
       
-      let price = 0.65;
+      let price = currentPrice;
       const priceHistory: PricePoint[] = [];
       
       for (let i = points; i >= 0; i--) {
-        price += (Math.random() - 0.5) * 0.05;
-        price = Math.max(0.1, Math.min(0.9, price));
+        const change = (Math.random() - 0.5) * 0.03; // Smaller changes for realism
+        price = Math.max(0.05, Math.min(0.95, price + change));
         
         priceHistory.push({
           timestamp: new Date(now - i * interval).toISOString(),
@@ -60,14 +92,20 @@ export default function AdvancedChartPage() {
         });
       }
 
+      // Make sure last price matches current
+      if (priceHistory.length > 0) {
+        priceHistory[priceHistory.length - 1].price = currentPrice;
+      }
+
       return {
         marketId,
-        marketQuestion: "Will Bitcoin hit $100K by end of 2026?",
-        currentPrice: price,
+        marketQuestion: market?.question || "Market Chart",
+        currentPrice,
         priceHistory,
       };
     },
     staleTime: 30000,
+    enabled: !!marketId,
   });
 
   const calculateSMA = (data: PricePoint[], period: number = 7) => {

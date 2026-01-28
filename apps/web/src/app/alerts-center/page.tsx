@@ -28,47 +28,21 @@ export default function AlertsPage() {
   const { data: alerts, isLoading } = useQuery<Alert[]>({
     queryKey: ["alerts"],
     queryFn: async () => {
-      // TODO: Replace with real API
-      // const response = await fetch(`${API_URL}/api/alerts`, {
-      //   credentials: "include",
-      // });
-      // return response.json();
+      try {
+        const response = await fetch(`${API_URL}/api/alerts`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (error) {
+        console.log("Alerts API not available yet");
+      }
 
-      // Mock data
-      return [
-        {
-          id: "1",
-          type: "price",
-          marketId: "market-1",
-          marketQuestion: "Will Bitcoin hit $100K by end of 2026?",
-          condition: "above",
-          value: 0.75,
-          triggered: false,
-          createdAt: "2026-01-25T10:00:00Z",
-          enabled: true,
-        },
-        {
-          id: "2",
-          type: "trader",
-          condition: "places_bet",
-          value: 5000,
-          triggered: true,
-          triggeredAt: "2026-01-25T14:30:00Z",
-          createdAt: "2026-01-20T08:00:00Z",
-          enabled: true,
-        },
-        {
-          id: "3",
-          type: "signal",
-          condition: "elite_signal",
-          value: 85,
-          triggered: false,
-          createdAt: "2026-01-24T16:00:00Z",
-          enabled: true,
-        },
-      ];
+      // Return empty array to show empty state
+      return [];
     },
-    refetchInterval: 10000, // Check every 10s
+    refetchInterval: 30000, // Check every 30s
   });
 
   const getAlertIcon = (type: Alert["type"]) => {

@@ -170,9 +170,51 @@ export default function HomePage() {
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-base font-bold text-white">Portfolio</h3>
-              <p className="text-white/80 text-xs">Track positions</p>
+              <p className="text-white/80 text-xs">Track P&L</p>
             </div>
-            <span className="px-2 py-1 bg-white/20 rounded-full text-white text-[10px] shrink-0">Soon</span>
+            <span className="px-2 py-1 bg-white/20 rounded-full text-white text-[10px] font-bold shrink-0">NEW</span>
+          </Link>
+
+          {/* Alerts */}
+          <Link href="/alerts-center" className="flex items-center gap-3 p-3 rounded-xl bg-[#1a2332] border border-green-500/30">
+            <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
+              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-white">Smart Alerts</h3>
+              <p className="text-gray-400 text-xs">Never miss trades</p>
+            </div>
+            <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-400 text-[10px] font-bold shrink-0">NEW</span>
+          </Link>
+
+          {/* Copy Trading */}
+          <Link href="/copy-trading" className="flex items-center gap-3 p-3 rounded-xl bg-[#1a2332] border border-indigo-500/30">
+            <div className="p-2 bg-indigo-500/10 rounded-lg shrink-0">
+              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-white">Copy Trading</h3>
+              <p className="text-gray-400 text-xs">Follow elite traders</p>
+            </div>
+            <span className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded text-indigo-400 text-[10px] font-bold shrink-0">NEW</span>
+          </Link>
+
+          {/* Risk Management */}
+          <Link href="/risk-dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-[#1a2332] border border-red-500/30">
+            <div className="p-2 bg-red-500/10 rounded-lg shrink-0">
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-white">Risk Manager</h3>
+              <p className="text-gray-400 text-xs">Protect capital</p>
+            </div>
+            <span className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-[10px] font-bold shrink-0">NEW</span>
           </Link>
         </div>
 
@@ -268,19 +310,67 @@ export default function HomePage() {
           </Link>
 
           {/* Portfolio */}
-          <Link href="/portfolio" className="col-span-6 row-span-1 group rounded-2xl bg-gradient-to-r from-rose-600 to-orange-600 p-4 hover:scale-[1.02] transition-all duration-300 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <Link href="/portfolio" className="col-span-3 row-span-1 group rounded-2xl bg-gradient-to-r from-rose-600 to-orange-600 p-4 hover:scale-[1.02] transition-all duration-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Portfolio</h3>
-                <p className="text-white/80 text-sm">Connect wallet to track positions</p>
+                <h3 className="text-base font-bold text-white">Portfolio</h3>
+                <p className="text-white/80 text-xs">Track P&L</p>
               </div>
             </div>
-            <span className="px-3 py-1 bg-white/20 text-white text-xs font-medium rounded-full">Coming Soon</span>
+            <span className="px-2 py-1 bg-white/20 text-white text-[10px] font-bold rounded-full">NEW</span>
+          </Link>
+
+          {/* Alerts */}
+          <Link href="/alerts-center" className="col-span-3 row-span-1 group rounded-2xl bg-[#1a2332] border border-green-500/30 p-4 hover:border-green-500 hover:scale-[1.02] transition-all duration-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500/10 rounded-lg">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Alerts</h3>
+                <p className="text-gray-400 text-xs">Never miss</p>
+              </div>
+            </div>
+            <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-bold rounded">NEW</span>
+          </Link>
+
+          {/* Copy Trading */}
+          <Link href="/copy-trading" className="col-span-3 row-span-1 group rounded-2xl bg-[#1a2332] border border-indigo-500/30 p-4 hover:border-indigo-500 hover:scale-[1.02] transition-all duration-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-500/10 rounded-lg">
+                <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Copy Trading</h3>
+                <p className="text-gray-400 text-xs">Follow pros</p>
+              </div>
+            </div>
+            <span className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[10px] font-bold rounded">NEW</span>
+          </Link>
+
+          {/* Risk Management */}
+          <Link href="/risk-dashboard" className="col-span-3 row-span-1 group rounded-2xl bg-[#1a2332] border border-red-500/30 p-4 hover:border-red-500 hover:scale-[1.02] transition-all duration-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500/10 rounded-lg">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Risk Manager</h3>
+                <p className="text-gray-400 text-xs">Protect $</p>
+              </div>
+            </div>
+            <span className="px-2 py-1 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-bold rounded">NEW</span>
           </Link>
         </div>
       </div>

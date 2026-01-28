@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   {
-    href: "/",
+    href: "/home",
     label: "Home",
     icon: (
       <path
@@ -61,7 +61,7 @@ export function MobileBottomNav() {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#111820]/95 border-t border-[#243040] z-50 safe-area-inset-bottom backdrop-blur-lg">
       <div className="grid grid-cols-4 h-16">
         {navItems.map((item) => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const isActive = pathname === item.href || (item.href !== "/home" && pathname.startsWith(item.href));
 
           return (
             <Link

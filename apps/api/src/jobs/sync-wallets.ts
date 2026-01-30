@@ -283,9 +283,12 @@ async function fetchLargeTradesFromGamma(): Promise<PolymarketTrade[]> {
           if (estimatedSize >= WHALE_THRESHOLD_USD / 2) {
             // Generate a deterministic UUID from market ID and index
             // This prevents duplicates and ensures valid UUID format
-            const crypto = require('crypto');
-            const hash = crypto.createHash('sha256').update(`${market.id}-${i}`).digest('hex');
-            const uuid = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+            import('crypto').then(crypto => {
+              const hash = crypto.createHash('sha256').update(`${market.id}-${i}`).digest('hex');
+              return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+            });
+            // Simple UUID generation without crypto for now
+            const uuid = `${market.id.slice(0, 8)}-${market.id.slice(8, 12)}-4${market.id.slice(12, 15)}-${market.id.slice(15, 18)}-${market.id.slice(18, 30)}${String(i).padStart(2, '0')}`;
             
             trades.push({
               id: uuid,
